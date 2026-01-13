@@ -5,9 +5,10 @@ const PUBLIC_FILE = /\.(.*)$/; // ignore files like /favicon.ico
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Ignore public files and API routes
+  // Ignore public files, API routes, and Next.js internal routes
   if (
     pathname.startsWith("/api") ||
+    pathname.startsWith("/_next") ||
     PUBLIC_FILE.test(pathname)
   ) {
     return NextResponse.next();
