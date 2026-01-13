@@ -55,7 +55,7 @@ export default function Contact({ locale, dict }: ContactProps) {
         setStatus("error");
         setTimeout(() => setStatus("idle"), 5000);
       }
-    } catch (error) {
+    } catch {
       setStatus("error");
       setTimeout(() => setStatus("idle"), 5000);
     }
@@ -80,9 +80,8 @@ export default function Contact({ locale, dict }: ContactProps) {
       </div>
 
       <div
-        className={`relative z-10 max-w-4xl mx-auto px-6 lg:px-12 ${
-          isRTL ? "rtl" : "ltr"
-        }`}
+        className={`relative z-10 max-w-4xl mx-auto px-6 lg:px-12 ${isRTL ? "rtl" : "ltr"
+          }`}
       >
         {/* Section Header */}
         <div className="text-center mb-16">
