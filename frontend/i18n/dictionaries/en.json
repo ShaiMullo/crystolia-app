@@ -1,0 +1,96 @@
+{
+  "welcomeTitle": "Welcome to Crystolia",
+  "welcomeSubtitle": "High-quality sunflower oil import and distribution — fast and reliable",
+  "nav": {
+    "home": "Home",
+    "products": "Products",
+    "features": "Features",
+    "about": "About",
+    "contact": "Contact"
+  },
+  "hero": {
+    "title": "Premium Sunflower Oil",
+    "subtitle": "Premium Quality",
+    "description": "Import and distribution of premium quality sunflower oil. Quality without compromise.",
+    "whatsapp": "Message on WhatsApp",
+    "contactNow": "Contact Now",
+    "leaveDetails": "Leave Details"
+  },
+  "features": {
+    "title": "Why Crystolia",
+    "subtitle": "Exceptional quality for every kitchen",
+    "items": [
+      {
+        "title": "Premium Quality",
+        "description": "Top-tier sunflower oil, carefully imported and tested for maximum quality."
+      },
+      {
+        "title": "Multiple Sizes",
+        "description": "5L, 10L, and 20L containers - exactly what you need for your kitchen."
+      },
+      {
+        "title": "Competitive Pricing",
+        "description": "Exceptional quality at a fair price. No compromises on quality."
+      },
+      {
+        "title": "Fast Service",
+        "description": "Quick and reliable delivery nationwide. We're here for you."
+      },
+      {
+        "title": "Proven Quality",
+        "description": "Every product undergoes rigorous testing to ensure the highest quality standards."
+      },
+      {
+        "title": "Customer Service",
+        "description": "Professional and available team to answer any questions and assist with all needs."
+      }
+    ]
+  },
+  "products": {
+    "title": "Our Products",
+    "subtitle": "Premium sunflower oil in multiple sizes for every need",
+    "items": [
+      {
+        "title": "5 Liter Bottle",
+        "description": "Perfect for small households and personal use. Premium quality in a convenient size.",
+        "whatsapp": "Order 5L bottle"
+      },
+      {
+        "title": "10 Liter Bottle",
+        "description": "Ideal for families and regular cooking. Great value with excellent quality.",
+        "whatsapp": "Order 10L bottle"
+      },
+      {
+        "title": "20 Liter Bottle",
+        "description": "Best for restaurants and large families. Maximum value and premium quality.",
+        "whatsapp": "Order 20L bottle"
+      }
+    ]
+  },
+  "about": {
+    "title": "About Crystolia",
+    "content": [
+      "Crystolia specializes in importing and distributing premium quality sunflower oil. We are committed to providing you with the best product at a fair price.",
+      "Our products undergo rigorous testing to ensure excellent quality. We are proud to be your partner for the perfect kitchen."
+    ]
+  },
+  "contact": {
+    "title": "Contact Us",
+    "subtitle": "We're here to help. Leave your details and we'll get back to you soon.",
+    "form": {
+      "name": "Name",
+      "phone": "Phone",
+      "message": "Message",
+      "submit": "Submit",
+      "sending": "Sending...",
+      "success": "Thank you! Your message has been sent successfully. We'll get back to you soon.",
+      "error": "An error occurred. Please try again or contact us directly on WhatsApp."
+    },
+    "whatsapp": "Send WhatsApp Message"
+  },
+  "footer": {
+    "copyright": "© 2024 Crystolia",
+    "rights": "All rights reserved"
+  }
+}
+
