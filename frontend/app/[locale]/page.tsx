@@ -8,26 +8,28 @@ import About from "@/app/components/About";
 import Contact from "@/app/components/Contact";
 
 interface PageProps {
-  params: {
+  params: Promise<{
     locale: string;
-  };
+  }>;
 }
 
 export default async function Page({ params }: PageProps) {
-  // ודא שהערך מתאים לטייפ הנכון
-  const locale = params.locale as Locale;
+  // Next.js 15+ requires awaiting params before accessing properties
+  const { locale } = await params;
 
-  // טוען מילון לפי שפה
-  const dict = await getDictionary(locale);
+  // Cast to Locale type for type safety
+  const typedLocale = locale as Locale;
+
+  // Load dictionary for the current language
+  const dict = await getDictionary(typedLocale);
 
   return (
     <main>
-      <Hero dict={dict} locale={locale} />
-      <Features dict={dict} locale={locale} />
-      <Products dict={dict} locale={locale} />
-      <About dict={dict} locale={locale} />
-      <Contact dict={dict} locale={locale} />
+      <Hero dict={dict} locale={typedLocale} />
+      <Features dict={dict} locale={typedLocale} />
+      <Products dict={dict} locale={typedLocale} />
+      <About dict={dict} locale={typedLocale} />
+      <Contact dict={dict} locale={typedLocale} />
     </main>
   );
 }
-
