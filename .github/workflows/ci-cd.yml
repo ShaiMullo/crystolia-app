@@ -11,9 +11,9 @@ name: CI/CD Pipeline
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 on:
   push:
-    branches: [ main ]
+    branches: [ main, dev ] # רץ על main ו-dev
   pull_request:
-    branches: [ main ]
+    branches: [ main, dev ] # גם PR לשני הbranches
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 🔧 משתני סביבה גלובליים
