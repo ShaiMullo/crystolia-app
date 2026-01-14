@@ -10,6 +10,7 @@ import leadsRouter from './routes/leads.js';
 import whatsappRouter from './routes/whatsapp.js';
 import ordersRouter from './routes/orders.js';
 import customersRouter from './routes/customers.js';
+import authRouter from './routes/auth.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 // יצירת האפליקציה
@@ -43,6 +44,9 @@ app.get('/api/health', (_req: Request, res: Response) => {
         service: 'crystolia-backend',
     });
 });
+
+// Auth API
+app.use('/api/auth', authRouter);
 
 // Leads API
 app.use('/api/leads', leadsRouter);
