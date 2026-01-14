@@ -1,11 +1,20 @@
-# ===============================================
 # 🐳 Crystolia - Docker Compose
 # ===============================================
-# הרצה: docker compose up
-# הרצה ברקע: docker compose up -d
-# עצירה: docker compose down
+# Run: docker compose up
+# Run in background: docker compose up -d
+# Stop: docker compose down
 
 services:
+  # ─────────────────────────────────────────────
+  # 🍃 MongoDB - Database
+  # ─────────────────────────────────────────────
+  mongo:
+    image: mongo:6.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - db_data:/data/db
+    restart: unless-stopped
   # ─────────────────────────────────────────────
   # 🎨 Frontend - Next.js
   # ─────────────────────────────────────────────
@@ -40,10 +49,13 @@ services:
       - WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN}
       - WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID}
       - WHATSAPP_WEBHOOK_VERIFY_TOKEN=${WHATSAPP_WEBHOOK_VERIFY_TOKEN}
+      - MONGO_URI=mongodb://mongo:27017/crystolia
+    depends_on:
+      - mongo
     restart: unless-stopped
 
 # ─────────────────────────────────────────────
 # 💾 Volumes (לעתיד - מסד נתונים)
 # ─────────────────────────────────────────────
-# volumes:
-#   db_data:
+volumes:
+  db_data:

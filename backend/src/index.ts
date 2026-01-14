@@ -6,11 +6,13 @@ import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import mongoose from 'mongoose';
 import leadsRouter from './routes/leads.js';
 import whatsappRouter from './routes/whatsapp.js';
 import ordersRouter from './routes/orders.js';
 import customersRouter from './routes/customers.js';
 import authRouter from './routes/auth.js';
+import analyticsRouter from './routes/analytics.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 // יצירת האפליקציה
@@ -60,6 +62,9 @@ app.use('/api/orders', ordersRouter);
 // Customers API
 app.use('/api/customers', customersRouter);
 
+// Analytics API
+app.use('/api/analytics', analyticsRouter);
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ⚠️ Error Handler
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -69,6 +74,11 @@ app.use(errorHandler);
 // 🚀 Start Server
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const PORT = process.env.PORT || 4000;
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/crystolia';
+
+mongoose.connect(MONGO_URI)
+    .then(() => console.log('🍃 Connected to MongoDB'))
+    .catch(err => console.error('❌ MongoDB Connection Error:', err));
 
 app.listen(PORT, () => {
     console.log(`
