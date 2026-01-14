@@ -30,18 +30,7 @@ interface Invoice {
     issuedAt: string;
 }
 
-// Mock data - will be replaced with real data from API
-const mockOrders = [
-    { id: "12345", date: "2026-01-14", status: "paid", total: 1200, items: "ארגז 1L x 10, ארגז 5L x 5" },
-    { id: "12344", date: "2026-01-10", status: "shipped", total: 2500, items: "ארגז 5L x 10" },
-    { id: "12343", date: "2026-01-05", status: "delivered", total: 850, items: "ארגז 1L x 5" },
-];
 
-const mockInvoices = [
-    { id: "INV-123", date: "2026-01-14", amount: 1200, orderId: "12345" },
-    { id: "INV-122", date: "2026-01-10", amount: 2500, orderId: "12344" },
-    { id: "INV-121", date: "2026-01-05", amount: 850, orderId: "12343" },
-];
 
 export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
     const { user, logout } = useAuth();
@@ -66,7 +55,6 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
 
     // Orders State
     const [orders, setOrders] = useState<Order[]>([]);
-    const [loadingOrders, setLoadingOrders] = useState(false);
     const [hasProfile, setHasProfile] = useState(false);
 
     // Invoices State
@@ -76,13 +64,10 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
         const fetchOrders = async () => {
             if (!user) return;
             try {
-                setLoadingOrders(true);
                 const response = await api.get('/orders');
                 setOrders(response.data);
             } catch (error) {
                 console.error("Failed to fetch orders:", error);
-            } finally {
-                setLoadingOrders(false);
             }
         };
 
