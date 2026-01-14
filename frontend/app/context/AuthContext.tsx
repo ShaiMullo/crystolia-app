@@ -12,11 +12,25 @@ interface User {
     lastName: string;
 }
 
+interface LoginData {
+    email: string;
+    password: string;
+}
+
+interface RegisterData {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+    phone?: string;
+    role?: string;
+}
+
 interface AuthContextType {
     user: User | null;
     token: string | null;
-    login: (data: any) => Promise<void>;
-    register: (data: any) => Promise<void>;
+    login: (data: LoginData) => Promise<void>;
+    register: (data: RegisterData) => Promise<void>;
     logout: () => void;
     isLoading: boolean;
 }
@@ -41,7 +55,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(false);
     }, []);
 
-    const login = async (credentials: any) => {
+    const login = async (credentials: LoginData) => {
         try {
             const response = await api.post('/auth/login', credentials);
             const { access_token, user } = response.data;
@@ -66,7 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
-    const register = async (userData: any) => {
+    const register = async (userData: RegisterData) => {
         try {
             const response = await api.post('/auth/register', userData);
             const { access_token, user } = response.data;
