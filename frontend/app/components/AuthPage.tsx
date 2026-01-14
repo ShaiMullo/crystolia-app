@@ -158,7 +158,7 @@ export default function AuthPage({ locale }: AuthPageProps) {
             }
             setStatus("success");
             // Redirect happens in AuthContext
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error(err);
             setStatus("error");
             setError(
