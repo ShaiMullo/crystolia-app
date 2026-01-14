@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import api from '../lib/api';
 import { useRouter } from 'next/navigation';
 
@@ -38,22 +38,20 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [user, setUser] = useState<User | null>(null);
-    const [token, setToken] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const router = useRouter();
-
-    useEffect(() => {
-        // Check for token on mount
-        const storedToken = localStorage.getItem('token');
+    const [user, setUser] = useState<User | null>(() => {
+        if (typeof window === 'undefined') return null;
         const storedUser = localStorage.getItem('user');
-
-        if (storedToken && storedUser) {
-            setToken(storedToken);
-            setUser(JSON.parse(storedUser));
-        }
-        setIsLoading(false);
-    }, []);
+        return storedUser ? JSON.parse(storedUser) : null;
+    });
+    const [token, setToken] = useState<string | null>(() => {
+        if (typeof window === 'undefined') return null;
+        return localStorage.getItem('token');
+    });
+    const [isLoading, setIsLoading] = useState(() => {
+        if (typeof window === 'undefined') return true;
+        return false;
+    });
+    const router = useRouter();
 
     const login = async (credentials: LoginData) => {
         try {
