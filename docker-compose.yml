@@ -35,6 +35,10 @@ services:
       - NODE_ENV=production
       - PORT=4000
       - FRONTEND_URL=http://localhost:3000
+      # WhatsApp Cloud API
+      - WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN}
+      - WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID}
+      - WHATSAPP_WEBHOOK_VERIFY_TOKEN=${WHATSAPP_WEBHOOK_VERIFY_TOKEN}
     restart: unless-stopped
 
 # ─────────────────────────────────────────────

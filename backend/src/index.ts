@@ -2,10 +2,12 @@
 // 🚀 Crystolia Backend - Main Entry Point
 // ===============================================
 
+import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import leadsRouter from './routes/leads.js';
+import whatsappRouter from './routes/whatsapp.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 // יצירת האפליקציה
@@ -42,6 +44,9 @@ app.get('/api/health', (_req: Request, res: Response) => {
 
 // Leads API
 app.use('/api/leads', leadsRouter);
+
+// WhatsApp API
+app.use('/api/whatsapp', whatsappRouter);
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ⚠️ Error Handler
