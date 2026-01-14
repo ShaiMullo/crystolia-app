@@ -44,16 +44,54 @@ const mockRecentOrders = [
 ];
 
 const mockCustomers = [
-    { id: 1, name: "מסעדת הזית הירוק", email: "olive@restaurant.com", phone: "050-1234567", totalOrders: 15, totalSpent: 45000 },
-    { id: 2, name: "קייטרינג גולדן", email: "info@golden.co.il", phone: "052-9876543", totalOrders: 8, totalSpent: 28000 },
-    { id: 3, name: "מלון רויאל", email: "purchasing@royal.co.il", phone: "03-5551234", totalOrders: 22, totalSpent: 78000 },
+    {
+        id: 1,
+        name: "מסעדת הזית הירוק",
+        email: "olive@restaurant.com",
+        phone: "050-1234567",
+        totalOrders: 15,
+        totalSpent: 45000,
+        orderBreakdown: { cases1L: 85, cases5L: 42, cases18L: 15 }
+    },
+    {
+        id: 2,
+        name: "קייטרינג גולדן",
+        email: "info@golden.co.il",
+        phone: "052-9876543",
+        totalOrders: 8,
+        totalSpent: 28000,
+        orderBreakdown: { cases1L: 20, cases5L: 35, cases18L: 28 }
+    },
+    {
+        id: 3,
+        name: "מלון רויאל",
+        email: "purchasing@royal.co.il",
+        phone: "03-5551234",
+        totalOrders: 22,
+        totalSpent: 78000,
+        orderBreakdown: { cases1L: 120, cases5L: 80, cases18L: 45 }
+    },
+    {
+        id: 4,
+        name: "בית קפה אספרסו",
+        email: "order@espresso.co.il",
+        phone: "054-1112222",
+        totalOrders: 5,
+        totalSpent: 12000,
+        orderBreakdown: { cases1L: 45, cases5L: 12, cases18L: 3 }
+    },
 ];
 
 export default function AdminDashboard({ locale }: AdminDashboardProps) {
-    const [activeTab, setActiveTab] = useState<"pending" | "orders" | "customers" | "settings">("pending");
+    const [activeTab, setActiveTab] = useState<"pending" | "orders" | "customers" | "analytics" | "settings">("pending");
     const [selectedOrder, setSelectedOrder] = useState<typeof mockPendingOrders[0] | null>(null);
     const [customPrice, setCustomPrice] = useState("");
     const [showPriceModal, setShowPriceModal] = useState(false);
+    const [chartType, setChartType] = useState<"bar" | "pie">("bar");
+    const [timePeriod, setTimePeriod] = useState<"month" | "quarter" | "year">("month");
+    const [hoveredCustomer, setHoveredCustomer] = useState<typeof mockCustomers[0] | null>(null);
+    const [selectedCustomer, setSelectedCustomer] = useState<typeof mockCustomers[0] | null>(null);
+    const [showDetailsModal, setShowDetailsModal] = useState(false);
     const isRTL = locale === "he";
 
     // Settings state
@@ -135,6 +173,25 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                 cash: "מזומן",
                 save: "שמור הגדרות",
             },
+            analytics: "אנליטיקה",
+            topCustomers: "Top לקוחות",
+            totalRevenue: "הכנסות כוללות",
+            timePeriods: {
+                month: "חודש",
+                quarter: "רבעון",
+                year: "שנה",
+            },
+            chartTypes: {
+                bar: "עמודות",
+                pie: "עוגה",
+            },
+            orderBreakdown: "פירוט הזמנות",
+            cases1L: "ארגזי 1 ליטר",
+            cases5L: "ארגזי 5 ליטר",
+            cases18L: "ארגזי 18 ליטר",
+            viewDetails: "צפה בפרטים",
+            customerBreakdown: "פירוט לקוח",
+            close: "סגור",
             noPendingOrders: "אין הזמנות ממתינות",
             orderApproved: "ההזמנה אושרה!",
             orderRejected: "ההזמנה נדחתה",
@@ -205,6 +262,25 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                 cash: "Cash",
                 save: "Save Settings",
             },
+            analytics: "Analytics",
+            topCustomers: "Top Customers",
+            totalRevenue: "Total Revenue",
+            timePeriods: {
+                month: "Month",
+                quarter: "Quarter",
+                year: "Year",
+            },
+            chartTypes: {
+                bar: "Bar",
+                pie: "Pie",
+            },
+            orderBreakdown: "Order Breakdown",
+            cases1L: "Cases 1L",
+            cases5L: "Cases 5L",
+            cases18L: "Cases 18L",
+            viewDetails: "View Details",
+            customerBreakdown: "Customer Breakdown",
+            close: "Close",
             noPendingOrders: "No pending orders",
             orderApproved: "Order approved!",
             orderRejected: "Order rejected",
@@ -263,6 +339,13 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
             id: "customers" as const, label: t.customers, icon: (
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+            )
+        },
+        {
+            id: "analytics" as const, label: t.analytics, icon: (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
             )
         },
@@ -570,6 +653,304 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    )}
+
+                    {/* Analytics Tab */}
+                    {activeTab === "analytics" && (
+                        <div className="space-y-8">
+                            {/* Time Period & Chart Type Selector */}
+                            <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50">
+                                <div className="flex items-center justify-between mb-6">
+                                    <h2 className="text-xl font-light text-white">{t.topCustomers}</h2>
+                                    <div className="flex gap-4">
+                                        {/* Chart Type Toggle */}
+                                        <div className="flex gap-1 p-1 bg-slate-700/50 rounded-xl">
+                                            {(["bar", "pie"] as const).map((type) => (
+                                                <button
+                                                    key={type}
+                                                    onClick={() => setChartType(type)}
+                                                    className={`px-3 py-2 rounded-lg text-sm font-light transition-all flex items-center gap-2 ${chartType === type
+                                                            ? "bg-[#F5C542] text-slate-900"
+                                                            : "text-slate-400 hover:text-white"
+                                                        }`}
+                                                >
+                                                    {type === "bar" ? (
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                                        </svg>
+                                                    ) : (
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+                                                        </svg>
+                                                    )}
+                                                    {t.chartTypes[type]}
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        {/* Time Period Toggle */}
+                                        <div className="flex gap-2">
+                                            {(["month", "quarter", "year"] as const).map((period) => (
+                                                <button
+                                                    key={period}
+                                                    onClick={() => setTimePeriod(period)}
+                                                    className={`px-4 py-2 rounded-xl text-sm font-light transition-all ${timePeriod === period
+                                                        ? "bg-[#F5C542] text-slate-900"
+                                                        : "bg-slate-700/50 text-slate-400 hover:text-white"
+                                                        }`}
+                                                >
+                                                    {t.timePeriods[period]}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Data multiplier based on time period */}
+                                {(() => {
+                                    const multiplier = timePeriod === "month" ? 1 : timePeriod === "quarter" ? 3 : 12;
+                                    const periodData = mockCustomers.map(c => ({
+                                        ...c,
+                                        periodSpent: Math.round(c.totalSpent * multiplier / 12)
+                                    })).sort((a, b) => b.periodSpent - a.periodSpent);
+                                    const totalPeriodRevenue = periodData.reduce((sum, c) => sum + c.periodSpent, 0);
+
+                                    return (
+                                        <>
+                                            {/* Bar Chart */}
+                                            {chartType === "bar" && (
+                                                <div className="space-y-4">
+                                                    {periodData.map((customer, index) => {
+                                                        const maxSpent = Math.max(...periodData.map(c => c.periodSpent));
+                                                        const percentage = (customer.periodSpent / maxSpent) * 100;
+
+                                                        return (
+                                                            <div
+                                                                key={customer.id}
+                                                                className="group relative"
+                                                                onMouseEnter={() => setHoveredCustomer(customer)}
+                                                                onMouseLeave={() => setHoveredCustomer(null)}
+                                                            >
+                                                                <div className="flex items-center justify-between mb-2">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <span className="w-6 h-6 rounded-lg bg-[#F5C542]/20 text-[#F5C542] text-xs font-medium flex items-center justify-center">
+                                                                            {index + 1}
+                                                                        </span>
+                                                                        <span className="text-white font-medium">{customer.name}</span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-4">
+                                                                        <span className="text-[#F5C542] font-medium">₪{customer.periodSpent.toLocaleString()}</span>
+                                                                        <button
+                                                                            onClick={() => { setSelectedCustomer(customer); setShowDetailsModal(true); }}
+                                                                            className="text-sm text-slate-400 hover:text-[#F5C542] transition-colors"
+                                                                        >
+                                                                            {t.viewDetails}
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="h-8 bg-slate-700/50 rounded-xl overflow-hidden">
+                                                                    <div
+                                                                        className="h-full bg-gradient-to-r from-[#F5C542] to-[#d4a83a] rounded-xl transition-all duration-500 group-hover:shadow-lg group-hover:shadow-[#F5C542]/30"
+                                                                        style={{ width: `${percentage}%` }}
+                                                                    />
+                                                                </div>
+                                                                {/* Hover Tooltip */}
+                                                                {hoveredCustomer?.id === customer.id && (
+                                                                    <div className="absolute -top-16 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl border border-slate-700 z-10">
+                                                                        <p className="font-medium text-[#F5C542]">{customer.name}</p>
+                                                                        <p className="text-sm text-slate-300">₪{customer.periodSpent.toLocaleString()} | {customer.totalOrders} הזמנות</p>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+
+                                            {/* Pie Chart */}
+                                            {chartType === "pie" && (
+                                                <div className="flex items-center justify-center gap-12">
+                                                    {/* SVG Donut Chart */}
+                                                    <div className="relative">
+                                                        <svg viewBox="0 0 100 100" className="w-64 h-64 transform -rotate-90">
+                                                            {(() => {
+                                                                const colors = ["#F5C542", "#10b981", "#3b82f6", "#8b5cf6"];
+                                                                let cumulativePercent = 0;
+
+                                                                return periodData.map((customer, index) => {
+                                                                    const percent = (customer.periodSpent / totalPeriodRevenue) * 100;
+                                                                    const dashOffset = -cumulativePercent;
+                                                                    cumulativePercent += percent;
+
+                                                                    return (
+                                                                        <circle
+                                                                            key={customer.id}
+                                                                            cx="50"
+                                                                            cy="50"
+                                                                            r="40"
+                                                                            fill="none"
+                                                                            stroke={colors[index % colors.length]}
+                                                                            strokeWidth="20"
+                                                                            className="transition-all duration-500 hover:opacity-80 cursor-pointer"
+                                                                            style={{
+                                                                                strokeDasharray: `${percent} ${100 - percent}`,
+                                                                                strokeDashoffset: dashOffset,
+                                                                            }}
+                                                                            onMouseEnter={() => setHoveredCustomer(customer)}
+                                                                            onMouseLeave={() => setHoveredCustomer(null)}
+                                                                            onClick={() => { setSelectedCustomer(customer); setShowDetailsModal(true); }}
+                                                                        />
+                                                                    );
+                                                                });
+                                                            })()}
+                                                        </svg>
+                                                        <div className="absolute inset-0 flex items-center justify-center">
+                                                            <div className="text-center">
+                                                                {hoveredCustomer ? (
+                                                                    <>
+                                                                        <p className="text-lg font-medium text-[#F5C542]">{hoveredCustomer.name}</p>
+                                                                        <p className="text-2xl font-light text-white">₪{(hoveredCustomer as typeof periodData[0]).periodSpent?.toLocaleString()}</p>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <p className="text-2xl font-light text-white">₪{totalPeriodRevenue.toLocaleString()}</p>
+                                                                        <p className="text-sm text-slate-400">{t.totalRevenue}</p>
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Legend */}
+                                                    <div className="space-y-3">
+                                                        {(() => {
+                                                            const colors = ["#F5C542", "#10b981", "#3b82f6", "#8b5cf6"];
+
+                                                            return periodData.map((customer, index) => {
+                                                                const percent = ((customer.periodSpent / totalPeriodRevenue) * 100).toFixed(1);
+                                                                return (
+                                                                    <button
+                                                                        key={customer.id}
+                                                                        onClick={() => { setSelectedCustomer(customer); setShowDetailsModal(true); }}
+                                                                        onMouseEnter={() => setHoveredCustomer(customer)}
+                                                                        onMouseLeave={() => setHoveredCustomer(null)}
+                                                                        className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 transition-all w-full text-right"
+                                                                    >
+                                                                        <div
+                                                                            className="w-4 h-4 rounded-full flex-shrink-0"
+                                                                            style={{ backgroundColor: colors[index % colors.length] }}
+                                                                        />
+                                                                        <div className="flex-1">
+                                                                            <p className="text-white font-medium">{customer.name}</p>
+                                                                            <p className="text-sm text-slate-400">₪{customer.periodSpent.toLocaleString()} ({percent}%)</p>
+                                                                        </div>
+                                                                    </button>
+                                                                );
+                                                            });
+                                                        })()}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    );
+                                })()}
+                            </div>
+
+                            {/* Order Breakdown Summary */}
+                            <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50">
+                                <h2 className="text-xl font-light text-white mb-6">{t.orderBreakdown}</h2>
+                                <div className="grid grid-cols-3 gap-6">
+                                    <div className="p-6 bg-gradient-to-br from-blue-900/30 to-blue-800/20 rounded-2xl border border-blue-700/30">
+                                        <div className="text-3xl mb-2">📦</div>
+                                        <p className="text-sm text-slate-400 mb-1">{t.cases1L}</p>
+                                        <p className="text-3xl font-light text-white">
+                                            {mockCustomers.reduce((sum, c) => sum + c.orderBreakdown.cases1L, 0)}
+                                        </p>
+                                    </div>
+                                    <div className="p-6 bg-gradient-to-br from-emerald-900/30 to-emerald-800/20 rounded-2xl border border-emerald-700/30">
+                                        <div className="text-3xl mb-2">🛢️</div>
+                                        <p className="text-sm text-slate-400 mb-1">{t.cases5L}</p>
+                                        <p className="text-3xl font-light text-white">
+                                            {mockCustomers.reduce((sum, c) => sum + c.orderBreakdown.cases5L, 0)}
+                                        </p>
+                                    </div>
+                                    <div className="p-6 bg-gradient-to-br from-amber-900/30 to-amber-800/20 rounded-2xl border border-amber-700/30">
+                                        <div className="text-3xl mb-2">🪣</div>
+                                        <p className="text-sm text-slate-400 mb-1">{t.cases18L}</p>
+                                        <p className="text-3xl font-light text-white">
+                                            {mockCustomers.reduce((sum, c) => sum + c.orderBreakdown.cases18L, 0)}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Customer Details Modal */}
+                    {showDetailsModal && selectedCustomer && (
+                        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                            <div className="bg-slate-800 rounded-3xl p-8 max-w-xl w-full shadow-2xl border border-slate-700">
+                                <div className="flex items-center justify-between mb-6">
+                                    <h3 className="text-xl font-medium text-white">{t.customerBreakdown}</h3>
+                                    <button
+                                        onClick={() => { setShowDetailsModal(false); setSelectedCustomer(null); }}
+                                        className="p-2 rounded-xl hover:bg-slate-700 transition-colors"
+                                    >
+                                        <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+
+                                {/* Customer Header */}
+                                <div className="flex items-center gap-4 mb-6 p-4 bg-gradient-to-r from-[#F5C542]/20 to-transparent rounded-2xl">
+                                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#F5C542] to-[#d4a83a] flex items-center justify-center text-slate-900 font-medium text-2xl">
+                                        {selectedCustomer.name.charAt(0)}
+                                    </div>
+                                    <div>
+                                        <p className="text-xl font-medium text-white">{selectedCustomer.name}</p>
+                                        <p className="text-slate-400">{selectedCustomer.email}</p>
+                                    </div>
+                                </div>
+
+                                {/* Stats */}
+                                <div className="grid grid-cols-2 gap-4 mb-6">
+                                    <div className="p-4 bg-slate-700/50 rounded-xl">
+                                        <p className="text-xs text-slate-400 mb-1">{t.customerDetails.totalOrders}</p>
+                                        <p className="text-2xl font-light text-white">{selectedCustomer.totalOrders}</p>
+                                    </div>
+                                    <div className="p-4 bg-slate-700/50 rounded-xl">
+                                        <p className="text-xs text-slate-400 mb-1">{t.customerDetails.totalSpent}</p>
+                                        <p className="text-2xl font-light text-[#F5C542]">₪{selectedCustomer.totalSpent.toLocaleString()}</p>
+                                    </div>
+                                </div>
+
+                                {/* Order Breakdown */}
+                                <h4 className="text-sm font-medium text-slate-400 mb-3">{t.orderBreakdown}</h4>
+                                <div className="grid grid-cols-3 gap-3 mb-6">
+                                    <div className="p-4 bg-blue-900/30 rounded-xl text-center border border-blue-700/30">
+                                        <p className="text-2xl font-light text-white">{selectedCustomer.orderBreakdown.cases1L}</p>
+                                        <p className="text-xs text-slate-400">{t.cases1L}</p>
+                                    </div>
+                                    <div className="p-4 bg-emerald-900/30 rounded-xl text-center border border-emerald-700/30">
+                                        <p className="text-2xl font-light text-white">{selectedCustomer.orderBreakdown.cases5L}</p>
+                                        <p className="text-xs text-slate-400">{t.cases5L}</p>
+                                    </div>
+                                    <div className="p-4 bg-amber-900/30 rounded-xl text-center border border-amber-700/30">
+                                        <p className="text-2xl font-light text-white">{selectedCustomer.orderBreakdown.cases18L}</p>
+                                        <p className="text-xs text-slate-400">{t.cases18L}</p>
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={() => { setShowDetailsModal(false); setSelectedCustomer(null); }}
+                                    className="w-full px-6 py-3 bg-slate-700 text-white rounded-xl font-light hover:bg-slate-600 transition-all"
+                                >
+                                    {t.close}
+                                </button>
+                            </div>
                         </div>
                     )}
 
