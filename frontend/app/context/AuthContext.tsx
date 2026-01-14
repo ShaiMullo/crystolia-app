@@ -47,7 +47,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (typeof window === 'undefined') return null;
         return localStorage.getItem('token');
     });
-    const [isLoading, setIsLoading] = useState(() => {
+    const [isLoading] = useState(() => {
         if (typeof window === 'undefined') return true;
         return false;
     });
