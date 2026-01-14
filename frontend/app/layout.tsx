@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import { i18n } from "@/i18n/config";
+import { AuthProvider } from "./context/AuthContext";
 
 export const metadata: Metadata = {
   title: "Crystolia – Premium Sunflower Oil",
@@ -50,7 +51,9 @@ export default function RootLayout({
             `,
           }}
         />
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

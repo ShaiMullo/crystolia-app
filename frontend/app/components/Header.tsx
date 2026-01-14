@@ -19,8 +19,11 @@ interface HeaderProps {
   };
 }
 
+import { useAuth } from "../context/AuthContext";
+
 export default function Header({ locale, dict }: HeaderProps) {
   const [scrolled, setScrolled] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -99,15 +102,28 @@ export default function Header({ locale, dict }: HeaderProps) {
 
         {/* Business Login Button + Language Switcher */}
         <div className="flex items-center gap-4">
-          <a
-            href={`/${locale}/auth`}
-            className="hidden md:flex items-center gap-2 px-5 py-2 bg-[#F5C542] text-white rounded-full text-sm font-light hover:bg-[#d4a83a] transition-all duration-300 hover:scale-105"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-            </svg>
-            {dict.nav.businessLogin || "לעסקים"}
-          </a>
+          {user ? (
+            <a
+              href={`/${locale}/dashboard`}
+              className="hidden md:flex items-center gap-2 px-5 py-2 bg-[#F5C542] text-white rounded-full text-sm font-light hover:bg-[#d4a83a] transition-all duration-300 hover:scale-105"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              {user.firstName || "Dashboard"}
+            </a>
+          ) : (
+            <a
+              href={`/${locale}/auth`}
+              className="hidden md:flex items-center gap-2 px-5 py-2 bg-[#F5C542] text-white rounded-full text-sm font-light hover:bg-[#d4a83a] transition-all duration-300 hover:scale-105"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+              {dict.nav.businessLogin || "לעסקים"}
+            </a>
+          )}
+
           <LanguageSwitcher />
         </div>
       </nav>
