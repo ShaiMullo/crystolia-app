@@ -10,6 +10,26 @@ interface CustomerDashboardProps {
     locale: string;
 }
 
+interface OrderItem {
+    productType: string;
+    quantity: number;
+}
+
+interface Order {
+    _id: string;
+    status: string;
+    items: OrderItem[];
+    totalAmount: number;
+    createdAt: string;
+}
+
+interface Invoice {
+    _id: string;
+    invoiceNumber: string;
+    amount: number;
+    issuedAt: string;
+}
+
 // Mock data - will be replaced with real data from API
 const mockOrders = [
     { id: "12345", date: "2026-01-14", status: "paid", total: 1200, items: "ארגז 1L x 10, ארגז 5L x 5" },
@@ -45,12 +65,12 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
     const isRTL = locale === "he";
 
     // Orders State
-    const [orders, setOrders] = useState<any[]>([]);
+    const [orders, setOrders] = useState<Order[]>([]);
     const [loadingOrders, setLoadingOrders] = useState(false);
     const [hasProfile, setHasProfile] = useState(false);
 
     // Invoices State
-    const [invoices, setInvoices] = useState<any[]>([]);
+    const [invoices, setInvoices] = useState<Invoice[]>([]);
 
     useEffect(() => {
         const fetchOrders = async () => {
@@ -132,9 +152,10 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
             setHasProfile(true);
             setIsEditingProfile(false);
             alert("הפרופיל נשמר בהצלחה!");
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Failed to save profile:", error);
-            alert(`שמירת הפרופיל נכשלה: ${error.response?.data?.message || error.message}`);
+            const err = error as { response?: { data?: { message?: string } }; message?: string };
+            alert(`שמירת הפרופיל נכשלה: ${err.response?.data?.message || err.message}`);
         }
     };
 
@@ -167,13 +188,14 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
             // Refresh orders
             const response = await api.get('/orders');
             setOrders(response.data);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Failed to submit order:", error);
-            if (error.response?.status === 401) {
+            const err = error as { response?: { status?: number; data?: { message?: string } }; message?: string };
+            if (err.response?.status === 401) {
                 alert("המושב פג תוקף, אנא התחבר מחדש");
                 // Optional: logout()
             } else {
-                alert(`Failed to submit order: ${error.response?.data?.message || error.message}`);
+                alert(`Failed to submit order: ${err.response?.data?.message || err.message}`);
             }
         }
     };
