@@ -8,6 +8,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import leadsRouter from './routes/leads.js';
 import whatsappRouter from './routes/whatsapp.js';
+import ordersRouter from './routes/orders.js';
+import customersRouter from './routes/customers.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 // יצירת האפליקציה
@@ -47,6 +49,12 @@ app.use('/api/leads', leadsRouter);
 
 // WhatsApp API
 app.use('/api/whatsapp', whatsappRouter);
+
+// Orders API
+app.use('/api/orders', ordersRouter);
+
+// Customers API
+app.use('/api/customers', customersRouter);
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ⚠️ Error Handler
