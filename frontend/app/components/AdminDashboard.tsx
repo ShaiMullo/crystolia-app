@@ -650,13 +650,13 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                                 <h2 className="text-xl font-light text-white mb-6">{t.totalRevenue}</h2>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     <div className="p-6 bg-gradient-to-br from-emerald-900/30 to-emerald-800/20 rounded-2xl border border-emerald-700/30">
-                                        <p className="text-sm text-slate-400 mb-2">סה"כ הכנסות</p>
+                                        <p className="text-sm text-slate-400 mb-2">סה&quot;כ הכנסות</p>
                                         <p className="text-3xl font-light text-white">
                                             ₪{allOrders.reduce((sum, o) => sum + o.totalAmount, 0).toLocaleString()}
                                         </p>
                                     </div>
                                     <div className="p-6 bg-gradient-to-br from-blue-900/30 to-blue-800/20 rounded-2xl border border-blue-700/30">
-                                        <p className="text-sm text-slate-400 mb-2">סה"כ הזמנות</p>
+                                        <p className="text-sm text-slate-400 mb-2">סה&quot;כ הזמנות</p>
                                         <p className="text-3xl font-light text-white">{allOrders.length}</p>
                                     </div>
                                     <div className="p-6 bg-gradient-to-br from-amber-900/30 to-amber-800/20 rounded-2xl border border-amber-700/30">
