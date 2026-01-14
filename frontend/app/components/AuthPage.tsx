@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useAuth } from "../context/AuthContext";
+import { useRouter } from "next/navigation";
 
 interface AuthPageProps {
     locale: string;
@@ -18,6 +20,14 @@ export default function AuthPage({ locale }: AuthPageProps) {
         confirmPassword: "",
     });
     const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+    const { user } = useAuth();
+    const router = useRouter();
+
+    useEffect(() => {
+        if (user) {
+            router.push(`/${locale}/dashboard`);
+        }
+    }, [user, locale, router]);
 
     const isRTL = locale === "he";
 
@@ -95,14 +105,70 @@ export default function AuthPage({ locale }: AuthPageProps) {
 
     const t = translations[locale as keyof typeof translations] || translations.he;
 
+    const [error, setError] = useState<string | null>(null);
+    const { login, register } = useAuth();
+    // Use useRouter to get access to navigation
+    // Note: router is already used inside AuthContext but we might need it for specific error handling
+
+    // Parse names from single company/contact field or ask user to split
+    // For now we will use simple defaults or update the form to match backend DTO
+
+    // Helper to validate inputs
+    const validateForm = () => {
+        if (!formData.email || !formData.password) return false;
+        if (!isLogin) {
+            if (formData.password !== formData.confirmPassword) {
+                setError(isRTL ? "הסיסמאות אינן תואמות" : "Passwords do not match");
+                return false;
+            }
+            if (!formData.companyName || !formData.phone) return false;
+        }
+        return true;
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setError(null);
+
+        if (!validateForm()) return;
+
         setStatus("loading");
 
-        // TODO: Connect to backend auth
-        setTimeout(() => {
+        try {
+            if (isLogin) {
+                await login({
+                    email: formData.email,
+                    password: formData.password
+                });
+            } else {
+                // Split company name to first/last name for now as placeholder
+                // In real app, we should probably have separate fields
+                const nameParts = formData.companyName.split(' ');
+                const firstName = nameParts[0] || 'Business';
+                const lastName = nameParts.slice(1).join(' ') || 'User';
+
+                await register({
+                    email: formData.email,
+                    password: formData.password,
+                    firstName: firstName,
+                    lastName: lastName,
+                    phone: formData.phone,
+                    role: 'customer' // Default role
+                });
+            }
             setStatus("success");
-        }, 1500);
+            // Redirect happens in AuthContext
+        } catch (err: any) {
+            console.error(err);
+            setStatus("error");
+            setError(
+                isRTL
+                    ? "אירעה שגיאה בהתחברות. אנא נסה שוב."
+                    : "Login failed. Please try again."
+            );
+        } finally {
+            if (status !== "success") setStatus("idle");
+        }
     };
 
     const handleSocialLogin = (provider: string) => {
@@ -224,6 +290,16 @@ export default function AuthPage({ locale }: AuthPageProps) {
                             <span className="px-4 bg-white text-gray-500 font-light">{t.or}</span>
                         </div>
                     </div>
+
+                    {/* Error Message */}
+                    {error && (
+                        <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-sm font-light flex items-center gap-2">
+                            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            {error}
+                        </div>
+                    )}
 
                     {/* Form */}
                     <form onSubmit={handleSubmit} className="space-y-5">

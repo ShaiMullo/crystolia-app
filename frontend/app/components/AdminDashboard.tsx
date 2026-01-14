@@ -1,8 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import api from "@/app/lib/api";
+
+interface OrderItem {
+    productType: '1L' | '5L' | '18L';
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+}
+
+interface Order {
+    _id: string;
+    customer: {
+        _id: string;
+        businessName: string;
+        contactPerson: string;
+        phone: string;
+    };
+    status: 'pending' | 'approved' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
+    items: OrderItem[];
+    totalAmount: number;
+    createdAt: string;
+}
+
+interface Customer {
+    _id: string;
+    businessName: string;
+    contactPerson: string;
+    phone: string;
+    address?: {
+        street: string;
+        city: string;
+        zip?: string;
+    };
+    pricingTier: string;
+    user?: { email: string };
+}
 
 interface AdminDashboardProps {
     locale: string;
@@ -84,15 +120,45 @@ const mockCustomers = [
 
 export default function AdminDashboard({ locale }: AdminDashboardProps) {
     const [activeTab, setActiveTab] = useState<"pending" | "orders" | "customers" | "analytics" | "settings">("pending");
-    const [selectedOrder, setSelectedOrder] = useState<typeof mockPendingOrders[0] | null>(null);
+    const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [customPrice, setCustomPrice] = useState("");
     const [showPriceModal, setShowPriceModal] = useState(false);
     const [chartType, setChartType] = useState<"bar" | "pie">("bar");
     const [timePeriod, setTimePeriod] = useState<"month" | "quarter" | "year">("month");
-    const [hoveredCustomer, setHoveredCustomer] = useState<typeof mockCustomers[0] | null>(null);
-    const [selectedCustomer, setSelectedCustomer] = useState<typeof mockCustomers[0] | null>(null);
+    const [hoveredCustomer, setHoveredCustomer] = useState<Customer | null>(null);
+    const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const isRTL = locale === "he";
+
+    // API data state
+    const [orders, setOrders] = useState<Order[]>([]);
+    const [customers, setCustomers] = useState<Customer[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    // Fetch data from API
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                setLoading(true);
+                const [ordersRes, customersRes] = await Promise.all([
+                    api.get('/orders'),
+                    api.get('/customers')
+                ]);
+                setOrders(ordersRes.data);
+                setCustomers(Array.isArray(customersRes.data) ? customersRes.data : []);
+            } catch (error) {
+                console.error("Failed to fetch admin data:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, []);
+
+    // Derived data
+    const pendingOrders = orders.filter(o => o.status === 'pending');
+    const allOrders = orders;
 
     // Settings state
     const [settings, setSettings] = useState({
@@ -300,24 +366,33 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
         }
     };
 
-    const handleApproveOrder = (order: typeof mockPendingOrders[0]) => {
+    const handleApproveOrder = (order: Order) => {
         setSelectedOrder(order);
-        setCustomPrice(order.suggestedPrice.toString());
+        setCustomPrice(order.totalAmount.toString());
         setShowPriceModal(true);
     };
 
-    const confirmApproval = () => {
-        // TODO: Send to backend & WhatsApp
-        console.log(`Order ${selectedOrder?.id} approved with price: ${customPrice}`);
-        setShowPriceModal(false);
-        setSelectedOrder(null);
-        alert(t.orderApproved);
+    const confirmApproval = async () => {
+        if (!selectedOrder) return;
+        try {
+            await api.patch(`/orders/${selectedOrder._id}`, { status: 'approved' });
+            setOrders(orders.map(o => o._id === selectedOrder._id ? { ...o, status: 'approved' as const } : o));
+            setShowPriceModal(false);
+            setSelectedOrder(null);
+            alert(t.orderApproved);
+        } catch (error) {
+            console.error('Failed to approve order:', error);
+        }
     };
 
-    const handleRejectOrder = (orderId: string) => {
-        // TODO: Send to backend & WhatsApp
-        console.log(`Order ${orderId} rejected`);
-        alert(t.orderRejected);
+    const handleRejectOrder = async (orderId: string) => {
+        try {
+            await api.patch(`/orders/${orderId}`, { status: 'cancelled' });
+            setOrders(orders.map(o => o._id === orderId ? { ...o, status: 'cancelled' as const } : o));
+            alert(t.orderRejected);
+        } catch (error) {
+            console.error('Failed to reject order:', error);
+        }
     };
 
     const tabs = [
@@ -326,7 +401,7 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-            ), badge: mockPendingOrders.length
+            ), badge: pendingOrders.length
         },
         {
             id: "orders" as const, label: t.allOrders, icon: (
@@ -503,7 +578,7 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                                 </div>
                                 <div>
                                     <p className="text-sm text-slate-400">{t.stats.activeCustomers}</p>
-                                    <p className="text-3xl font-light text-white">{mockCustomers.length}</p>
+                                    <p className="text-3xl font-light text-white">{customers.length}</p>
                                 </div>
                             </div>
                         </div>
@@ -512,22 +587,22 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                     {/* Pending Orders Tab */}
                     {activeTab === "pending" && (
                         <div className="space-y-4">
-                            {mockPendingOrders.length > 0 ? (
-                                mockPendingOrders.map((order) => (
-                                    <div key={order.id} className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 hover:border-[#F5C542]/30 transition-all duration-300">
+                            {pendingOrders.length > 0 ? (
+                                pendingOrders.map((order) => (
+                                    <div key={order._id} className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 hover:border-[#F5C542]/30 transition-all duration-300">
                                         <div className="flex items-start justify-between mb-4">
                                             <div>
                                                 <div className="flex items-center gap-3 mb-2">
-                                                    <span className="text-lg font-medium text-white">#{order.id}</span>
+                                                    <span className="text-lg font-medium text-white">#{order._id.slice(-6)}</span>
                                                     <span className="px-3 py-1 rounded-full text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30">
                                                         {t.statuses.pending}
                                                     </span>
                                                 </div>
-                                                <p className="text-slate-400">{order.date}</p>
+                                                <p className="text-slate-400">{new Date(order.createdAt).toLocaleDateString()}</p>
                                             </div>
                                             <div className="text-left">
-                                                <p className="text-white font-medium">{order.customer}</p>
-                                                <p className="text-sm text-slate-400">{order.phone}</p>
+                                                <p className="text-white font-medium">{order.customer?.businessName || 'N/A'}</p>
+                                                <p className="text-sm text-slate-400">{order.customer?.phone || 'N/A'}</p>
                                             </div>
                                         </div>
 
@@ -537,7 +612,7 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                                             <div className="space-y-1">
                                                 {order.items.map((item, idx) => (
                                                     <p key={idx} className="text-white">
-                                                        {item.product} × {item.quantity}
+                                                        {item.productType} × {item.quantity}
                                                     </p>
                                                 ))}
                                             </div>
@@ -546,12 +621,8 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                                         {/* Pricing */}
                                         <div className="flex items-center justify-between mb-4 p-4 bg-slate-900/50 rounded-xl">
                                             <div>
-                                                <p className="text-sm text-slate-400">{t.calculatedCost}</p>
-                                                <p className="text-xl font-light text-white">₪{order.calculatedCost.toLocaleString()}</p>
-                                            </div>
-                                            <div className="text-left">
-                                                <p className="text-sm text-slate-400">{t.priceModal.suggestedPrice}</p>
-                                                <p className="text-xl font-light text-[#F5C542]">₪{order.suggestedPrice.toLocaleString()}</p>
+                                                <p className="text-sm text-slate-400">{t.total}</p>
+                                                <p className="text-xl font-light text-[#F5C542]">₪{order.totalAmount.toLocaleString()}</p>
                                             </div>
                                         </div>
 
@@ -564,7 +635,7 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                                                 {t.setPrice} & {t.approve}
                                             </button>
                                             <button
-                                                onClick={() => handleRejectOrder(order.id)}
+                                                onClick={() => handleRejectOrder(order._id)}
                                                 className="px-6 py-3 bg-slate-700/50 text-slate-300 rounded-xl font-light hover:bg-red-500/20 hover:text-red-400 transition-all duration-300"
                                             >
                                                 {t.reject}
@@ -599,15 +670,15 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {mockRecentOrders.map((order) => (
-                                            <tr key={order.id} className="border-b border-slate-700/30 hover:bg-slate-700/30 transition-colors">
-                                                <td className="py-4 px-6 text-white">#{order.id}</td>
-                                                <td className="py-4 px-6 text-slate-400">{order.date}</td>
-                                                <td className="py-4 px-6 text-white">{order.customer}</td>
-                                                <td className="py-4 px-6 text-white font-medium">₪{order.total.toLocaleString()}</td>
+                                        {allOrders.map((order) => (
+                                            <tr key={order._id} className="border-b border-slate-700/30 hover:bg-slate-700/30 transition-colors">
+                                                <td className="py-4 px-6 text-white">#{order._id.slice(-6)}</td>
+                                                <td className="py-4 px-6 text-slate-400">{new Date(order.createdAt).toLocaleDateString()}</td>
+                                                <td className="py-4 px-6 text-white">{order.customer?.businessName || 'N/A'}</td>
+                                                <td className="py-4 px-6 text-white font-medium">₪{order.totalAmount.toLocaleString()}</td>
                                                 <td className="py-4 px-6">
                                                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                                                        {t.statuses[order.status as keyof typeof t.statuses]}
+                                                        {t.statuses[order.status as keyof typeof t.statuses] || order.status}
                                                     </span>
                                                 </td>
                                                 <td className="py-4 px-6">
@@ -626,15 +697,15 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                     {/* Customers Tab */}
                     {activeTab === "customers" && (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {mockCustomers.map((customer) => (
-                                <div key={customer.id} className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 hover:border-[#F5C542]/30 transition-all duration-300">
+                            {customers.map((customer) => (
+                                <div key={customer._id} className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 hover:border-[#F5C542]/30 transition-all duration-300">
                                     <div className="flex items-center gap-4 mb-4">
                                         <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#F5C542] to-[#d4a83a] flex items-center justify-center text-slate-900 font-medium text-xl">
-                                            {customer.name.charAt(0)}
+                                            {customer.businessName.charAt(0)}
                                         </div>
                                         <div>
-                                            <p className="text-white font-medium">{customer.name}</p>
-                                            <p className="text-sm text-slate-400">{customer.email}</p>
+                                            <p className="text-white font-medium">{customer.businessName}</p>
+                                            <p className="text-sm text-slate-400">{customer.contactPerson}</p>
                                         </div>
                                     </div>
                                     <div className="space-y-2 text-sm">
@@ -643,12 +714,8 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                                             <span className="text-white">{customer.phone}</span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span className="text-slate-400">{t.customerDetails.totalOrders}</span>
-                                            <span className="text-white">{customer.totalOrders}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-slate-400">{t.customerDetails.totalSpent}</span>
-                                            <span className="text-[#F5C542] font-medium">₪{customer.totalSpent.toLocaleString()}</span>
+                                            <span className="text-slate-400">{t.customerDetails.email}</span>
+                                            <span className="text-white">{customer.user?.email || 'N/A'}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -659,203 +726,27 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                     {/* Analytics Tab */}
                     {activeTab === "analytics" && (
                         <div className="space-y-8">
-                            {/* Time Period & Chart Type Selector */}
+                            {/* Summary Stats from Orders */}
                             <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50">
-                                <div className="flex items-center justify-between mb-6">
-                                    <h2 className="text-xl font-light text-white">{t.topCustomers}</h2>
-                                    <div className="flex gap-4">
-                                        {/* Chart Type Toggle */}
-                                        <div className="flex gap-1 p-1 bg-slate-700/50 rounded-xl">
-                                            {(["bar", "pie"] as const).map((type) => (
-                                                <button
-                                                    key={type}
-                                                    onClick={() => setChartType(type)}
-                                                    className={`px-3 py-2 rounded-lg text-sm font-light transition-all flex items-center gap-2 ${chartType === type
-                                                            ? "bg-[#F5C542] text-slate-900"
-                                                            : "text-slate-400 hover:text-white"
-                                                        }`}
-                                                >
-                                                    {type === "bar" ? (
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                                                        </svg>
-                                                    ) : (
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
-                                                        </svg>
-                                                    )}
-                                                    {t.chartTypes[type]}
-                                                </button>
-                                            ))}
-                                        </div>
-
-                                        {/* Time Period Toggle */}
-                                        <div className="flex gap-2">
-                                            {(["month", "quarter", "year"] as const).map((period) => (
-                                                <button
-                                                    key={period}
-                                                    onClick={() => setTimePeriod(period)}
-                                                    className={`px-4 py-2 rounded-xl text-sm font-light transition-all ${timePeriod === period
-                                                        ? "bg-[#F5C542] text-slate-900"
-                                                        : "bg-slate-700/50 text-slate-400 hover:text-white"
-                                                        }`}
-                                                >
-                                                    {t.timePeriods[period]}
-                                                </button>
-                                            ))}
-                                        </div>
+                                <h2 className="text-xl font-light text-white mb-6">{t.totalRevenue}</h2>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <div className="p-6 bg-gradient-to-br from-emerald-900/30 to-emerald-800/20 rounded-2xl border border-emerald-700/30">
+                                        <p className="text-sm text-slate-400 mb-2">סה"כ הכנסות</p>
+                                        <p className="text-3xl font-light text-white">
+                                            ₪{allOrders.reduce((sum, o) => sum + o.totalAmount, 0).toLocaleString()}
+                                        </p>
+                                    </div>
+                                    <div className="p-6 bg-gradient-to-br from-blue-900/30 to-blue-800/20 rounded-2xl border border-blue-700/30">
+                                        <p className="text-sm text-slate-400 mb-2">סה"כ הזמנות</p>
+                                        <p className="text-3xl font-light text-white">{allOrders.length}</p>
+                                    </div>
+                                    <div className="p-6 bg-gradient-to-br from-amber-900/30 to-amber-800/20 rounded-2xl border border-amber-700/30">
+                                        <p className="text-sm text-slate-400 mb-2">ממוצע להזמנה</p>
+                                        <p className="text-3xl font-light text-white">
+                                            ₪{allOrders.length > 0 ? Math.round(allOrders.reduce((sum, o) => sum + o.totalAmount, 0) / allOrders.length).toLocaleString() : 0}
+                                        </p>
                                     </div>
                                 </div>
-
-                                {/* Data multiplier based on time period */}
-                                {(() => {
-                                    const multiplier = timePeriod === "month" ? 1 : timePeriod === "quarter" ? 3 : 12;
-                                    const periodData = mockCustomers.map(c => ({
-                                        ...c,
-                                        periodSpent: Math.round(c.totalSpent * multiplier / 12)
-                                    })).sort((a, b) => b.periodSpent - a.periodSpent);
-                                    const totalPeriodRevenue = periodData.reduce((sum, c) => sum + c.periodSpent, 0);
-
-                                    return (
-                                        <>
-                                            {/* Bar Chart */}
-                                            {chartType === "bar" && (
-                                                <div className="space-y-4">
-                                                    {periodData.map((customer, index) => {
-                                                        const maxSpent = Math.max(...periodData.map(c => c.periodSpent));
-                                                        const percentage = (customer.periodSpent / maxSpent) * 100;
-
-                                                        return (
-                                                            <div
-                                                                key={customer.id}
-                                                                className="group relative"
-                                                                onMouseEnter={() => setHoveredCustomer(customer)}
-                                                                onMouseLeave={() => setHoveredCustomer(null)}
-                                                            >
-                                                                <div className="flex items-center justify-between mb-2">
-                                                                    <div className="flex items-center gap-3">
-                                                                        <span className="w-6 h-6 rounded-lg bg-[#F5C542]/20 text-[#F5C542] text-xs font-medium flex items-center justify-center">
-                                                                            {index + 1}
-                                                                        </span>
-                                                                        <span className="text-white font-medium">{customer.name}</span>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-4">
-                                                                        <span className="text-[#F5C542] font-medium">₪{customer.periodSpent.toLocaleString()}</span>
-                                                                        <button
-                                                                            onClick={() => { setSelectedCustomer(customer); setShowDetailsModal(true); }}
-                                                                            className="text-sm text-slate-400 hover:text-[#F5C542] transition-colors"
-                                                                        >
-                                                                            {t.viewDetails}
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                                <div className="h-8 bg-slate-700/50 rounded-xl overflow-hidden">
-                                                                    <div
-                                                                        className="h-full bg-gradient-to-r from-[#F5C542] to-[#d4a83a] rounded-xl transition-all duration-500 group-hover:shadow-lg group-hover:shadow-[#F5C542]/30"
-                                                                        style={{ width: `${percentage}%` }}
-                                                                    />
-                                                                </div>
-                                                                {/* Hover Tooltip */}
-                                                                {hoveredCustomer?.id === customer.id && (
-                                                                    <div className="absolute -top-16 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl border border-slate-700 z-10">
-                                                                        <p className="font-medium text-[#F5C542]">{customer.name}</p>
-                                                                        <p className="text-sm text-slate-300">₪{customer.periodSpent.toLocaleString()} | {customer.totalOrders} הזמנות</p>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            )}
-
-                                            {/* Pie Chart */}
-                                            {chartType === "pie" && (
-                                                <div className="flex items-center justify-center gap-12">
-                                                    {/* SVG Donut Chart */}
-                                                    <div className="relative">
-                                                        <svg viewBox="0 0 100 100" className="w-64 h-64 transform -rotate-90">
-                                                            {(() => {
-                                                                const colors = ["#F5C542", "#10b981", "#3b82f6", "#8b5cf6"];
-                                                                let cumulativePercent = 0;
-
-                                                                return periodData.map((customer, index) => {
-                                                                    const percent = (customer.periodSpent / totalPeriodRevenue) * 100;
-                                                                    const dashOffset = -cumulativePercent;
-                                                                    cumulativePercent += percent;
-
-                                                                    return (
-                                                                        <circle
-                                                                            key={customer.id}
-                                                                            cx="50"
-                                                                            cy="50"
-                                                                            r="40"
-                                                                            fill="none"
-                                                                            stroke={colors[index % colors.length]}
-                                                                            strokeWidth="20"
-                                                                            className="transition-all duration-500 hover:opacity-80 cursor-pointer"
-                                                                            style={{
-                                                                                strokeDasharray: `${percent} ${100 - percent}`,
-                                                                                strokeDashoffset: dashOffset,
-                                                                            }}
-                                                                            onMouseEnter={() => setHoveredCustomer(customer)}
-                                                                            onMouseLeave={() => setHoveredCustomer(null)}
-                                                                            onClick={() => { setSelectedCustomer(customer); setShowDetailsModal(true); }}
-                                                                        />
-                                                                    );
-                                                                });
-                                                            })()}
-                                                        </svg>
-                                                        <div className="absolute inset-0 flex items-center justify-center">
-                                                            <div className="text-center">
-                                                                {hoveredCustomer ? (
-                                                                    <>
-                                                                        <p className="text-lg font-medium text-[#F5C542]">{hoveredCustomer.name}</p>
-                                                                        <p className="text-2xl font-light text-white">₪{(hoveredCustomer as typeof periodData[0]).periodSpent?.toLocaleString()}</p>
-                                                                    </>
-                                                                ) : (
-                                                                    <>
-                                                                        <p className="text-2xl font-light text-white">₪{totalPeriodRevenue.toLocaleString()}</p>
-                                                                        <p className="text-sm text-slate-400">{t.totalRevenue}</p>
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Legend */}
-                                                    <div className="space-y-3">
-                                                        {(() => {
-                                                            const colors = ["#F5C542", "#10b981", "#3b82f6", "#8b5cf6"];
-
-                                                            return periodData.map((customer, index) => {
-                                                                const percent = ((customer.periodSpent / totalPeriodRevenue) * 100).toFixed(1);
-                                                                return (
-                                                                    <button
-                                                                        key={customer.id}
-                                                                        onClick={() => { setSelectedCustomer(customer); setShowDetailsModal(true); }}
-                                                                        onMouseEnter={() => setHoveredCustomer(customer)}
-                                                                        onMouseLeave={() => setHoveredCustomer(null)}
-                                                                        className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 transition-all w-full text-right"
-                                                                    >
-                                                                        <div
-                                                                            className="w-4 h-4 rounded-full flex-shrink-0"
-                                                                            style={{ backgroundColor: colors[index % colors.length] }}
-                                                                        />
-                                                                        <div className="flex-1">
-                                                                            <p className="text-white font-medium">{customer.name}</p>
-                                                                            <p className="text-sm text-slate-400">₪{customer.periodSpent.toLocaleString()} ({percent}%)</p>
-                                                                        </div>
-                                                                    </button>
-                                                                );
-                                                            });
-                                                        })()}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </>
-                                    );
-                                })()}
                             </div>
 
                             {/* Order Breakdown Summary */}
@@ -866,23 +757,36 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                                         <div className="text-3xl mb-2">📦</div>
                                         <p className="text-sm text-slate-400 mb-1">{t.cases1L}</p>
                                         <p className="text-3xl font-light text-white">
-                                            {mockCustomers.reduce((sum, c) => sum + c.orderBreakdown.cases1L, 0)}
+                                            {allOrders.reduce((sum, o) => sum + o.items.filter(i => i.productType === '1L').reduce((s, i) => s + i.quantity, 0), 0)}
                                         </p>
                                     </div>
                                     <div className="p-6 bg-gradient-to-br from-emerald-900/30 to-emerald-800/20 rounded-2xl border border-emerald-700/30">
                                         <div className="text-3xl mb-2">🛢️</div>
                                         <p className="text-sm text-slate-400 mb-1">{t.cases5L}</p>
                                         <p className="text-3xl font-light text-white">
-                                            {mockCustomers.reduce((sum, c) => sum + c.orderBreakdown.cases5L, 0)}
+                                            {allOrders.reduce((sum, o) => sum + o.items.filter(i => i.productType === '5L').reduce((s, i) => s + i.quantity, 0), 0)}
                                         </p>
                                     </div>
                                     <div className="p-6 bg-gradient-to-br from-amber-900/30 to-amber-800/20 rounded-2xl border border-amber-700/30">
                                         <div className="text-3xl mb-2">🪣</div>
                                         <p className="text-sm text-slate-400 mb-1">{t.cases18L}</p>
                                         <p className="text-3xl font-light text-white">
-                                            {mockCustomers.reduce((sum, c) => sum + c.orderBreakdown.cases18L, 0)}
+                                            {allOrders.reduce((sum, o) => sum + o.items.filter(i => i.productType === '18L').reduce((s, i) => s + i.quantity, 0), 0)}
                                         </p>
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* Orders by Status */}
+                            <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50">
+                                <h2 className="text-xl font-light text-white mb-6">סטטוס הזמנות</h2>
+                                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                                    {(['pending', 'approved', 'paid', 'shipped', 'delivered'] as const).map(status => (
+                                        <div key={status} className={`p-4 rounded-xl ${getStatusColor(status)} text-center`}>
+                                            <p className="text-2xl font-light">{allOrders.filter(o => o.status === status).length}</p>
+                                            <p className="text-sm">{t.statuses[status]}</p>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>
@@ -907,40 +811,23 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                                 {/* Customer Header */}
                                 <div className="flex items-center gap-4 mb-6 p-4 bg-gradient-to-r from-[#F5C542]/20 to-transparent rounded-2xl">
                                     <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#F5C542] to-[#d4a83a] flex items-center justify-center text-slate-900 font-medium text-2xl">
-                                        {selectedCustomer.name.charAt(0)}
+                                        {selectedCustomer.businessName.charAt(0)}
                                     </div>
                                     <div>
-                                        <p className="text-xl font-medium text-white">{selectedCustomer.name}</p>
-                                        <p className="text-slate-400">{selectedCustomer.email}</p>
+                                        <p className="text-xl font-medium text-white">{selectedCustomer.businessName}</p>
+                                        <p className="text-slate-400">{selectedCustomer.contactPerson}</p>
                                     </div>
                                 </div>
 
-                                {/* Stats */}
-                                <div className="grid grid-cols-2 gap-4 mb-6">
-                                    <div className="p-4 bg-slate-700/50 rounded-xl">
-                                        <p className="text-xs text-slate-400 mb-1">{t.customerDetails.totalOrders}</p>
-                                        <p className="text-2xl font-light text-white">{selectedCustomer.totalOrders}</p>
+                                {/* Contact Info */}
+                                <div className="space-y-3 mb-6">
+                                    <div className="flex justify-between p-3 bg-slate-700/50 rounded-xl">
+                                        <span className="text-slate-400">{t.customerDetails.phone}</span>
+                                        <span className="text-white">{selectedCustomer.phone}</span>
                                     </div>
-                                    <div className="p-4 bg-slate-700/50 rounded-xl">
-                                        <p className="text-xs text-slate-400 mb-1">{t.customerDetails.totalSpent}</p>
-                                        <p className="text-2xl font-light text-[#F5C542]">₪{selectedCustomer.totalSpent.toLocaleString()}</p>
-                                    </div>
-                                </div>
-
-                                {/* Order Breakdown */}
-                                <h4 className="text-sm font-medium text-slate-400 mb-3">{t.orderBreakdown}</h4>
-                                <div className="grid grid-cols-3 gap-3 mb-6">
-                                    <div className="p-4 bg-blue-900/30 rounded-xl text-center border border-blue-700/30">
-                                        <p className="text-2xl font-light text-white">{selectedCustomer.orderBreakdown.cases1L}</p>
-                                        <p className="text-xs text-slate-400">{t.cases1L}</p>
-                                    </div>
-                                    <div className="p-4 bg-emerald-900/30 rounded-xl text-center border border-emerald-700/30">
-                                        <p className="text-2xl font-light text-white">{selectedCustomer.orderBreakdown.cases5L}</p>
-                                        <p className="text-xs text-slate-400">{t.cases5L}</p>
-                                    </div>
-                                    <div className="p-4 bg-amber-900/30 rounded-xl text-center border border-amber-700/30">
-                                        <p className="text-2xl font-light text-white">{selectedCustomer.orderBreakdown.cases18L}</p>
-                                        <p className="text-xs text-slate-400">{t.cases18L}</p>
+                                    <div className="flex justify-between p-3 bg-slate-700/50 rounded-xl">
+                                        <span className="text-slate-400">{t.customerDetails.email}</span>
+                                        <span className="text-white">{selectedCustomer.user?.email || 'N/A'}</span>
                                     </div>
                                 </div>
 
@@ -1062,12 +949,12 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
 
                         <div className="space-y-4 mb-6">
                             <div className="flex justify-between p-4 bg-slate-900/50 rounded-xl">
-                                <span className="text-slate-400">{t.priceModal.calculatedCost}</span>
-                                <span className="text-white">₪{selectedOrder.calculatedCost.toLocaleString()}</span>
+                                <span className="text-slate-400">{t.total}</span>
+                                <span className="text-[#F5C542]">₪{selectedOrder.totalAmount.toLocaleString()}</span>
                             </div>
                             <div className="flex justify-between p-4 bg-slate-900/50 rounded-xl">
-                                <span className="text-slate-400">{t.priceModal.suggestedPrice}</span>
-                                <span className="text-[#F5C542]">₪{selectedOrder.suggestedPrice.toLocaleString()}</span>
+                                <span className="text-slate-400">{t.customer}</span>
+                                <span className="text-white">{selectedOrder.customer?.businessName || 'N/A'}</span>
                             </div>
                         </div>
 

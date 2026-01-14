@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import api from "../lib/api";
+import { useAuth } from "../context/AuthContext";
 
 interface CustomerDashboardProps {
     locale: string;
@@ -21,23 +23,160 @@ const mockInvoices = [
     { id: "INV-121", date: "2026-01-05", amount: 850, orderId: "12343" },
 ];
 
-const mockProfile = {
-    companyName: "חברת דוגמה בע״מ",
-    taxId: "123456789",
-    email: "info@example.com",
-    phone: "050-1234567",
-    address: "רחוב הראשי 123",
-    city: "תל אביב",
-    profileImage: null as string | null,
-};
-
 export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
+    const { user, logout } = useAuth();
     const [activeTab, setActiveTab] = useState<"orders" | "invoices" | "profile" | "newOrder">("orders");
     const [isEditingProfile, setIsEditingProfile] = useState(false);
     const [showProfileMenu, setShowProfileMenu] = useState(false);
-    const [profile, setProfile] = useState(mockProfile);
+
+    // Initial profile state from user context, will be updated by API
+    const [profile, setProfile] = useState({
+        companyName: "",
+        contactPerson: "",
+        businessType: "",
+        taxId: "",
+        email: user?.email || "",
+        phone: "",
+        address: "",
+        city: "",
+        profileImage: null as string | null,
+    });
     const [orderQuantities, setOrderQuantities] = useState({ "1L": 0, "5L": 0, "18L": 0 });
     const isRTL = locale === "he";
+
+    // Orders State
+    const [orders, setOrders] = useState<any[]>([]);
+    const [loadingOrders, setLoadingOrders] = useState(false);
+    const [hasProfile, setHasProfile] = useState(false);
+
+    // Invoices State
+    const [invoices, setInvoices] = useState<any[]>([]);
+
+    useEffect(() => {
+        const fetchOrders = async () => {
+            if (!user) return;
+            try {
+                setLoadingOrders(true);
+                const response = await api.get('/orders');
+                setOrders(response.data);
+            } catch (error) {
+                console.error("Failed to fetch orders:", error);
+            } finally {
+                setLoadingOrders(false);
+            }
+        };
+
+        const fetchInvoices = async () => {
+            if (!user) return;
+            try {
+                const response = await api.get('/invoices');
+                setInvoices(response.data);
+            } catch (error) {
+                console.error("Failed to fetch invoices:", error);
+            }
+        };
+
+        const fetchProfile = async () => {
+            try {
+                const response = await api.get('/customers/my-profile');
+                if (response.data && response.data.businessName) {
+                    const data = response.data;
+                    setHasProfile(true);
+                    setProfile({
+                        companyName: data.businessName,
+                        contactPerson: data.contactPerson || "",
+                        businessType: data.businessType || "",
+                        taxId: data.taxId || "",
+                        email: user?.email || "",
+                        phone: data.phone || "",
+                        address: data.address?.street || "",
+                        city: data.address?.city || "",
+                        profileImage: null,
+                    });
+                } else {
+                    setHasProfile(false);
+                }
+            } catch (error) {
+                console.error("Failed to fetch customer profile:", error);
+                setHasProfile(false);
+            }
+        };
+
+        if (user) {
+            fetchOrders();
+            fetchInvoices();
+            fetchProfile();
+        }
+    }, [user]);
+
+    const handleSaveProfile = async () => {
+        try {
+            const payload = {
+                businessName: profile.companyName,
+                contactPerson: profile.contactPerson || user?.firstName || "Unknown",
+                phone: profile.phone,
+                address: {
+                    street: profile.address,
+                    city: profile.city,
+                    zipCode: "0000000",
+                },
+            };
+
+            if (hasProfile) {
+                // Update existing (would need profile ID - for now just POST again)
+                await api.post('/customers', payload);
+            } else {
+                await api.post('/customers', payload);
+            }
+
+            setHasProfile(true);
+            setIsEditingProfile(false);
+            alert("הפרופיל נשמר בהצלחה!");
+        } catch (error: any) {
+            console.error("Failed to save profile:", error);
+            alert(`שמירת הפרופיל נכשלה: ${error.response?.data?.message || error.message}`);
+        }
+    };
+
+    const handleSubmitOrder = async () => {
+        if (!hasProfile) {
+            alert("אנא מלא את פרטי הפרופיל שלך לפני ביצוע הזמנה");
+            setActiveTab("profile");
+            setIsEditingProfile(true);
+            return;
+        }
+
+        const items: { productType: string; quantity: number }[] = [];
+        if (orderQuantities["1L"] > 0) items.push({ productType: "1L", quantity: orderQuantities["1L"] });
+        if (orderQuantities["5L"] > 0) items.push({ productType: "5L", quantity: orderQuantities["5L"] });
+        if (orderQuantities["18L"] > 0) items.push({ productType: "18L", quantity: orderQuantities["18L"] });
+
+        if (items.length === 0) {
+            alert("אנא בחר לפחות מוצר אחד");
+            return;
+        }
+
+        try {
+            await api.post('/orders', { items });
+            alert("Order submitted successfully!"); // Ideally verify with toast
+
+            // Reset form
+            setOrderQuantities({ "1L": 0, "5L": 0, "18L": 0 });
+            setActiveTab("orders");
+
+            // Refresh orders
+            const response = await api.get('/orders');
+            setOrders(response.data);
+        } catch (error: any) {
+            console.error("Failed to submit order:", error);
+            if (error.response?.status === 401) {
+                alert("המושב פג תוקף, אנא התחבר מחדש");
+                // Optional: logout()
+            } else {
+                alert(`Failed to submit order: ${error.response?.data?.message || error.message}`);
+            }
+        }
+    };
 
     const translations = {
         he: {
@@ -348,15 +487,18 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                         {t.profile}
                                     </button>
                                     <div className="border-t border-gray-100 my-2" />
-                                    <Link
-                                        href={`/${locale}`}
+                                    <button
+                                        onClick={() => {
+                                            logout();
+                                            setShowProfileMenu(false);
+                                        }}
                                         className="w-full px-4 py-3 text-right text-sm text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors"
                                     >
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                                         </svg>
                                         {t.logout}
-                                    </Link>
+                                    </button>
                                 </div>
                             )}
                         </div>
@@ -376,24 +518,26 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                             </div>
                             <div>
                                 <p className="text-sm text-gray-500 mb-1">{t.stats.totalOrders}</p>
-                                <p className="text-3xl font-light text-gray-900">{mockOrders.length}</p>
+                                <p className="text-3xl font-light text-gray-900">{orders.length}</p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="group bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-xl hover:border-emerald-200 transition-all duration-500 hover:-translate-y-1">
-                        <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 bg-gradient-to-br from-emerald-100 to-emerald-50 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
-                                <svg className="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-500 mb-1">{t.stats.totalSpent}</p>
-                                <p className="text-3xl font-light text-gray-900">₪{mockOrders.reduce((sum, o) => sum + o.total, 0).toLocaleString()}</p>
+                    {(user?.role === 'admin' || user?.role === 'secretary') && (
+                        <div className="group bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-xl hover:border-emerald-200 transition-all duration-500 hover:-translate-y-1">
+                            <div className="flex items-center gap-4">
+                                <div className="w-14 h-14 bg-gradient-to-br from-emerald-100 to-emerald-50 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                                    <svg className="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-500 mb-1">{t.stats.totalSpent}</p>
+                                    <p className="text-3xl font-light text-gray-900">₪{orders.reduce((sum, o) => sum + o.totalAmount, 0).toLocaleString()}</p>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
 
                     <div className="group bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-xl hover:border-blue-200 transition-all duration-500 hover:-translate-y-1">
                         <div className="flex items-center gap-4">
@@ -404,7 +548,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                             </div>
                             <div>
                                 <p className="text-sm text-gray-500 mb-1">{t.stats.pendingOrders}</p>
-                                <p className="text-3xl font-light text-gray-900">1</p>
+                                <p className="text-3xl font-light text-gray-900">{orders.filter(o => o.status === 'pending').length}</p>
                             </div>
                         </div>
                     </div>
@@ -493,7 +637,10 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                     </p>
                                 </div>
 
-                                <button className="w-full px-8 py-5 bg-gradient-to-r from-[#F5C542] to-[#d4a83a] text-white rounded-2xl font-light text-lg tracking-wide hover:shadow-xl hover:shadow-[#F5C542]/30 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]">
+                                <button
+                                    onClick={handleSubmitOrder}
+                                    className="w-full px-8 py-5 bg-gradient-to-r from-[#F5C542] to-[#d4a83a] text-white rounded-2xl font-light text-lg tracking-wide hover:shadow-xl hover:shadow-[#F5C542]/30 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+                                >
                                     {t.submitOrder}
                                 </button>
                             </div>
@@ -504,24 +651,26 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                             <div>
                                 <h2 className="text-3xl font-extralight text-gray-900 mb-8">{t.myOrders}</h2>
 
-                                {mockOrders.length > 0 ? (
+                                {orders.length > 0 ? (
                                     <div className="space-y-4">
-                                        {mockOrders.map((order) => (
-                                            <div key={order.id} className="group p-6 bg-gradient-to-r from-gray-50 to-white rounded-2xl border border-gray-100 hover:border-[#F5C542]/30 hover:shadow-lg transition-all duration-300">
+                                        {orders.map((order) => (
+                                            <div key={order._id} className="group p-6 bg-gradient-to-r from-gray-50 to-white rounded-2xl border border-gray-100 hover:border-[#F5C542]/30 hover:shadow-lg transition-all duration-300">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-6">
                                                         <div className="w-14 h-14 bg-gradient-to-br from-[#F5C542]/20 to-[#F5C542]/5 rounded-2xl flex items-center justify-center">
                                                             <span className="text-2xl">📦</span>
                                                         </div>
                                                         <div>
-                                                            <p className="font-medium text-gray-900">#{order.id}</p>
-                                                            <p className="text-sm text-gray-500">{order.date}</p>
+                                                            <p className="font-medium text-gray-900">#{order._id.slice(-6).toUpperCase()}</p>
+                                                            <p className="text-sm text-gray-500">{new Date(order.createdAt).toLocaleDateString()}</p>
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-4">
                                                         <div className="text-left">
-                                                            <p className="text-sm text-gray-500">{order.items}</p>
-                                                            <p className="font-medium text-gray-900">₪{order.total.toLocaleString()}</p>
+                                                            <p className="text-sm text-gray-500">{order.items.length} {t.items}</p>
+                                                            {(user?.role === 'admin' || user?.role === 'secretary') && (
+                                                                <p className="font-medium text-gray-900">₪{order.totalAmount.toLocaleString()}</p>
+                                                            )}
                                                         </div>
                                                         <span className={`px-4 py-2 rounded-xl text-xs font-medium ${getStatusColor(order.status)}`}>
                                                             {t.statuses[order.status as keyof typeof t.statuses]}
@@ -550,18 +699,18 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                             <div>
                                 <h2 className="text-3xl font-extralight text-gray-900 mb-8">{t.invoices}</h2>
 
-                                {mockInvoices.length > 0 ? (
+                                {invoices.length > 0 ? (
                                     <div className="space-y-4">
-                                        {mockInvoices.map((invoice) => (
-                                            <div key={invoice.id} className="group p-6 bg-gradient-to-r from-gray-50 to-white rounded-2xl border border-gray-100 hover:border-[#F5C542]/30 hover:shadow-lg transition-all duration-300">
+                                        {invoices.map((invoice) => (
+                                            <div key={invoice._id} className="group p-6 bg-gradient-to-r from-gray-50 to-white rounded-2xl border border-gray-100 hover:border-[#F5C542]/30 hover:shadow-lg transition-all duration-300">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-6">
                                                         <div className="w-14 h-14 bg-gradient-to-br from-blue-100 to-blue-50 rounded-2xl flex items-center justify-center">
                                                             <span className="text-2xl">📄</span>
                                                         </div>
                                                         <div>
-                                                            <p className="font-medium text-gray-900">{invoice.id}</p>
-                                                            <p className="text-sm text-gray-500">{invoice.date} • {t.orderRef} #{invoice.orderId}</p>
+                                                            <p className="font-medium text-gray-900">{invoice.invoiceNumber}</p>
+                                                            <p className="text-sm text-gray-500">{new Date(invoice.issuedAt).toLocaleDateString()} • {t.orderRef}</p>
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-6">
@@ -703,7 +852,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                                     {t.cancel}
                                                 </button>
                                                 <button
-                                                    onClick={() => setIsEditingProfile(false)}
+                                                    onClick={handleSaveProfile}
                                                     className="flex-1 px-6 py-4 bg-gradient-to-r from-[#F5C542] to-[#d4a83a] text-white rounded-xl font-light hover:shadow-lg hover:shadow-[#F5C542]/30 transition-all duration-300"
                                                 >
                                                     {t.save}
