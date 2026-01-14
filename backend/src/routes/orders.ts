@@ -1,73 +1,70 @@
 
 import { Router, Request, Response } from 'express';
+import { OrderModel } from '../models/Order.js';
 
 const router = Router();
 
-// In-Memory Orders DB
-const orders: any[] = [
-    {
-        _id: "1001",
-        customer: {
-            _id: "cus_1",
-            businessName: "מסעדת הזית הירוק",
-            contactPerson: "ישראל ישראלי",
-            phone: "050-1234567"
-        },
-        status: "pending",
-        items: [
-            { productType: "1L", quantity: 10, unitPrice: 25, totalPrice: 250 },
-            { productType: "5L", quantity: 5, unitPrice: 110, totalPrice: 550 }
-        ],
-        totalAmount: 800,
-        createdAt: new Date().toISOString()
-    },
-    {
-        _id: "1002",
-        customer: {
-            _id: "cus_2",
-            businessName: "קייטרינג גולדן",
-            contactPerson: "שרה כהן",
-            phone: "052-9876543"
-        },
-        status: "approved",
-        items: [
-            { productType: "18L", quantity: 2, unitPrice: 380, totalPrice: 760 }
-        ],
-        totalAmount: 760,
-        createdAt: new Date(Date.now() - 86400000).toISOString() // Yesterday
+// GET /api/orders - Get all orders (populated with customer details)
+router.get('/', async (req: Request, res: Response) => {
+    try {
+        const orders = await OrderModel.find().populate('customer').sort({ createdAt: -1 });
+        res.json(orders);
+    } catch (error) {
+        console.error("Get Orders Error:", error);
+        res.status(500).json({ message: "Failed to fetch orders" });
     }
-];
-
-// GET /api/orders - Get all orders
-router.get('/', (req: Request, res: Response) => {
-    res.json(orders);
 });
 
 // POST /api/orders - Create new order
-router.post('/', (req: Request, res: Response) => {
-    const newOrder = {
-        _id: Date.now().toString(),
-        createdAt: new Date().toISOString(),
-        status: "pending",
-        ...req.body
-    };
-    orders.unshift(newOrder); // Add to beginning
-    res.status(201).json(newOrder);
+router.post('/', async (req: Request, res: Response) => {
+    try {
+        const { customerId, items, totalAmount } = req.body;
+
+        // In a real app with auth, we'd get customerId from the token's user.
+        // For now we might need to find the Customer associated with the user if customerId isn't provided,
+        // or expect the frontend to send the customerId. 
+        // Assuming for this MVP the frontend sends all necessary data or we mock it.
+
+        // If items are missing or structure is wrong, Validation should happen here.
+
+        const newOrder = new OrderModel({
+            customer: customerId, // Assuming ID is passed
+            items,
+            totalAmount,
+            status: 'pending'
+        });
+
+        await newOrder.save();
+        res.status(201).json(newOrder);
+
+    } catch (error) {
+        console.error("Create Order Error:", error);
+        res.status(500).json({ message: "Failed to create order" });
+    }
 });
 
 // PATCH /api/orders/:id - Update order status
-router.patch('/:id', (req: Request, res: Response) => {
-    const { id } = req.params;
-    const { status } = req.body;
+router.patch('/:id', async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
 
-    const orderIndex = orders.findIndex(o => o._id === id);
-    if (orderIndex === -1) {
-        res.status(404).json({ message: "Order not found" });
-        return;
+        const updatedOrder = await OrderModel.findByIdAndUpdate(
+            id,
+            { status },
+            { new: true } // Return updated doc
+        );
+
+        if (!updatedOrder) {
+            res.status(404).json({ message: "Order not found" });
+            return;
+        }
+
+        res.json(updatedOrder);
+    } catch (error) {
+        console.error("Update Order Error:", error);
+        res.status(500).json({ message: "Failed to update order" });
     }
-
-    orders[orderIndex].status = status;
-    res.json(orders[orderIndex]);
 });
 
 export default router;

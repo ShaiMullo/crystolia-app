@@ -1,86 +1,99 @@
 
 import { Router, Request, Response } from 'express';
+import { UserModel } from '../models/User.js';
+import { CustomerModel } from '../models/Customer.js';
 
 const router = Router();
 
-// In-Memory Users DB
-const users: any[] = [
-    {
-        _id: "user_1",
-        email: "demo@crystolia.com",
-        password: "password123", // In real app, verify hash
-        firstName: "Demo",
-        lastName: "User",
-        role: "admin"
-    }
-];
-
 // POST /api/auth/register
-router.post('/register', (req: Request, res: Response) => {
-    const { email, password, firstName, lastName, phone } = req.body;
+router.post('/register', async (req: Request, res: Response) => {
+    try {
+        const { email, password, firstName, lastName, phone, role } = req.body;
 
-    if (!email || !password) {
-        res.status(400).json({ message: "Email and password are required" });
-        return;
-    }
-
-    const existingUser = users.find(u => u.email === email);
-    if (existingUser) {
-        res.status(400).json({ message: "User already exists" });
-        return;
-    }
-
-    const newUser = {
-        _id: Date.now().toString(),
-        email,
-        password, // In real app, hash this!
-        firstName,
-        lastName,
-        phone,
-        role: "customer"
-    };
-
-    users.push(newUser);
-
-    // Mock Token
-    const token = "mock_jwt_token_" + newUser._id;
-
-    res.status(201).json({
-        access_token: token,
-        user: {
-            _id: newUser._id,
-            email: newUser.email,
-            role: newUser.role,
-            firstName: newUser.firstName,
-            lastName: newUser.lastName
+        if (!email || !password) {
+            res.status(400).json({ message: "Email and password are required" });
+            return;
         }
-    });
+
+        const existingUser = await UserModel.findOne({ email });
+        if (existingUser) {
+            res.status(400).json({ message: "User already exists" });
+            return;
+        }
+
+        // Create User
+        const newUser = new UserModel({
+            email,
+            password, // TODO: Hash password in production
+            firstName,
+            lastName,
+            phone,
+            role: role || 'customer'
+        });
+
+        await newUser.save();
+
+        // If customer, create customer profile automatically
+        if (newUser.role === 'customer') {
+            const newCustomer = new CustomerModel({
+                businessName: `${firstName} ${lastName}`, // Default business name
+                contactPerson: `${firstName} ${lastName}`,
+                email: email,
+                phone: phone || '',
+                user: newUser._id
+            });
+            await newCustomer.save();
+        }
+
+        // Mock Token (Replace with real JWT in production)
+        const token = "mock_jwt_token_" + newUser._id;
+
+        res.status(201).json({
+            access_token: token,
+            user: {
+                _id: newUser._id,
+                email: newUser.email,
+                role: newUser.role,
+                firstName: newUser.firstName,
+                lastName: newUser.lastName
+            }
+        });
+    } catch (error) {
+        console.error("Register Error:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
 });
 
 // POST /api/auth/login
-router.post('/login', (req: Request, res: Response) => {
-    const { email, password } = req.body;
+router.post('/login', async (req: Request, res: Response) => {
+    try {
+        const { email, password } = req.body;
 
-    const user = users.find(u => u.email === email && u.password === password);
+        // Find user by email and password (plain text for demo)
+        const user = await UserModel.findOne({ email, password });
 
-    if (!user) {
-        res.status(401).json({ message: "Invalid credentials" });
-        return;
-    }
-
-    // Mock Token
-    const token = "mock_jwt_token_" + user._id;
-
-    res.json({
-        access_token: token,
-        user: {
-            _id: user._id,
-            email: user.email,
-            role: user.role,
-            firstName: user.firstName,
-            lastName: user.lastName
+        if (!user) {
+            res.status(401).json({ message: "Invalid credentials" });
+            return;
         }
-    });
+
+        // Mock Token
+        const token = "mock_jwt_token_" + user._id;
+
+        res.json({
+            access_token: token,
+            user: {
+                _id: user._id,
+                email: user.email,
+                role: user.role,
+                firstName: user.firstName,
+                lastName: user.lastName
+            }
+        });
+    } catch (error) {
+        console.error("Login Error:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
 });
 
 export default router;

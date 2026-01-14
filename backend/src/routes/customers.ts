@@ -1,49 +1,36 @@
 
 import { Router, Request, Response } from 'express';
+import { CustomerModel } from '../models/Customer.js';
 
 const router = Router();
 
-// In-Memory Customers DB
-const customers: any[] = [
-    {
-        _id: "cus_1",
-        businessName: "מסעדת הזית הירוק",
-        contactPerson: "ישראל ישראלי",
-        phone: "050-1234567",
-        email: "olive@restaurant.com",
-        address: { street: "הזית 10", city: "תל אביב" },
-        pricingTier: "gold"
-    },
-    {
-        _id: "cus_2",
-        businessName: "קייטרינג גולדן",
-        contactPerson: "שרה כהן",
-        phone: "052-9876543",
-        email: "info@golden.co.il",
-        address: { street: "הרימון 5", city: "רמת גן" },
-        pricingTier: "platinum"
-    },
-    {
-        _id: "cus_3",
-        businessName: "מלון רויאל",
-        contactPerson: "דוד לוי",
-        phone: "03-5551234",
-        email: "orders@royal.com",
-        address: { street: "הירקון 100", city: "תל אביב" },
-        pricingTier: "enterprise"
-    }
-];
-
 // GET /api/customers - Get all customers
-router.get('/', (req: Request, res: Response) => {
-    res.json(customers);
+router.get('/', async (req: Request, res: Response) => {
+    try {
+        const customers = await CustomerModel.find().sort({ businessName: 1 });
+        res.json(customers);
+    } catch (error) {
+        console.error("Get Customers Error:", error);
+        res.status(500).json({ message: "Failed to fetch customers" });
+    }
 });
 
 // GET /api/customers/my-profile - Get current user profile (Mock)
-router.get('/my-profile', (req: Request, res: Response) => {
-    // In a real app, we would get the user ID from the token (req.user)
-    // For now, return the first customer as a mock
-    res.json(customers[0]);
+router.get('/my-profile', async (req: Request, res: Response) => {
+    try {
+        // In real app: const userId = req.user.id;
+        // For now, return the first customer we find as a mock if no auth middleware populates user
+        const customer = await CustomerModel.findOne();
+
+        if (!customer) {
+            res.status(404).json({ message: "Profile not found" });
+            return;
+        }
+        res.json(customer);
+    } catch (error) {
+        console.error("Get Profile Error:", error);
+        res.status(500).json({ message: "Failed to fetch profile" });
+    }
 });
 
 export default router;
