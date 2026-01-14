@@ -2,9 +2,11 @@ export const translations = {
   he: {
     nav: {
       home: "בית",
+      products: "מוצרים",
       features: "תכונות",
       about: "אודות",
       contact: "צור קשר",
+      businessLogin: "אזור לעסקים",
     },
     hero: {
       title: "שמן חמניות איכותי",
@@ -73,9 +75,11 @@ export const translations = {
   en: {
     nav: {
       home: "Home",
+      products: "Products",
       features: "Features",
       about: "About",
       contact: "Contact",
+      businessLogin: "Business Portal",
     },
     hero: {
       title: "Premium Sunflower Oil",
@@ -144,9 +148,11 @@ export const translations = {
   ru: {
     nav: {
       home: "Главная",
+      products: "Продукты",
       features: "Особенности",
       about: "О нас",
       contact: "Контакты",
+      businessLogin: "Для бизнеса",
     },
     hero: {
       title: "Премиальное подсолнечное масло",
