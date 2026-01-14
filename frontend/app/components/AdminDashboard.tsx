@@ -44,88 +44,11 @@ interface AdminDashboardProps {
     locale: string;
 }
 
-// Mock data - will be replaced with real data from API
-const mockPendingOrders = [
-    {
-        id: "12346",
-        date: "2026-01-14",
-        customer: "מסעדת הזית הירוק",
-        phone: "050-1234567",
-        email: "olive@restaurant.com",
-        items: [
-            { product: "ארגז שמן חמניות 1L", quantity: 10 },
-            { product: "ארגז שמן חמניות 5L", quantity: 5 },
-        ],
-        calculatedCost: 1850,
-        suggestedPrice: 2200,
-    },
-    {
-        id: "12347",
-        date: "2026-01-14",
-        customer: "קייטרינג גולדן",
-        phone: "052-9876543",
-        email: "info@golden.co.il",
-        items: [
-            { product: "ארגז שמן חמניות 18L", quantity: 10 },
-        ],
-        calculatedCost: 2100,
-        suggestedPrice: 2500,
-    },
-];
-
-const mockRecentOrders = [
-    { id: "12345", date: "2026-01-13", customer: "מלון רויאל", status: "paid", total: 3500 },
-    { id: "12344", date: "2026-01-12", customer: "בית קפה אספרסו", status: "shipped", total: 1200 },
-    { id: "12343", date: "2026-01-11", customer: "מסעדת ים תיכון", status: "delivered", total: 4200 },
-];
-
-const mockCustomers = [
-    {
-        id: 1,
-        name: "מסעדת הזית הירוק",
-        email: "olive@restaurant.com",
-        phone: "050-1234567",
-        totalOrders: 15,
-        totalSpent: 45000,
-        orderBreakdown: { cases1L: 85, cases5L: 42, cases18L: 15 }
-    },
-    {
-        id: 2,
-        name: "קייטרינג גולדן",
-        email: "info@golden.co.il",
-        phone: "052-9876543",
-        totalOrders: 8,
-        totalSpent: 28000,
-        orderBreakdown: { cases1L: 20, cases5L: 35, cases18L: 28 }
-    },
-    {
-        id: 3,
-        name: "מלון רויאל",
-        email: "purchasing@royal.co.il",
-        phone: "03-5551234",
-        totalOrders: 22,
-        totalSpent: 78000,
-        orderBreakdown: { cases1L: 120, cases5L: 80, cases18L: 45 }
-    },
-    {
-        id: 4,
-        name: "בית קפה אספרסו",
-        email: "order@espresso.co.il",
-        phone: "054-1112222",
-        totalOrders: 5,
-        totalSpent: 12000,
-        orderBreakdown: { cases1L: 45, cases5L: 12, cases18L: 3 }
-    },
-];
-
 export default function AdminDashboard({ locale }: AdminDashboardProps) {
     const [activeTab, setActiveTab] = useState<"pending" | "orders" | "customers" | "analytics" | "settings">("pending");
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [customPrice, setCustomPrice] = useState("");
     const [showPriceModal, setShowPriceModal] = useState(false);
-    const [chartType, setChartType] = useState<"bar" | "pie">("bar");
-    const [timePeriod, setTimePeriod] = useState<"month" | "quarter" | "year">("month");
-    const [hoveredCustomer, setHoveredCustomer] = useState<Customer | null>(null);
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const isRTL = locale === "he";
@@ -133,13 +56,11 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
     // API data state
     const [orders, setOrders] = useState<Order[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
-    const [loading, setLoading] = useState(true);
 
     // Fetch data from API
     useEffect(() => {
         const fetchData = async () => {
             try {
-                setLoading(true);
                 const [ordersRes, customersRes] = await Promise.all([
                     api.get('/orders'),
                     api.get('/customers')
@@ -148,8 +69,6 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                 setCustomers(Array.isArray(customersRes.data) ? customersRes.data : []);
             } catch (error) {
                 console.error("Failed to fetch admin data:", error);
-            } finally {
-                setLoading(false);
             }
         };
 
@@ -539,7 +458,7 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                                 </div>
                                 <div>
                                     <p className="text-sm text-slate-400">{t.stats.pendingOrders}</p>
-                                    <p className="text-3xl font-light text-white">{mockPendingOrders.length}</p>
+                                    <p className="text-3xl font-light text-white">{pendingOrders.length}</p>
                                 </div>
                             </div>
                         </div>
