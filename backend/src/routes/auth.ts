@@ -3,7 +3,43 @@ import { Router, Request, Response } from 'express';
 import { UserModel } from '../models/User.js';
 import { CustomerModel } from '../models/Customer.js';
 
+import passport from 'passport';
+
 const router = Router();
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Google OAuth
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+
+router.get('/google/callback',
+    passport.authenticate('google', { failureRedirect: '/login?error=google_auth_failed', session: false }),
+    (req: Request, res: Response) => {
+        console.log("🔹 Google Callback Route Hit");
+        // Successful authentication
+        const user = req.user as any;
+        console.log("User authenticated:", user._id);
+
+        const token = "mock_jwt_token_" + user._id; // Replace with real JWT signing
+
+        // Redirect to frontend with token
+        // In production, use a secure cookie or a dedicated frontend callback page
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        const redirectUrl = `${frontendUrl}/he/auth/callback?token=${token}&userId=${user._id}&role=${user.role}&firstName=${user.firstName}&lastName=${user.lastName}`;
+
+        console.log("Redirecting to:", redirectUrl);
+        res.redirect(redirectUrl);
+    }
+);
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Apple OAuth (Placeholder)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Apple requires POST for some callbacks
+router.post('/apple/callback', (req, res) => {
+    res.send("Apple Sign-In Not Implemented Yet (Requires Keys)");
+});
 
 // POST /api/auth/register
 router.post('/register', async (req: Request, res: Response) => {
