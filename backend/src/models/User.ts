@@ -9,6 +9,7 @@ const userSchema = new mongoose.Schema({
     role: { type: String, enum: ['admin', 'customer', 'secretary'], default: 'customer' },
     googleId: { type: String },
     appleId: { type: String },
+    profilePicture: { type: String }, // URL to profile image
     createdAt: { type: Date, default: Date.now }
 });
 

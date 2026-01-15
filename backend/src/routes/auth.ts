@@ -2,6 +2,7 @@
 import { Router, Request, Response } from 'express';
 import { UserModel } from '../models/User.js';
 import { CustomerModel } from '../models/Customer.js';
+import bcrypt from 'bcrypt';
 
 import passport from 'passport';
 
@@ -26,7 +27,8 @@ router.get('/google/callback',
         // Redirect to frontend with token
         // In production, use a secure cookie or a dedicated frontend callback page
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-        const redirectUrl = `${frontendUrl}/he/auth/callback?token=${token}&userId=${user._id}&role=${user.role}&firstName=${user.firstName}&lastName=${user.lastName}`;
+        const profilePic = encodeURIComponent(user.profilePicture || '');
+        const redirectUrl = `${frontendUrl}/he/auth/callback?token=${token}&userId=${user._id}&role=${user.role}&firstName=${user.firstName}&lastName=${user.lastName}&profilePicture=${profilePic}`;
 
         console.log("Redirecting to:", redirectUrl);
         res.redirect(redirectUrl);
@@ -57,10 +59,14 @@ router.post('/register', async (req: Request, res: Response) => {
             return;
         }
 
+        // Hash password
+        const saltRounds = 10;
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+
         // Create User
         const newUser = new UserModel({
             email,
-            password, // TODO: Hash password in production
+            password: hashedPassword,
             firstName,
             lastName,
             phone,
@@ -105,10 +111,17 @@ router.post('/login', async (req: Request, res: Response) => {
     try {
         const { email, password } = req.body;
 
-        // Find user by email and password (plain text for demo)
-        const user = await UserModel.findOne({ email, password });
+        // Find user by email
+        const user = await UserModel.findOne({ email });
 
-        if (!user) {
+        if (!user || !user.password) {
+            res.status(401).json({ message: "Invalid credentials" });
+            return;
+        }
+
+        // Compare password with hash
+        const isValidPassword = await bcrypt.compare(password, user.password);
+        if (!isValidPassword) {
             res.status(401).json({ message: "Invalid credentials" });
             return;
         }
