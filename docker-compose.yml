@@ -50,6 +50,13 @@ services:
       - WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID}
       - WHATSAPP_WEBHOOK_VERIFY_TOKEN=${WHATSAPP_WEBHOOK_VERIFY_TOKEN}
       - MONGO_URI=mongodb://mongo:27017/crystolia
+      # Social Auth Keys (Replace with real values)
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-483698534098-qvlmk53c5v53lel1bj7c67fa921cskm0.apps.googleusercontent.com}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-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}
+      # - APPLE_SERVICE_ID=...
+      # - APPLE_TEAM_ID=...
+      # - APPLE_KEY_ID=...
+      # - APPLE_PRIVATE_KEY_PATH=...
     depends_on:
       - mongo
     restart: unless-stopped

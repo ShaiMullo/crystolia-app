@@ -7,7 +7,6 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import mongoose from 'mongoose';
-import leadsRouter from './routes/leads.js';
 import whatsappRouter from './routes/whatsapp.js';
 import ordersRouter from './routes/orders.js';
 import customersRouter from './routes/customers.js';
@@ -16,6 +15,9 @@ import analyticsRouter from './routes/analytics.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 // יצירת האפליקציה
+import './config/passport.js'; // Import passport config
+import passport from 'passport';
+
 const app = express();
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -49,9 +51,6 @@ app.get('/api/health', (_req: Request, res: Response) => {
 
 // Auth API
 app.use('/api/auth', authRouter);
-
-// Leads API
-app.use('/api/leads', leadsRouter);
 
 // WhatsApp API
 app.use('/api/whatsapp', whatsappRouter);

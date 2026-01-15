@@ -53,6 +53,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
     const router = useRouter();
 
+    // Check for social login token in URL
+    React.useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            const tokenParam = params.get('token');
+            const userId = params.get('userId');
+
+            if (tokenParam && userId) {
+                const userObj: User = {
+                    _id: userId,
+                    email: params.get('email') || '',
+                    role: params.get('role') || 'customer',
+                    firstName: params.get('firstName') || '',
+                    lastName: params.get('lastName') || ''
+                };
+
+                setToken(tokenParam);
+                setUser(userObj);
+                localStorage.setItem('token', tokenParam);
+                localStorage.setItem('user', JSON.stringify(userObj));
+
+                // Clean URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+
+                // Redirect
+                if (userObj.role === 'admin') router.push('/he/admin');
+                else if (userObj.role === 'secretary') router.push('/he/secretary');
+                else router.push('/he/dashboard');
+            }
+        }
+    }, [router]);
+
     const login = async (credentials: LoginData) => {
         try {
             const response = await api.post('/auth/login', credentials);

@@ -172,8 +172,14 @@ export default function AuthPage({ locale }: AuthPageProps) {
     };
 
     const handleSocialLogin = (provider: string) => {
-        // TODO: Implement OAuth
-        console.log(`Login with ${provider}`);
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+        if (provider === 'google') {
+            window.location.href = `${API_URL}/auth/google`;
+        } else if (provider === 'apple') {
+            // Apple login flow usually requires a specific setup with frontend JS or redirect
+            // For this MVP we redirect to backend which might just show "Not Implemented"
+            window.location.href = `${API_URL}/auth/apple`;
+        }
     };
 
     return (
