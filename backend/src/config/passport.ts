@@ -32,6 +32,11 @@ passport.use(new GoogleStrategy({
         let user = await UserModel.findOne({ googleId: profile.id });
 
         if (user) {
+            // Update profile picture if not set
+            if (!user.profilePicture && profile.photos?.[0]?.value) {
+                user.profilePicture = profile.photos[0].value;
+                await user.save();
+            }
             return done(null, user);
         }
 
@@ -41,8 +46,11 @@ passport.use(new GoogleStrategy({
             user = await UserModel.findOne({ email });
             if (user) {
                 console.log("🔹 User found by email, linking Google ID");
-                // Link Google account
+                // Link Google account and update profile picture
                 user.googleId = profile.id;
+                if (!user.profilePicture && profile.photos?.[0]?.value) {
+                    user.profilePicture = profile.photos[0].value;
+                }
                 await user.save();
                 return done(null, user);
             }
@@ -54,6 +62,7 @@ passport.use(new GoogleStrategy({
             email: email,
             firstName: (profile.name?.givenName || 'Google').trim(),
             lastName: (profile.name?.familyName || 'User').trim(),
+            profilePicture: profile.photos?.[0]?.value || null,
             role: 'customer' // Default role
         });
 

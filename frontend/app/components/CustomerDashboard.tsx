@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import api from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import toast from "react-hot-toast";
 
 interface CustomerDashboardProps {
     locale: string;
@@ -136,17 +137,17 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
 
             setHasProfile(true);
             setIsEditingProfile(false);
-            alert("הפרופיל נשמר בהצלחה!");
+            toast.success("הפרופיל נשמר בהצלחה!");
         } catch (error: unknown) {
             console.error("Failed to save profile:", error);
             const err = error as { response?: { data?: { message?: string } }; message?: string };
-            alert(`שמירת הפרופיל נכשלה: ${err.response?.data?.message || err.message}`);
+            toast.error(`שמירת הפרופיל נכשלה: ${err.response?.data?.message || err.message}`);
         }
     };
 
     const handleSubmitOrder = async () => {
         if (!hasProfile) {
-            alert("אנא מלא את פרטי הפרופיל שלך לפני ביצוע הזמנה");
+            toast.error("אנא מלא את פרטי הפרופיל שלך לפני ביצוע הזמנה");
             setActiveTab("profile");
             setIsEditingProfile(true);
             return;
@@ -158,13 +159,13 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
         if (orderQuantities["18L"] > 0) items.push({ productType: "18L", quantity: orderQuantities["18L"] });
 
         if (items.length === 0) {
-            alert("אנא בחר לפחות מוצר אחד");
+            toast.error("אנא בחר לפחות מוצר אחד");
             return;
         }
 
         try {
             await api.post('/orders', { items });
-            alert("Order submitted successfully!"); // Ideally verify with toast
+            toast.success("ההזמנה נשלחה בהצלחה! 🎉");
 
             // Reset form
             setOrderQuantities({ "1L": 0, "5L": 0, "18L": 0 });
@@ -177,10 +178,9 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
             console.error("Failed to submit order:", error);
             const err = error as { response?: { status?: number; data?: { message?: string } }; message?: string };
             if (err.response?.status === 401) {
-                alert("המושב פג תוקף, אנא התחבר מחדש");
-                // Optional: logout()
+                toast.error("המושב פג תוקף, אנא התחבר מחדש");
             } else {
-                alert(`Failed to submit order: ${err.response?.data?.message || err.message}`);
+                toast.error(`שליחת ההזמנה נכשלה: ${err.response?.data?.message || err.message}`);
             }
         }
     };

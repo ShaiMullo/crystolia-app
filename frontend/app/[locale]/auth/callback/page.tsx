@@ -13,6 +13,7 @@ function AuthCallbackContent() {
         const role = searchParams.get("role") || "customer";
         const firstName = searchParams.get("firstName") || "";
         const lastName = searchParams.get("lastName") || "";
+        const profilePicture = searchParams.get("profilePicture") || "";
 
         console.log("🔹 Auth Callback Page - Token received:", token);
 
@@ -23,6 +24,7 @@ function AuthCallbackContent() {
                 role,
                 firstName,
                 lastName,
+                profilePicture: decodeURIComponent(profilePicture),
             };
 
             localStorage.setItem("token", token);
