@@ -1,6 +1,7 @@
 
 import { Router, Request, Response } from 'express';
 import { OrderModel } from '../models/Order.js';
+import { CustomerModel } from '../models/Customer.js';
 
 const router = Router();
 
@@ -18,18 +19,41 @@ router.get('/', async (req: Request, res: Response) => {
 // POST /api/orders - Create new order
 router.post('/', async (req: Request, res: Response) => {
     try {
-        const { customerId, items, totalAmount } = req.body;
+        const { items } = req.body;
 
-        // In a real app with auth, we'd get customerId from the token's user.
-        // For now we might need to find the Customer associated with the user if customerId isn't provided,
-        // or expect the frontend to send the customerId. 
-        // Assuming for this MVP the frontend sends all necessary data or we mock it.
+        // 1. Calculate Prices
+        const PRICES: Record<string, number> = {
+            "1L": 25,
+            "5L": 110,
+            "18L": 380
+        };
 
-        // If items are missing or structure is wrong, Validation should happen here.
+        let totalAmount = 0;
+        const enrichedItems = items.map((item: any) => {
+            const unitPrice = PRICES[item.productType] || 0;
+            const totalPrice = unitPrice * item.quantity;
+            totalAmount += totalPrice;
+            return {
+                ...item,
+                unitPrice,
+                totalPrice
+            };
+        });
+
+        // 2. Find Customer (Fallback to first customer if no auth context)
+        // In a real app, req.user would have the ID.
+        // For this demo, we'll assign the order to the first customer found.
+        // For this demo, we'll assign the order to the first customer found.
+        const customer = await CustomerModel.findOne();
+
+        if (!customer) {
+            res.status(400).json({ message: "No customer profile found" });
+            return;
+        }
 
         const newOrder = new OrderModel({
-            customer: customerId, // Assuming ID is passed
-            items,
+            customer: customer._id,
+            items: enrichedItems,
             totalAmount,
             status: 'pending'
         });
