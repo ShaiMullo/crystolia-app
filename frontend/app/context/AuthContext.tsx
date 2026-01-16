@@ -10,6 +10,7 @@ interface User {
     role: string;
     firstName: string;
     lastName: string;
+    profilePicture?: string;
 }
 
 interface LoginData {

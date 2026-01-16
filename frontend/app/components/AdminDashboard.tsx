@@ -51,6 +51,7 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
     const [showPriceModal, setShowPriceModal] = useState(false);
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
     const [showDetailsModal, setShowDetailsModal] = useState(false);
+    const [chartType, setChartType] = useState<"bar" | "pie">("bar");
     const isRTL = locale === "he";
 
     // API data state
@@ -694,6 +695,164 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                                         </p>
                                     </div>
                                 </div>
+                            </div>
+
+                            {/* Top Customers Chart */}
+                            <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50">
+                                <div className="flex items-center justify-between mb-6">
+                                    <h2 className="text-xl font-light text-white">{t.topCustomers}</h2>
+                                    {/* Chart Type Toggle */}
+                                    <div className="flex gap-1 p-1 bg-slate-700/50 rounded-xl">
+                                        {(["bar", "pie"] as const).map((type) => (
+                                            <button
+                                                key={type}
+                                                onClick={() => setChartType(type)}
+                                                className={`px-3 py-2 rounded-lg text-sm font-light transition-all flex items-center gap-2 ${chartType === type
+                                                    ? "bg-[#F5C542] text-slate-900"
+                                                    : "text-slate-400 hover:text-white"
+                                                    }`}
+                                            >
+                                                {type === "bar" ? (
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                                    </svg>
+                                                ) : (
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+                                                    </svg>
+                                                )}
+                                                {t.chartTypes[type]}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Bar Chart */}
+                                {chartType === "bar" && customers.length > 0 && (
+                                    <div className="space-y-4">
+                                        {(() => {
+                                            // Calculate spending per customer from orders
+                                            const customerSpending = customers.map(c => {
+                                                const customerOrders = allOrders.filter(o => o.customer?._id === c._id);
+                                                const totalSpent = customerOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+                                                return { ...c, totalSpent, orderCount: customerOrders.length };
+                                            }).sort((a, b) => b.totalSpent - a.totalSpent).slice(0, 5);
+
+                                            const maxSpent = Math.max(...customerSpending.map(c => c.totalSpent), 1);
+
+                                            return customerSpending.map((customer, index) => {
+                                                const percentage = (customer.totalSpent / maxSpent) * 100;
+                                                return (
+                                                    <div key={customer._id} className="group">
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <div className="flex items-center gap-3">
+                                                                <span className="w-6 h-6 rounded-lg bg-[#F5C542]/20 text-[#F5C542] text-xs font-medium flex items-center justify-center">
+                                                                    {index + 1}
+                                                                </span>
+                                                                <span className="text-white font-medium">{customer.businessName}</span>
+                                                            </div>
+                                                            <span className="text-[#F5C542] font-medium">₪{customer.totalSpent.toLocaleString()}</span>
+                                                        </div>
+                                                        <div className="h-8 bg-slate-700/50 rounded-xl overflow-hidden">
+                                                            <div
+                                                                className="h-full bg-gradient-to-r from-[#F5C542] to-[#d4a83a] rounded-xl transition-all duration-500 group-hover:shadow-lg group-hover:shadow-[#F5C542]/30"
+                                                                style={{ width: `${percentage}%` }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                );
+                                            });
+                                        })()}
+                                    </div>
+                                )}
+
+                                {/* Pie Chart */}
+                                {chartType === "pie" && customers.length > 0 && (
+                                    <div className="flex items-center justify-center gap-12">
+                                        {/* SVG Donut Chart */}
+                                        <div className="relative">
+                                            <svg viewBox="0 0 100 100" className="w-64 h-64 transform -rotate-90">
+                                                {(() => {
+                                                    const customerSpending = customers.map(c => {
+                                                        const customerOrders = allOrders.filter(o => o.customer?._id === c._id);
+                                                        const totalSpent = customerOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+                                                        return { ...c, totalSpent };
+                                                    }).sort((a, b) => b.totalSpent - a.totalSpent).slice(0, 5);
+
+                                                    const total = customerSpending.reduce((sum, c) => sum + c.totalSpent, 0) || 1;
+                                                    const colors = ["#F5C542", "#10b981", "#3b82f6", "#8b5cf6", "#ef4444"];
+                                                    let cumulativePercent = 0;
+
+                                                    return customerSpending.map((customer, index) => {
+                                                        const percent = (customer.totalSpent / total) * 100;
+                                                        const dashOffset = -cumulativePercent;
+                                                        cumulativePercent += percent;
+
+                                                        return (
+                                                            <circle
+                                                                key={customer._id}
+                                                                cx="50"
+                                                                cy="50"
+                                                                r="40"
+                                                                fill="none"
+                                                                stroke={colors[index % colors.length]}
+                                                                strokeWidth="20"
+                                                                className="transition-all duration-500 hover:opacity-80 cursor-pointer"
+                                                                style={{
+                                                                    strokeDasharray: `${percent} ${100 - percent}`,
+                                                                    strokeDashoffset: dashOffset,
+                                                                }}
+                                                            />
+                                                        );
+                                                    });
+                                                })()}
+                                            </svg>
+                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                <div className="text-center">
+                                                    <p className="text-3xl font-light text-white">₪{allOrders.reduce((sum, o) => sum + o.totalAmount, 0).toLocaleString()}</p>
+                                                    <p className="text-sm text-slate-400">{t.totalRevenue}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Legend */}
+                                        <div className="space-y-3">
+                                            {(() => {
+                                                const customerSpending = customers.map(c => {
+                                                    const customerOrders = allOrders.filter(o => o.customer?._id === c._id);
+                                                    const totalSpent = customerOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+                                                    return { ...c, totalSpent };
+                                                }).sort((a, b) => b.totalSpent - a.totalSpent).slice(0, 5);
+
+                                                const total = customerSpending.reduce((sum, c) => sum + c.totalSpent, 0) || 1;
+                                                const colors = ["#F5C542", "#10b981", "#3b82f6", "#8b5cf6", "#ef4444"];
+
+                                                return customerSpending.map((customer, index) => {
+                                                    const percent = ((customer.totalSpent / total) * 100).toFixed(1);
+                                                    return (
+                                                        <div key={customer._id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 transition-all">
+                                                            <div
+                                                                className="w-4 h-4 rounded-full flex-shrink-0"
+                                                                style={{ backgroundColor: colors[index % colors.length] }}
+                                                            />
+                                                            <div>
+                                                                <p className="text-white font-medium">{customer.businessName}</p>
+                                                                <p className="text-sm text-slate-400">₪{customer.totalSpent.toLocaleString()} ({percent}%)</p>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                });
+                                            })()}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {customers.length === 0 && (
+                                    <div className="text-center py-12 text-slate-400">
+                                        <p>אין נתוני לקוחות להצגה</p>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Orders by Status */}

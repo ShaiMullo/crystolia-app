@@ -457,10 +457,12 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                 {/* Profile Picture */}
                                 <div className="relative group">
                                     <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#F5C542] to-[#d4a83a] flex items-center justify-center text-white font-medium text-lg shadow-lg shadow-[#F5C542]/20 overflow-hidden">
-                                        {profile.profileImage ? (
+                                        {user?.profilePicture ? (
+                                            <Image src={user.profilePicture} alt="Profile" fill className="object-cover" />
+                                        ) : profile.profileImage ? (
                                             <Image src={profile.profileImage} alt="Profile" fill className="object-cover" />
                                         ) : (
-                                            profile.companyName.charAt(0)
+                                            profile.companyName.charAt(0) || user?.firstName?.charAt(0) || '?'
                                         )}
                                     </div>
                                     <div className="absolute inset-0 rounded-2xl bg-black/0 group-hover:bg-black/10 transition-colors" />
@@ -513,10 +515,10 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                 </div>
             </header>
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
                 {/* Premium Stats Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <div className="group bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-xl hover:border-[#F5C542]/20 transition-all duration-500 hover:-translate-y-1">
+                    <div className="group bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-xl hover:border-[#F5C542]/20 transition-all duration-500 hover:-translate-y-1 animate-fade-in-delay">
                         <div className="flex items-center gap-4">
                             <div className="w-14 h-14 bg-gradient-to-br from-[#F5C542]/20 to-[#F5C542]/5 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
                                 <svg className="w-7 h-7 text-[#F5C542]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -531,7 +533,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                     </div>
 
                     {(user?.role === 'admin' || user?.role === 'secretary') && (
-                        <div className="group bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-xl hover:border-emerald-200 transition-all duration-500 hover:-translate-y-1">
+                        <div className="group bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-xl hover:border-emerald-200 transition-all duration-500 hover:-translate-y-1 animate-fade-in-delay-2">
                             <div className="flex items-center gap-4">
                                 <div className="w-14 h-14 bg-gradient-to-br from-emerald-100 to-emerald-50 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
                                     <svg className="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -546,7 +548,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                         </div>
                     )}
 
-                    <div className="group bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-xl hover:border-blue-200 transition-all duration-500 hover:-translate-y-1">
+                    <div className="group bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-xl hover:border-blue-200 transition-all duration-500 hover:-translate-y-1 animate-fade-in-delay-3">
                         <div className="flex items-center gap-4">
                             <div className="w-14 h-14 bg-gradient-to-br from-blue-100 to-blue-50 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
                                 <svg className="w-7 h-7 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -562,7 +564,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                 </div>
 
                 {/* Premium Tabs Container */}
-                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden animate-slide-up">
                     {/* Tab Navigation */}
                     <div className="flex border-b border-gray-100 bg-gray-50/50">
                         {tabs.map((tab) => (
