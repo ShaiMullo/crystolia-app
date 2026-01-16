@@ -1,0 +1,36 @@
+# Default values for crystolia-chart.
+
+global:
+  environment: "development"
+
+frontend:
+  image:
+    repository: shaimullo/crystolia-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 3000
+  replicaCount: 1
+
+backend:
+  image:
+    repository: shaimullo/crystolia-backend
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 3000
+  replicaCount: 1
+  env:
+    MONGO_URI: "mongodb://mongodb:27017/crystolia"
+
+mongodb:
+  image:
+    repository: mongo
+    tag: 6.0
+  service:
+    port: 27017
+  persistence:
+    enabled: true
+    size: 1Gi
