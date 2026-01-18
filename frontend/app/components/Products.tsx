@@ -46,16 +46,22 @@ export default function Products({ locale, dict }: ProductsProps) {
   return (
     <section
       id="products"
-      className="relative py-32 bg-gradient-to-b from-white to-gray-50/30"
+      className="relative py-32 bg-gradient-to-b from-[#FFF8E7]/50 via-white to-[#FFF8E7]/30"
     >
+      {/* Decorative Elements */}
+      <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-white to-transparent" />
+      <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-white to-transparent" />
+
       <div
-        className={`max-w-7xl mx-auto px-6 lg:px-12 ${
-          isRTL ? "rtl" : "ltr"
-        }`}
+        className={`relative z-10 max-w-7xl mx-auto px-6 lg:px-12 ${isRTL ? "rtl" : "ltr"
+          }`}
       >
         {/* Section Header */}
         <div className="text-center mb-20">
-          <h2 className="text-5xl md:text-6xl font-extralight tracking-tight text-gray-900 mb-4">
+          <span className="inline-block px-4 py-1.5 rounded-full bg-gradient-to-r from-[#F5C542]/20 to-[#B8860B]/20 text-[#B8860B] text-sm font-medium tracking-wider uppercase mb-4">
+            Premium Collection
+          </span>
+          <h2 className="text-5xl md:text-6xl font-light tracking-tight text-[#3D2914] mb-4">
             {dict.products.title}
           </h2>
           <p className="text-xl font-light text-gray-600 max-w-2xl mx-auto">
@@ -70,10 +76,14 @@ export default function Products({ locale, dict }: ProductsProps) {
             return (
               <div
                 key={product.size}
-                className="group relative bg-white rounded-3xl p-8 shadow-sm hover:shadow-xl transition-all duration-500 hover:-translate-y-2 border border-gray-100"
+                className="group relative bg-white rounded-3xl p-8 shadow-lg hover:shadow-2xl hover:shadow-[#F5C542]/15 transition-all duration-500 hover:-translate-y-3 border-2 border-[#F5C542]/10 hover:border-[#F5C542]/40"
               >
                 {/* Product Image */}
                 <div className="relative h-64 mb-6 flex items-center justify-center">
+                  {/* Size Badge */}
+                  <div className="absolute top-0 right-0 px-3 py-1.5 bg-gradient-to-r from-[#F5C542] to-[#B8860B] text-white text-sm font-bold rounded-full shadow-md">
+                    {product.size}
+                  </div>
                   <div className="relative w-full h-full max-w-[200px] mx-auto">
                     <Image
                       src={product.image}
@@ -87,7 +97,7 @@ export default function Products({ locale, dict }: ProductsProps) {
 
                 {/* Product Info */}
                 <div className="text-center space-y-4">
-                  <h3 className="text-2xl font-light text-gray-900">
+                  <h3 className="text-2xl font-medium text-[#3D2914]">
                     {productData.title}
                   </h3>
                   <p className="text-gray-600 font-light leading-relaxed min-h-[60px]">
@@ -97,7 +107,7 @@ export default function Products({ locale, dict }: ProductsProps) {
                   {/* WhatsApp CTA Button */}
                   <button
                     onClick={() => handleWhatsApp(index)}
-                    className="w-full mt-6 px-6 py-3 bg-[#25D366] text-white rounded-full font-light text-sm tracking-wide hover:bg-[#25D366]/90 transition-all duration-300 hover:scale-105 active:scale-95 shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                    className="w-full mt-6 px-6 py-3.5 bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white rounded-full font-medium text-sm tracking-wide hover:from-[#25D366] hover:to-[#25D366] transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg shadow-[#25D366]/30 hover:shadow-xl hover:shadow-[#25D366]/40 flex items-center justify-center gap-2"
                   >
                     <svg
                       className="w-4 h-4"
@@ -111,7 +121,7 @@ export default function Products({ locale, dict }: ProductsProps) {
                 </div>
 
                 {/* Hover Glow Effect */}
-                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-[#F5C542]/0 to-[#F5C542]/0 group-hover:from-[#F5C542]/5 group-hover:to-transparent transition-all duration-500 pointer-events-none" />
+                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-[#F5C542]/0 to-[#B8860B]/0 group-hover:from-[#F5C542]/5 group-hover:to-transparent transition-all duration-500 pointer-events-none" />
               </div>
             );
           })}
