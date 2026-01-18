@@ -19,16 +19,23 @@ spec:
           ports:
             - containerPort: 27017
           volumeMounts:
-            - name: mongo-persistent-storage
+            - name: mongo-data
               mountPath: /data/db
+      {{- if not .Values.mongodb.persistence.enabled }}
+      volumes:
+        - name: mongo-data
+          emptyDir: {}
+      {{- end }}
+  {{- if .Values.mongodb.persistence.enabled }}
   volumeClaimTemplates:
     - metadata:
-        name: mongo-persistent-storage
+        name: mongo-data
       spec:
         accessModes: [ "ReadWriteOnce" ]
         resources:
           requests:
             storage: {{ .Values.mongodb.persistence.size }}
+  {{- end }}
 ---
 apiVersion: v1
 kind: Service
