@@ -33,4 +33,49 @@ router.get('/my-profile', async (req: Request, res: Response) => {
     }
 });
 
+// POST /api/customers/onboarding - Complete onboarding for new users
+router.post('/onboarding', async (req: Request, res: Response) => {
+    try {
+        const { userId, businessName, businessId, address, city, phone } = req.body;
+
+        if (!businessName || !businessId) {
+            res.status(400).json({ message: "Business name and ID are required" });
+            return;
+        }
+
+        // Check if customer already exists for this user
+        let customer = await CustomerModel.findOne({ user: userId });
+
+        if (customer) {
+            // Update existing customer
+            customer.businessName = businessName;
+            customer.businessId = businessId;
+            customer.address = address || customer.address;
+            customer.city = city || customer.city;
+            customer.phone = phone || customer.phone;
+            customer.onboardingComplete = true;
+            await customer.save();
+        } else {
+            // Create new customer
+            customer = new CustomerModel({
+                user: userId,
+                businessName,
+                businessId,
+                address: address || '',
+                city: city || '',
+                phone: phone || '',
+                contactPerson: businessName,
+                email: '', // Will be filled from user profile
+                onboardingComplete: true
+            });
+            await customer.save();
+        }
+
+        res.status(201).json({ message: "Onboarding complete", customer });
+    } catch (error) {
+        console.error("Onboarding Error:", error);
+        res.status(500).json({ message: "Failed to complete onboarding" });
+    }
+});
+
 export default router;

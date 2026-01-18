@@ -2,9 +2,9 @@ name: SMS CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "dev" ]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "dev" ]
 
 env:
   AWS_REGION: us-east-1
@@ -55,7 +55,7 @@ jobs:
   build-and-push:
     name: 📦 Build & Push Docker
     needs: ci-checks
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code

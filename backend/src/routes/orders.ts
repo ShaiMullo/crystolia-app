@@ -73,18 +73,58 @@ router.patch('/:id', async (req: Request, res: Response) => {
         const { id } = req.params;
         const { status } = req.body;
 
-        const updatedOrder = await OrderModel.findByIdAndUpdate(
-            id,
-            { status },
-            { new: true } // Return updated doc
-        );
+        const order = await OrderModel.findById(id).populate('customer');
 
-        if (!updatedOrder) {
+        if (!order) {
             res.status(404).json({ message: "Order not found" });
             return;
         }
 
-        res.json(updatedOrder);
+        const previousStatus = order.status;
+        order.status = status;
+
+        // If status changed to 'approved', create invoice via Green Invoice
+        if (status === 'approved' && previousStatus !== 'approved') {
+            try {
+                const { createInvoice, isGreenInvoiceConfigured } = await import('../services/greenInvoice.js');
+
+                if (isGreenInvoiceConfigured()) {
+                    const customer = order.customer as any;
+
+                    // Create invoice in Green Invoice
+                    const invoiceData = await createInvoice({
+                        client: {
+                            name: customer?.businessName || 'לקוח',
+                            emails: customer?.email ? [customer.email] : [],
+                            address: customer?.address || '',
+                            city: customer?.city || '',
+                            phone: customer?.phone || '',
+                            taxId: customer?.businessId || ''
+                        },
+                        items: order.items.map((item: any) => ({
+                            description: `שמן חמניות - ${item.productType}`,
+                            quantity: item.quantity,
+                            price: item.unitPrice,
+                            currency: 'ILS'
+                        })),
+                        type: 320 // חשבונית מס
+                    });
+
+                    // Save invoice reference to order
+                    order.invoiceId = invoiceData.id;
+                    order.invoiceUrl = invoiceData.url || '';
+                    console.log(`✅ Invoice created for order ${id}: ${invoiceData.id}`);
+                } else {
+                    console.log('⚠️ Green Invoice not configured, skipping invoice creation');
+                }
+            } catch (invoiceError) {
+                console.error('❌ Failed to create invoice:', invoiceError);
+                // Continue with order update even if invoice fails
+            }
+        }
+
+        await order.save();
+        res.json(order);
     } catch (error) {
         console.error("Update Order Error:", error);
         res.status(500).json({ message: "Failed to update order" });

@@ -16,6 +16,8 @@ const orderSchema = new mongoose.Schema({
     },
     items: [orderItemSchema],
     totalAmount: { type: Number, required: true },
+    invoiceId: { type: String }, // Green Invoice document ID
+    invoiceUrl: { type: String }, // Link to invoice PDF
     createdAt: { type: Date, default: Date.now }
 });
 
