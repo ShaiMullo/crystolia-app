@@ -1,0 +1,81 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-ingress
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    {{- if .Values.ingress.tls.enabled }}
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    {{- end }}
+spec:
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host }}
+        {{- if .Values.ingress.hostWWW }}
+        - {{ .Values.ingress.hostWWW }}
+        {{- end }}
+        {{- if .Values.ingress.hostIL }}
+        - {{ .Values.ingress.hostIL }}
+        {{- end }}
+      secretName: crystolia-tls
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: crystolia-backend
+                port:
+                  number: 3000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: crystolia-frontend
+                port:
+                  number: 3000
+    {{- if .Values.ingress.hostWWW }}
+    - host: {{ .Values.ingress.hostWWW }}
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: crystolia-backend
+                port:
+                  number: 3000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: crystolia-frontend
+                port:
+                  number: 3000
+    {{- end }}
+    {{- if .Values.ingress.hostIL }}
+    - host: {{ .Values.ingress.hostIL }}
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: crystolia-backend
+                port:
+                  number: 3000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: crystolia-frontend
+                port:
+                  number: 3000
+    {{- end }}
+{{- end }}

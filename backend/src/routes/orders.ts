@@ -114,6 +114,22 @@ router.patch('/:id', async (req: Request, res: Response) => {
                     order.invoiceId = invoiceData.id;
                     order.invoiceUrl = invoiceData.url || '';
                     console.log(`✅ Invoice created for order ${id}: ${invoiceData.id}`);
+
+                    // Send WhatsApp notification with invoice link
+                    if (customer?.phone && invoiceData.url) {
+                        try {
+                            const { sendTextMessage, checkConfiguration } = await import('../services/whatsappService.js');
+
+                            if (checkConfiguration().configured) {
+                                const message = `🌻 שלום ${customer?.businessName || 'לקוח יקר'}!\n\nההזמנה שלך אושרה! 🎉\n\n📄 החשבונית שלך מוכנה:\n${invoiceData.url}\n\nתודה שבחרת ב-Crystolia!`;
+
+                                await sendTextMessage(customer.phone.replace(/[^0-9]/g, ''), message);
+                                console.log(`📱 WhatsApp sent to ${customer.phone}`);
+                            }
+                        } catch (whatsappError) {
+                            console.error('❌ Failed to send WhatsApp:', whatsappError);
+                        }
+                    }
                 } else {
                     console.log('⚠️ Green Invoice not configured, skipping invoice creation');
                 }
