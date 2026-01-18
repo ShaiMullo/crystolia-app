@@ -4,6 +4,13 @@ import React, { createContext, useContext, useState } from 'react';
 import api from '../lib/api';
 import { useRouter } from 'next/navigation';
 
+interface Customer {
+    _id: string;
+    name: string;
+    email?: string;
+    phone?: string;
+}
+
 interface User {
     _id: string;
     email: string;
@@ -12,7 +19,7 @@ interface User {
     lastName: string;
     profilePicture?: string;
     onboardingComplete?: boolean;
-    customer?: any;
+    customer?: Customer;
 }
 
 interface LoginData {
