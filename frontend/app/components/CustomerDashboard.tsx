@@ -22,6 +22,8 @@ interface Order {
     items: OrderItem[];
     totalAmount: number;
     createdAt: string;
+    invoiceId?: string;
+    invoiceUrl?: string;
 }
 
 interface Invoice {
@@ -56,6 +58,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
 
     // Orders State
     const [orders, setOrders] = useState<Order[]>([]);
+    const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [hasProfile, setHasProfile] = useState(false);
 
     // Invoices State
@@ -145,6 +148,18 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
         }
     };
 
+    const handlePayment = async (orderId: string) => {
+        try {
+            const { data } = await api.post('/payments/checkout', { orderId });
+            if (data.redirectUrl) {
+                window.location.href = data.redirectUrl;
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error(t.paymentFailed);
+        }
+    };
+
     const handleSubmitOrder = async () => {
         if (!hasProfile) {
             toast.error("אנא מלא את פרטי הפרופיל שלך לפני ביצוע הזמנה");
@@ -193,6 +208,11 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
             invoices: "חשבוניות",
             profile: "הפרטים שלי",
             logout: "יציאה",
+            close: "סגור",
+            downloadInvoice: "הורד חשבונית",
+            payNow: "שלם עכשיו",
+            paymentFailed: "התשלום נכשל. אנא נסה שוב.",
+            paymentSuccess: "התשלום בוצע בהצלחה!",
             orderNumber: "מספר הזמנה",
             date: "תאריך",
             status: "סטטוס",
@@ -248,9 +268,13 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
             invoices: "Invoices",
             profile: "My Profile",
             logout: "Logout",
+
             orderNumber: "Order #",
             date: "Date",
             status: "Status",
+            payNow: "Pay Now",
+            paymentFailed: "Payment failed. Please try again.",
+            paymentSuccess: "Payment successful!",
             total: "Total",
             items: "Items",
             actions: "Actions",
@@ -295,6 +319,8 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                 pendingOrders: "Open Orders",
             },
             perUnit: "cases",
+            close: "Close",
+            downloadInvoice: "Download Invoice",
         },
         ru: {
             welcome: "Привет",
@@ -306,6 +332,9 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
             orderNumber: "Заказ №",
             date: "Дата",
             status: "Статус",
+            payNow: "Оплатить",
+            paymentFailed: "Ошибка оплаты",
+            paymentSuccess: "Оплата прошла успешно",
             total: "Итого",
             items: "Товары",
             actions: "Действия",
@@ -350,6 +379,8 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                 pendingOrders: "Открытые заказы",
             },
             perUnit: "ящиков",
+            close: "Закрыть",
+            downloadInvoice: "Скачать счет",
         },
     };
 
@@ -684,7 +715,10 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                                         <span className={`px-4 py-2 rounded-xl text-xs font-medium ${getStatusColor(order.status)}`}>
                                                             {t.statuses[order.status as keyof typeof t.statuses]}
                                                         </span>
-                                                        <button className="text-[#F5C542] hover:text-[#d4a83a] px-4 py-2 rounded-xl hover:bg-[#F5C542]/5 transition-all">
+                                                        <button
+                                                            onClick={() => setSelectedOrder(order)}
+                                                            className="text-[#F5C542] hover:text-[#d4a83a] px-4 py-2 rounded-xl hover:bg-[#F5C542]/5 transition-all"
+                                                        >
                                                             {t.view}
                                                         </button>
                                                     </div>
@@ -900,6 +934,93 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                     </div>
                 </div>
             </div>
+            {/* Order Details Modal */}
+            {selectedOrder && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-fade-in border border-gray-100">
+                        <div className="p-8">
+                            <div className="flex items-center justify-between mb-8">
+                                <div>
+                                    <h3 className="text-2xl font-light text-gray-900">{t.orderNumber} #{selectedOrder._id.slice(-6).toUpperCase()}</h3>
+                                    <p className="text-gray-500 mt-1">{new Date(selectedOrder.createdAt).toLocaleDateString()}</p>
+                                </div>
+                                <button
+                                    onClick={() => setSelectedOrder(null)}
+                                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                                >
+                                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <div className="flex items-center gap-4 mb-8">
+                                <span className={`px-4 py-2 rounded-xl text-sm font-medium ${getStatusColor(selectedOrder.status)}`}>
+                                    {t.statuses[selectedOrder.status as keyof typeof t.statuses]}
+                                </span>
+                                {selectedOrder.invoiceUrl && (
+                                    <a
+                                        href={selectedOrder.invoiceUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-2 text-[#F5C542] hover:text-[#d4a83a] px-4 py-2 rounded-xl hover:bg-[#F5C542]/5 border border-[#F5C542]/30 transition-all text-sm font-medium"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                        {t.downloadInvoice}
+                                    </a>
+                                )}
+                            </div>
+
+                            <div className="bg-gray-50 rounded-2xl p-6 mb-8">
+                                <h4 className="font-medium text-gray-900 mb-4">{t.items}</h4>
+                                <div className="space-y-4">
+                                    {selectedOrder.items.map((item, index) => (
+                                        <div key={index} className="flex items-center justify-between border-b border-gray-100 last:border-0 pb-4 last:pb-0">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-xl shadow-sm">
+                                                    🌻
+                                                </div>
+                                                <div>
+                                                    <p className="font-medium text-gray-900">
+                                                        {item.productType === '1L' && t.sunflowerOil1L}
+                                                        {item.productType === '5L' && t.sunflowerOil5L}
+                                                        {item.productType === '18L' && t.sunflowerOil18L}
+                                                    </p>
+                                                    <p className="text-sm text-gray-500">{item.productType}</p>
+                                                </div>
+                                            </div>
+                                            <p className="font-medium text-gray-900">x{item.quantity}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="flex justify-between items-center pt-6 border-t border-gray-100">
+                                <p className="text-lg font-medium text-gray-900">{t.total}</p>
+                                <p className="text-2xl font-light text-[#F5C542]">₪{selectedOrder.totalAmount.toLocaleString()}</p>
+                            </div>
+                        </div>
+                        <div className="bg-gray-50 p-6 rounded-b-3xl flex gap-4">
+                            <button
+                                onClick={() => setSelectedOrder(null)}
+                                className="flex-1 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+                            >
+                                {t.close}
+                            </button>
+                            {selectedOrder.status === 'approved' && (
+                                <button
+                                    onClick={() => handlePayment(selectedOrder._id)}
+                                    className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-xl hover:shadow-lg hover:shadow-emerald-500/30 transition-all font-medium"
+                                >
+                                    {t.payNow}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

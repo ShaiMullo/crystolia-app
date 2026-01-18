@@ -53,7 +53,8 @@ const seedDatabase = async () => {
             contactPerson: 'ישראל ישראלי',
             email: 'olive@restaurant.com',
             phone: '050-1234567',
-            address: { street: 'הזית 10', city: 'תל אביב', zip: '64000' },
+            address: 'הזית 10',
+            city: 'תל אביב',
             pricingTier: 'gold',
             user: customerUser1._id
         });
@@ -63,7 +64,8 @@ const seedDatabase = async () => {
             contactPerson: 'שרה כהן',
             email: 'info@golden.co.il',
             phone: '052-9876543',
-            address: { street: 'הרימון 5', city: 'רמת גן', zip: '52000' },
+            address: 'הרימון 5',
+            city: 'רמת גן',
             pricingTier: 'platinum',
             user: customerUser2._id
         });

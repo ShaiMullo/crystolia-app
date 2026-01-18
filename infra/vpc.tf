@@ -1,5 +1,6 @@
 module "vpc" {
-  source = "terraform-aws-modules/vpc/aws"
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "5.5.0"
 
   name = "crystolia-vpc"
   cidr = "10.0.0.0/16"

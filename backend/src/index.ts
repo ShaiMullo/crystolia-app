@@ -12,6 +12,7 @@ import ordersRouter from './routes/orders.js';
 import customersRouter from './routes/customers.js';
 import authRouter from './routes/auth.js';
 import analyticsRouter from './routes/analytics.js';
+import paymentRouter from './routes/payments.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 // יצירת האפליקציה
@@ -63,6 +64,9 @@ app.use('/api/customers', customersRouter);
 
 // Analytics API
 app.use('/api/analytics', analyticsRouter);
+
+// Payment API
+app.use('/api/payments', paymentRouter);
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ⚠️ Error Handler

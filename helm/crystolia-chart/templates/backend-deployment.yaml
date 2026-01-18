@@ -26,5 +26,10 @@ spec:
             - name: MONGO_URI
               value: "{{ .Values.backend.env.MONGO_URI }}"
             - name: FRONTEND_URL
-              value: "*"
-            # Add other env vars here as needed from values.yaml or secrets
+              value: "{{ .Values.backend.env.FRONTEND_URL }}"
+            - name: GOOGLE_CLIENT_ID
+              value: "{{ .Values.backend.env.GOOGLE_CLIENT_ID }}"
+            - name: GOOGLE_CLIENT_SECRET
+              value: "{{ .Values.backend.env.GOOGLE_CLIENT_SECRET }}"
+            - name: JWT_SECRET
+              value: "{{ .Values.backend.env.JWT_SECRET }}"

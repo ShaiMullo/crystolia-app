@@ -23,7 +23,11 @@ backend:
     port: 3000
   replicaCount: 1
   env:
-    MONGO_URI: "mongodb://mongodb:27017/crystolia"
+    MONGO_URI: "mongodb://mongo:27017/crystolia"
+    FRONTEND_URL: "http://a6642f379b69541168bf4514fd4f291d-1331101001.us-east-1.elb.amazonaws.com"
+    GOOGLE_CLIENT_ID: "42819184159-tqh018b0d0dkhv6sc37abov9rmjkgaer.apps.googleusercontent.com"
+    GOOGLE_CLIENT_SECRET: "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"
+    JWT_SECRET: "crystolia-super-secret-jwt-key-2026"
 
 mongodb:
   image:

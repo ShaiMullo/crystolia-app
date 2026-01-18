@@ -85,6 +85,15 @@ router.post('/register', async (req: Request, res: Response) => {
                 user: newUser._id
             });
             await newCustomer.save();
+
+            // Send Welcome SMS
+            try {
+                const { sendWelcomeSMS } = await import('../services/smsService.js');
+                await sendWelcomeSMS(phone, firstName);
+            } catch (smsError) {
+                console.error("Failed to send welcome SMS:", smsError);
+                // Don't block registration if SMS fails
+            }
         }
 
         // Mock Token (Replace with real JWT in production)

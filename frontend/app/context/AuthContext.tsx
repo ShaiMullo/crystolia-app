@@ -11,6 +11,8 @@ interface User {
     firstName: string;
     lastName: string;
     profilePicture?: string;
+    onboardingComplete?: boolean;
+    customer?: any;
 }
 
 interface LoginData {
@@ -33,6 +35,7 @@ interface AuthContextType {
     login: (data: LoginData) => Promise<void>;
     register: (data: RegisterData) => Promise<void>;
     logout: () => void;
+    updateUser: (userData: Partial<User>) => void;
     isLoading: boolean;
 }
 
@@ -62,12 +65,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const userId = params.get('userId');
 
             if (tokenParam && userId) {
+                const profilePic = params.get('profilePicture');
                 const userObj: User = {
                     _id: userId,
                     email: params.get('email') || '',
                     role: params.get('role') || 'customer',
                     firstName: params.get('firstName') || '',
-                    lastName: params.get('lastName') || ''
+                    lastName: params.get('lastName') || '',
+                    profilePicture: profilePic ? decodeURIComponent(profilePic) : undefined
                 };
 
                 setToken(tokenParam);
@@ -137,8 +142,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         router.push('/he');
     };
 
+    const updateUser = (userData: Partial<User>) => {
+        const updatedUser = { ...user, ...userData } as User;
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+    };
+
     return (
-        <AuthContext.Provider value={{ user, token, login, register, logout, isLoading }}>
+        <AuthContext.Provider value={{ user, token, login, register, logout, updateUser, isLoading }}>
             {children}
         </AuthContext.Provider>
     );
