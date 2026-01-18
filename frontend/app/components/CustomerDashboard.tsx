@@ -152,7 +152,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
         try {
             const { data } = await api.post('/payments/checkout', { orderId });
             if (data.redirectUrl) {
-                window.location.href = data.redirectUrl;
+                window.location.assign(data.redirectUrl);
             }
         } catch (error) {
             console.error(error);
