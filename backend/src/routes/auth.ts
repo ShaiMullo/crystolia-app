@@ -3,8 +3,8 @@ import { Router, Request, Response } from 'express';
 import { UserModel } from '../models/User.js';
 import { CustomerModel } from '../models/Customer.js';
 import bcrypt from 'bcrypt';
-
 import passport from 'passport';
+import { signToken } from '../utils/jwt.js';
 
 const router = Router();
 
@@ -22,7 +22,7 @@ router.get('/google/callback',
         const user = req.user as any;
         console.log("User authenticated:", user._id);
 
-        const token = "mock_jwt_token_" + user._id; // Replace with real JWT signing
+        const token = signToken({ userId: user._id.toString(), email: user.email, role: user.role });
 
         // Redirect to frontend with token
         // In production, use a secure cookie or a dedicated frontend callback page
@@ -96,8 +96,8 @@ router.post('/register', async (req: Request, res: Response) => {
             }
         }
 
-        // Mock Token (Replace with real JWT in production)
-        const token = "mock_jwt_token_" + newUser._id;
+        // Generate real JWT token
+        const token = signToken({ userId: newUser._id.toString(), email: newUser.email, role: newUser.role });
 
         res.status(201).json({
             access_token: token,
@@ -135,8 +135,8 @@ router.post('/login', async (req: Request, res: Response) => {
             return;
         }
 
-        // Mock Token
-        const token = "mock_jwt_token_" + user._id;
+        // Generate real JWT token
+        const token = signToken({ userId: user._id.toString(), email: user.email, role: user.role });
 
         res.json({
             access_token: token,

@@ -78,4 +78,62 @@ router.post('/onboarding', async (req: Request, res: Response) => {
     }
 });
 
+// GET /api/customers/:id - Get customer by ID
+router.get('/:id', async (req: Request, res: Response) => {
+    try {
+        const customer = await CustomerModel.findById(req.params.id);
+        if (!customer) {
+            res.status(404).json({ message: "Customer not found" });
+            return;
+        }
+        res.json(customer);
+    } catch (error) {
+        console.error("Get Customer Error:", error);
+        res.status(500).json({ message: "Failed to fetch customer" });
+    }
+});
+
+// PUT /api/customers/:id - Update customer
+router.put('/:id', async (req: Request, res: Response) => {
+    try {
+        const { businessName, businessId, contactPerson, email, phone, address, city } = req.body;
+
+        const customer = await CustomerModel.findById(req.params.id);
+        if (!customer) {
+            res.status(404).json({ message: "Customer not found" });
+            return;
+        }
+
+        // Update fields if provided
+        if (businessName) customer.businessName = businessName;
+        if (businessId) customer.businessId = businessId;
+        if (contactPerson) customer.contactPerson = contactPerson;
+        if (email) customer.email = email;
+        if (phone) customer.phone = phone;
+        if (address) customer.address = address;
+        if (city) customer.city = city;
+
+        await customer.save();
+        res.json({ message: "Customer updated", customer });
+    } catch (error) {
+        console.error("Update Customer Error:", error);
+        res.status(500).json({ message: "Failed to update customer" });
+    }
+});
+
+// DELETE /api/customers/:id - Delete customer
+router.delete('/:id', async (req: Request, res: Response) => {
+    try {
+        const customer = await CustomerModel.findByIdAndDelete(req.params.id);
+        if (!customer) {
+            res.status(404).json({ message: "Customer not found" });
+            return;
+        }
+        res.json({ message: "Customer deleted successfully" });
+    } catch (error) {
+        console.error("Delete Customer Error:", error);
+        res.status(500).json({ message: "Failed to delete customer" });
+    }
+});
+
 export default router;
