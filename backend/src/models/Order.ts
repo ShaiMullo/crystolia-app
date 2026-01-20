@@ -18,6 +18,14 @@ const orderSchema = new mongoose.Schema({
     totalAmount: { type: Number, required: true },
     invoiceId: { type: String }, // Green Invoice document ID
     invoiceUrl: { type: String }, // Link to invoice PDF
+    // Payment Fields
+    transactionId: { type: String },
+    paymentStatus: {
+        type: String,
+        enum: ['PENDING', 'PAID', 'FAILED'],
+        default: 'PENDING'
+    },
+    paidAt: { type: Date },
     createdAt: { type: Date, default: Date.now }
 });
 

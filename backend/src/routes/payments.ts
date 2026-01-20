@@ -1,71 +1,81 @@
-
 import { Router, Request, Response } from 'express';
-import { PaymentModel } from '../models/Payment.js';
+import { paymentService } from '../services/payment/PaymentService.js';
 import { OrderModel } from '../models/Order.js';
-import { paymentService } from '../services/paymentService.js';
-import { CustomerModel } from '../models/Customer.js';
 
 const router = Router();
 
-// POST /api/payments/checkout
-// Create a payment transaction
-router.post('/checkout', async (req: Request, res: Response) => {
+// POST /api/payments/create
+// Initiate a new payment
+router.post('/create', async (req: Request, res: Response) => {
     try {
-        const { orderId } = req.body;
+        const { orderId, provider = 'hyp' } = req.body;
 
+        if (!orderId) {
+            res.status(400).json({ error: 'Missing orderId' });
+            return;
+        }
+
+        // 1. Fetch Order
         const order = await OrderModel.findById(orderId).populate('customer');
         if (!order) {
-            res.status(404).json({ message: "Order not found" });
+            res.status(404).json({ error: 'Order not found' });
             return;
         }
 
-        const customer = await CustomerModel.findById(order.customer);
-        if (!customer) {
-            res.status(404).json({ message: "Customer not found" });
+        if (order.status === 'paid' || order.status === 'cancelled') {
+            res.status(400).json({ error: `Order is already ${order.status}` });
             return;
         }
 
-        // Create initial Payment record
-        const payment = new PaymentModel({
-            order: order._id,
-            customer: customer._id,
-            amount: order.totalAmount,
-            provider: process.env.PAYMENT_PROVIDER || 'mock',
-            status: 'pending'
-        });
-        await payment.save();
+        const customer = order.customer as any;
+        const customerInfo = {
+            name: customer.businessName || customer.contactPerson || 'Customer',
+            email: customer.email || '',
+            phone: customer.phone || '',
+            id: customer._id.toString()
+        };
 
-        // Initiate checkout with provider
-        const response = await paymentService.initiatePayment({
-            orderId: order._id.toString(),
-            amount: order.totalAmount,
-            customer: {
-                name: customer.businessName,
-                email: customer.email,
-                phone: customer.phone
-            },
-            successUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/he/orders/${orderId}?payment_success=true`,
-            cancelUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/he/orders/${orderId}?payment_cancel=true`
-        });
+        // 2. Create Payment via Service
+        const result = await paymentService.createPayment(
+            provider,
+            order._id.toString(),
+            order.totalAmount,
+            customerInfo
+        );
 
-        // Update payment with transaction ID
-        payment.transactionId = response.paymentId;
-        await payment.save();
-
-        res.json(response);
-
-    } catch (error) {
-        console.error("Checkout Error:", error);
-        res.status(500).json({ message: "Failed to initiate checkout" });
+        res.json(result);
+    } catch (error: any) {
+        console.error('❌ Payment Creation Error:', error);
+        res.status(500).json({ error: error.message || 'Payment initiation failed' });
     }
 });
 
-// POST /api/payments/callback
-// Handle payment notifications
-router.post('/callback', async (req: Request, res: Response) => {
-    // Logic for verifying payment status from provider callbacks
-    // For Mock, this might not be hit if we just redirect on success
-    res.json({ received: true });
+// POST /api/payments/webhook/:provider
+// Handle incoming webhooks (Public endpoint)
+router.post('/webhook/:provider', async (req: Request, res: Response) => {
+    const { provider } = req.params;
+
+    try {
+        console.log(`[Webhook] Received for ${provider}`);
+
+        // Pass to service for verification and processing
+        const result = await paymentService.handleWebhook(
+            provider as string,
+            req.body,
+            req.headers
+        );
+
+        res.json(result);
+    } catch (error: any) {
+        console.error(`❌ Webhook Error (${provider}):`, error);
+        // Return success to provider to stop retries, but log the failure
+        // Depending on provider, you might want to return 400 for bad signatures
+        if (error.message.includes('signature')) {
+            res.status(400).json({ error: 'Invalid signature' });
+        } else {
+            res.status(200).json({ received: true, error: error.message });
+        }
+    }
 });
 
 export default router;
