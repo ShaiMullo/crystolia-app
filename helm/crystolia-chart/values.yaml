@@ -38,6 +38,11 @@ mongodb:
   persistence:
     enabled: false
     size: 5Gi
+  backup:
+    enabled: true
+    schedule: "0 2 * * *"  # Daily at 2 AM
+    s3Bucket: ""  # crystolia-backups
+    awsRegion: "us-east-1"
 
 ingress:
   enabled: true
@@ -46,4 +51,23 @@ ingress:
   # hostIL: crystolia.co.il  # Disabled until DNS is configured
   tls:
     enabled: true
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 🔐 Production Secrets (Override via --set or secrets.yaml)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+secrets:
+  greenInvoice:
+    apiId: ""
+    secret: ""
+    sandbox: "false"
+  whatsapp:
+    accessToken: ""
+    phoneNumberId: ""
+    webhookVerifyToken: ""
+  twilio:
+    accountSid: ""
+    authToken: ""
+    phoneNumber: ""
+  payment:
+    provider: "mock"  # mock or meshulam
 
