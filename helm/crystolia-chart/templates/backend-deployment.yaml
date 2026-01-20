@@ -23,13 +23,41 @@ spec:
           env:
             - name: PORT
               value: "3000"
+            - name: NODE_ENV
+              value: "production"
+            # Core
             - name: MONGO_URI
               value: "{{ .Values.backend.env.MONGO_URI }}"
             - name: FRONTEND_URL
               value: "{{ .Values.backend.env.FRONTEND_URL }}"
+            - name: JWT_SECRET
+              value: "{{ .Values.backend.env.JWT_SECRET }}"
+            # Google OAuth
             - name: GOOGLE_CLIENT_ID
               value: "{{ .Values.backend.env.GOOGLE_CLIENT_ID }}"
             - name: GOOGLE_CLIENT_SECRET
               value: "{{ .Values.backend.env.GOOGLE_CLIENT_SECRET }}"
-            - name: JWT_SECRET
-              value: "{{ .Values.backend.env.JWT_SECRET }}"
+            # Green Invoice
+            - name: GREEN_INVOICE_API_ID
+              value: "{{ .Values.secrets.greenInvoice.apiId }}"
+            - name: GREEN_INVOICE_SECRET
+              value: "{{ .Values.secrets.greenInvoice.secret }}"
+            - name: GREEN_INVOICE_SANDBOX
+              value: "{{ .Values.secrets.greenInvoice.sandbox }}"
+            # WhatsApp
+            - name: WHATSAPP_ACCESS_TOKEN
+              value: "{{ .Values.secrets.whatsapp.accessToken }}"
+            - name: WHATSAPP_PHONE_NUMBER_ID
+              value: "{{ .Values.secrets.whatsapp.phoneNumberId }}"
+            - name: WHATSAPP_WEBHOOK_VERIFY_TOKEN
+              value: "{{ .Values.secrets.whatsapp.webhookVerifyToken }}"
+            # Twilio
+            - name: TWILIO_ACCOUNT_SID
+              value: "{{ .Values.secrets.twilio.accountSid }}"
+            - name: TWILIO_AUTH_TOKEN
+              value: "{{ .Values.secrets.twilio.authToken }}"
+            - name: TWILIO_PHONE_NUMBER
+              value: "{{ .Values.secrets.twilio.phoneNumber }}"
+            # Payment
+            - name: PAYMENT_PROVIDER
+              value: "{{ .Values.secrets.payment.provider }}"

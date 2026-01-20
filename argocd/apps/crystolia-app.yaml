@@ -3,12 +3,22 @@ kind: Application
 metadata:
   name: crystolia
   namespace: argocd
+  labels:
+    app.kubernetes.io/name: crystolia
+    app.kubernetes.io/managed-by: argocd
 spec:
   project: default
   source:
     repoURL: https://github.com/ShaiMullo/crystolia-devops-platform
-    targetRevision: dev
+    targetRevision: main
     path: helm/crystolia-chart
+    helm:
+      valueFiles:
+        - values.yaml
+      # Override secrets in production via ArgoCD secrets or external secrets
+      # parameters:
+      #   - name: secrets.greenInvoice.apiId
+      #     value: $SECRET_VALUE
   destination:
     server: https://kubernetes.default.svc
     namespace: crystolia
@@ -18,3 +28,4 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      - ServerSideApply=true
