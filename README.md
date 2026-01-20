@@ -246,3 +246,4 @@ MIT © Shai Mullo
 <p align="center">
   Built with ❤️ using modern DevOps practices
 </p>
+
