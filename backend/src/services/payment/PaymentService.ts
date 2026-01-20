@@ -95,17 +95,74 @@ export class PaymentService {
         const data = provider.parseWebhook(payload);
         console.log(`[PaymentService] Webhook received for Order ${data.orderId}: ${data.status}`);
 
-        // 3. Update Order
+        // 3. Update Order - Automation Chain
         if (data.status === 'completed') {
-            await OrderModel.findByIdAndUpdate(data.orderId, {
-                $set: {
-                    status: 'paid', // Update main status to paid
-                    paymentStatus: 'PAID',
-                    paidAt: new Date()
-                }
-            });
+            const order = await OrderModel.findById(data.orderId).populate('customer');
 
-            // TODO: Trigger Invoice creation here (Green Invoice) if not already done
+            if (order) {
+                let invoiceData = { id: order.invoiceId, url: order.invoiceUrl };
+
+                // A. Generate Invoice if not exists
+                if (!order.invoiceId) {
+                    try {
+                        const { createInvoice, isGreenInvoiceConfigured } = await import('../greenInvoice.js');
+
+                        if (isGreenInvoiceConfigured()) {
+                            const customer = order.customer as any;
+                            const newInvoice = await createInvoice({
+                                client: {
+                                    name: customer.businessName || customer.contactPerson || 'Customer',
+                                    emails: customer.email ? [customer.email] : [],
+                                    address: customer.address || '',
+                                    city: customer.city || '',
+                                    phone: customer.phone || '',
+                                    taxId: customer.businessId || ''
+                                },
+                                items: order.items.map(item => ({
+                                    description: `Product ${item.productType}`,
+                                    quantity: item.quantity,
+                                    price: item.unitPrice,
+                                    currency: 'ILS'
+                                })),
+                                type: 320 // Tax Invoice
+                            });
+
+                            invoiceData = { id: newInvoice.id, url: newInvoice.url };
+                            console.log(`✅ Invoice generated: ${invoiceData.id}`);
+                        }
+                    } catch (err) {
+                        console.error('❌ Failed to generate invoice during webhook:', err);
+                        // Don't fail the payment, just log
+                    }
+                }
+
+                // B. Update Order
+                await OrderModel.findByIdAndUpdate(data.orderId, {
+                    $set: {
+                        status: 'paid',
+                        paymentStatus: 'PAID',
+                        paidAt: new Date(),
+                        invoiceId: invoiceData.id,
+                        invoiceUrl: invoiceData.url
+                    }
+                });
+
+                // C. Send Notification
+                if (invoiceData.url) {
+                    try {
+                        const { notificationsService } = await import('../NotificationsService.js');
+                        const customer = order.customer as any;
+
+                        await notificationsService.sendOrderConfirmation(
+                            { name: customer.contactPerson || customer.businessName, phone: customer.phone },
+                            order._id.toString(),
+                            invoiceData.url
+                        );
+                    } catch (notifyErr) {
+                        console.error('❌ Failed to send notification:', notifyErr);
+                    }
+                }
+            }
         } else if (data.status === 'failed') {
             await OrderModel.findByIdAndUpdate(data.orderId, {
                 $set: { paymentStatus: 'FAILED' }
