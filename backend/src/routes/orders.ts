@@ -147,4 +147,45 @@ router.patch('/:id', async (req: Request, res: Response) => {
     }
 });
 
+// GET /api/orders/:id - Get single order by ID
+router.get('/:id', async (req: Request, res: Response) => {
+    try {
+        const order = await OrderModel.findById(req.params.id).populate('customer');
+        if (!order) {
+            res.status(404).json({ message: "Order not found" });
+            return;
+        }
+        res.json(order);
+    } catch (error) {
+        console.error("Get Order Error:", error);
+        res.status(500).json({ message: "Failed to fetch order" });
+    }
+});
+
+// DELETE /api/orders/:id - Delete order
+router.delete('/:id', async (req: Request, res: Response) => {
+    try {
+        const order = await OrderModel.findById(req.params.id);
+
+        if (!order) {
+            res.status(404).json({ message: "Order not found" });
+            return;
+        }
+
+        // Only allow deletion of pending or cancelled orders
+        if (order.status === 'approved' || order.status === 'delivered') {
+            res.status(400).json({
+                message: "Cannot delete approved or delivered orders. Please contact support."
+            });
+            return;
+        }
+
+        await OrderModel.findByIdAndDelete(req.params.id);
+        res.json({ message: "Order deleted successfully" });
+    } catch (error) {
+        console.error("Delete Order Error:", error);
+        res.status(500).json({ message: "Failed to delete order" });
+    }
+});
+
 export default router;

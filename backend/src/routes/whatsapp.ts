@@ -52,7 +52,7 @@ router.get('/webhook', (req: Request, res: Response) => {
 // Meta sends incoming messages here
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-router.post('/webhook', (req: Request, res: Response) => {
+router.post('/webhook', async (req: Request, res: Response) => {
     const payload = req.body as WebhookPayload;
 
     // Meta requires immediate 200 OK response
@@ -64,13 +64,49 @@ router.post('/webhook', (req: Request, res: Response) => {
             const messages = processIncomingMessage(payload);
 
             for (const message of messages) {
-                console.log(`📩 Incoming message from ${message.from}:`, message.text?.body || '[non-text message]');
+                const from = message.from;
+                const text = message.text?.body?.toLowerCase() || '';
+                
+                console.log(`📩 Incoming message from ${from}:`, message.text?.body || '[non-text message]');
 
-                // TODO: Add your message handling logic here
-                // Examples:
-                // - Save to database
-                // - Trigger notifications
-                // - Auto-reply
+                // Auto-reply based on keywords
+                if (text.includes('שלום') || text.includes('hi') || text.includes('hello')) {
+                    await sendTextMessage(from, 
+                        `🌻 שלום! ברוכים הבאים ל-Crystolia!\n\nאיך אפשר לעזור?\n\n` +
+                        `📦 הקלד "הזמנה" לבדיקת סטטוס הזמנה\n` +
+                        `📞 הקלד "תמיכה" ליצירת קשר עם נציג\n` +
+                        `💰 הקלד "מחירון" לקבלת מחירים`
+                    );
+                } else if (text.includes('הזמנה') || text.includes('order') || text.includes('status')) {
+                    await sendTextMessage(from,
+                        `📦 לבדיקת סטטוס הזמנה, אנא שלח את מספר ההזמנה שלך.\n\n` +
+                        `או היכנס לאזור האישי באתר:\nhttps://crystolia.com/he/dashboard`
+                    );
+                } else if (text.includes('מחירון') || text.includes('price') || text.includes('מחיר')) {
+                    await sendTextMessage(from,
+                        `💰 מחירון שמן חמניות Crystolia:\n\n` +
+                        `🫒 1 ליטר - ₪25\n` +
+                        `🫒 5 ליטר - ₪110\n` +
+                        `🫒 18 ליטר - ₪380\n\n` +
+                        `להזמנה: https://crystolia.com`
+                    );
+                } else if (text.includes('תמיכה') || text.includes('support') || text.includes('עזרה')) {
+                    await sendTextMessage(from,
+                        `📞 צוות התמיכה שלנו יצור איתך קשר בהקדם!\n\n` +
+                        `שעות פעילות: א'-ה' 09:00-18:00\n` +
+                        `📧 support@crystolia.com`
+                    );
+                } else {
+                    // Default response for unrecognized messages
+                    await sendTextMessage(from,
+                        `🌻 תודה על פנייתך!\n\n` +
+                        `לא הבנתי את הבקשה. נסה:\n` +
+                        `• "שלום" - תפריט ראשי\n` +
+                        `• "הזמנה" - בדיקת סטטוס\n` +
+                        `• "מחירון" - מחירים\n` +
+                        `• "תמיכה" - יצירת קשר`
+                    );
+                }
             }
         }
     } catch (error) {
