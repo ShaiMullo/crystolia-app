@@ -1,68 +1,37 @@
-name: SMS CI/CD Pipeline
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 📦 CD Pipeline - Deploy to AWS ECR
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+name: CD Pipeline
 
 on:
   push:
-    branches: [ "main", "master", "dev" ]
-  pull_request:
-    branches: [ "main", "master", "dev" ]
+    branches: [ "main" ]
+  workflow_dispatch:  # Manual trigger
 
+# ⚠️ TEMPORARILY DISABLED - Set to true when AWS infrastructure is ready
+# Comment out the entire 'if: false' line to enable
 env:
+  ENABLED: false  # Change to true when ready for production
   AWS_REGION: us-east-1
   ECR_FRONTEND: crystolia-frontend
   ECR_BACKEND: crystolia-backend
 
 jobs:
   # ─────────────────────────────────────────────
-  # 🧪 CI: Test & Lint
-  # ─────────────────────────────────────────────
-  ci-checks:
-    name: 🧪 CI Checks
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-
-      - name: Install Dependencies (Backend)
-        run: |
-          cd backend
-          npm ci
-
-      - name: Lint & Test (Backend)
-        run: |
-          cd backend
-          # npm run lint
-          # npm run test
-
-      - name: Install Dependencies (Frontend)
-        run: |
-          cd frontend
-          npm ci
-
-      - name: Lint & Test (Frontend)
-        run: |
-          cd frontend
-          # npm run lint
-          # npm run test
-
-  # ─────────────────────────────────────────────
-  # 📦 CD: Build & Push (Only on Push to Main)
+  # 📦 Build & Push to ECR
   # ─────────────────────────────────────────────
   build-and-push:
     name: 📦 Build & Push Docker
-    needs: ci-checks
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev')
     runs-on: ubuntu-latest
+    # ⚠️ DISABLED - Remove this line when AWS is ready
+    if: false
+    
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -70,7 +39,7 @@ jobs:
 
       - name: Login to Amazon ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
+        uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build & Push Backend
         env:
@@ -88,28 +57,31 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           cd frontend
-          docker build --build-arg NEXT_PUBLIC_API_URL=http://backend:3000 -t $ECR_REGISTRY/$ECR_FRONTEND:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_FRONTEND:latest .
+          docker build --build-arg NEXT_PUBLIC_API_URL=https://crystolia.com/api -t $ECR_REGISTRY/$ECR_FRONTEND:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_FRONTEND:latest .
           docker push $ECR_REGISTRY/$ECR_FRONTEND:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_FRONTEND:latest
 
   # ─────────────────────────────────────────────
-  # 🔄 GitOps: Update Helm Chart
+  # 🔄 Update Helm Chart (GitOps)
   # ─────────────────────────────────────────────
   update-helm:
     name: 🔄 Update Helm Version
     needs: build-and-push
     runs-on: ubuntu-latest
+    # ⚠️ DISABLED - Remove this line when AWS is ready
+    if: false
+    
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Update Image Tag in values.yaml
         run: |
           sed -i 's/tag: ".*"/tag: "${{ github.sha }}"/' helm/crystolia-chart/values.yaml
 
       - name: Commit & Push Changes
-        uses: stefanzweifel/git-auto-commit-action@v4
+        uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "🚀 CI: Update image tag to ${{ github.sha }}"
+          commit_message: "🚀 CD: Update image tag to ${{ github.sha }}"
           branch: main
           file_pattern: helm/crystolia-chart/values.yaml
