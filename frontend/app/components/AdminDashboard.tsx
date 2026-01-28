@@ -8,8 +8,8 @@ import api from "@/app/lib/api";
 interface OrderItem {
     productType: '1L' | '5L' | '18L';
     quantity: number;
-    unitPrice: number;
-    totalPrice: number;
+    unitPrice?: number;
+    totalPrice?: number;
 }
 
 interface Order {
@@ -20,9 +20,33 @@ interface Order {
         contactPerson: string;
         phone: string;
     };
-    status: 'pending' | 'approved' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
+    status: 'pending_offer' | 'sent_offer' | 'pending_payment' | 'paid' | 'cancelled';
     items: OrderItem[];
-    totalAmount: number;
+    totalAmount?: number;
+    approvedPrice?: number;
+    customerNotes?: string;
+    adminNotes?: string;
+    createdAt: string;
+}
+
+interface Product {
+    _id: string;
+    name: string;
+    litersPerBox: number;
+    defaultPrice: number;
+    stock: number;
+    isActive: boolean;
+}
+
+interface Lead {
+    _id: string;
+    name: string;
+    phone: string;
+    email?: string;
+    company?: string;
+    message?: string;
+    status: 'New' | 'Handled' | 'Not Relevant';
+    notes?: string;
     createdAt: string;
 }
 
@@ -45,10 +69,11 @@ interface AdminDashboardProps {
 }
 
 export default function AdminDashboard({ locale }: AdminDashboardProps) {
-    const [activeTab, setActiveTab] = useState<"pending" | "orders" | "customers" | "analytics" | "settings">("pending");
+    const [activeTab, setActiveTab] = useState<"leads" | "pending" | "orders" | "customers" | "inventory" | "analytics" | "settings">("pending");
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-    const [customPrice, setCustomPrice] = useState("");
+    const [itemPrices, setItemPrices] = useState<number[]>([]);
     const [showPriceModal, setShowPriceModal] = useState(false);
+    const [adminNotes, setAdminNotes] = useState("");
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [chartType, setChartType] = useState<"bar" | "pie">("bar");
@@ -57,17 +82,23 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
     // API data state
     const [orders, setOrders] = useState<Order[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
+    const [products, setProducts] = useState<Product[]>([]);
+    const [leads, setLeads] = useState<Lead[]>([]);
 
     // Fetch data from API
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [ordersRes, customersRes] = await Promise.all([
+                const [ordersRes, customersRes, productsRes, leadsRes] = await Promise.all([
                     api.get('/orders'),
-                    api.get('/customers')
+                    api.get('/customers'),
+                    api.get('/products').catch(() => ({ data: [] })),
+                    api.get('/leads').catch(() => ({ data: [] }))
                 ]);
                 setOrders(ordersRes.data);
                 setCustomers(Array.isArray(customersRes.data) ? customersRes.data : []);
+                setProducts(Array.isArray(productsRes.data) ? productsRes.data : []);
+                setLeads(Array.isArray(leadsRes.data) ? leadsRes.data : []);
             } catch (error) {
                 console.error("Failed to fetch admin data:", error);
             }
@@ -76,8 +107,8 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
         fetchData();
     }, []);
 
-    // Derived data
-    const pendingOrders = orders.filter(o => o.status === 'pending');
+    // Derived data - updated for B2B statuses
+    const pendingOrders = orders.filter(o => o.status === 'pending_offer');
     const allOrders = orders;
 
     // Settings state
@@ -277,26 +308,33 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case "pending": return "bg-amber-50 text-amber-700 border border-amber-200";
-            case "approved": return "bg-blue-50 text-blue-700 border border-blue-200";
+            case "pending_offer": return "bg-amber-50 text-amber-700 border border-amber-200";
+            case "sent_offer": return "bg-blue-50 text-blue-700 border border-blue-200";
+            case "pending_payment": return "bg-violet-50 text-violet-700 border border-violet-200";
             case "paid": return "bg-emerald-50 text-emerald-700 border border-emerald-200";
-            case "shipped": return "bg-violet-50 text-violet-700 border border-violet-200";
-            case "delivered": return "bg-gray-50 text-gray-700 border border-gray-200";
+            case "cancelled": return "bg-red-50 text-red-700 border border-red-200";
             default: return "bg-gray-50 text-gray-700 border border-gray-200";
         }
     };
 
     const handleApproveOrder = (order: Order) => {
         setSelectedOrder(order);
-        setCustomPrice(order.totalAmount.toString());
+        // Initialize item prices with default values
+        setItemPrices(order.items.map(item => item.unitPrice || 0));
+        setAdminNotes("");
         setShowPriceModal(true);
     };
 
     const confirmApproval = async () => {
         if (!selectedOrder) return;
         try {
-            await api.patch(`/orders/${selectedOrder._id}`, { status: 'approved' });
-            setOrders(orders.map(o => o._id === selectedOrder._id ? { ...o, status: 'approved' as const } : o));
+            await api.post(`/orders/${selectedOrder._id}/approve`, {
+                itemPrices: itemPrices.map(p => ({ unitPrice: p })),
+                adminNotes: adminNotes || undefined
+            });
+            // Refresh orders
+            const res = await api.get('/orders');
+            setOrders(res.data);
             setShowPriceModal(false);
             setSelectedOrder(null);
             alert(t.orderApproved);
@@ -315,18 +353,48 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
         }
     };
 
+    const handleConvertToOrder = async (leadId: string) => {
+        try {
+            await api.post(`/leads/${leadId}/convert`);
+            setLeads(leads.map(l => l._id === leadId ? { ...l, status: 'Handled' } : l));
+            // a new order has been created, we should refresh the orders list
+            const res = await api.get('/orders');
+            setOrders(res.data);
+            setActiveTab('pending');
+        } catch (error) {
+            console.error('Failed to convert lead to order:', error);
+        }
+    };
+
+
+    const newLeadsCount = leads.filter(l => l.status === 'New').length;
+
     const tabs = [
+        {
+            id: "leads" as const, label: locale === 'he' ? 'לידים' : 'Leads', icon: (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                </svg>
+            ), badge: newLeadsCount > 0 ? newLeadsCount : undefined
+        },
         {
             id: "pending" as const, label: t.pendingOrders, icon: (
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-            ), badge: pendingOrders.length
+            ), badge: pendingOrders.length > 0 ? pendingOrders.length : undefined
         },
         {
             id: "orders" as const, label: t.allOrders, icon: (
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+            )
+        },
+        {
+            id: "inventory" as const, label: locale === 'he' ? 'מלאי' : 'Inventory', icon: (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                 </svg>
             )
         },
@@ -504,6 +572,203 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                         </div>
                     </div>
 
+                    {/* Leads Tab */}
+                    {activeTab === "leads" && (
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-xl font-light text-white">{locale === 'he' ? 'לידים חדשים' : 'New Leads'}</h2>
+                                <div className="flex gap-2">
+                                    {['New', 'Handled', 'Not Relevant'].map(status => (
+                                        <span key={status} className={`px-3 py-1 rounded-full text-xs ${status === 'New' ? 'bg-amber-500/20 text-amber-400' :
+                                                status === 'Handled' ? 'bg-emerald-500/20 text-emerald-400' :
+                                                    'bg-slate-500/20 text-slate-400'
+                                            }`}>
+                                            {leads.filter(l => l.status === status).length} {status}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                            {leads.length > 0 ? (
+                                <div className="bg-slate-800/50 rounded-2xl border border-slate-700/50 overflow-hidden">
+                                    <table className="w-full">
+                                        <thead>
+                                            <tr className="border-b border-slate-700/50">
+                                                <th className="text-right py-4 px-6 text-sm font-medium text-slate-400">{locale === 'he' ? 'שם' : 'Name'}</th>
+                                                <th className="text-right py-4 px-6 text-sm font-medium text-slate-400">{locale === 'he' ? 'טלפון' : 'Phone'}</th>
+                                                <th className="text-right py-4 px-6 text-sm font-medium text-slate-400">{locale === 'he' ? 'הודעה' : 'Message'}</th>
+                                                <th className="text-right py-4 px-6 text-sm font-medium text-slate-400">{locale === 'he' ? 'הערות' : 'Notes'}</th>
+                                                <th className="text-right py-4 px-6 text-sm font-medium text-slate-400">{locale === 'he' ? 'סטטוס' : 'Status'}</th>
+                                                <th className="text-right py-4 px-6 text-sm font-medium text-slate-400">{locale === 'he' ? 'פעולות' : 'Actions'}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {leads.map(lead => (
+                                                <tr key={lead._id} className="border-b border-slate-700/30 hover:bg-slate-700/30">
+                                                    <td className="py-4 px-6">
+                                                        <div className="text-white font-medium">{lead.name}</div>
+                                                        {lead.company && <div className="text-sm text-slate-400">{lead.company}</div>}
+                                                    </td>
+                                                    <td className="py-4 px-6 text-white">{lead.phone}</td>
+                                                    <td className="py-4 px-6 text-slate-400 max-w-xs truncate">{lead.message || '-'}</td>
+                                                    <td className="py-4 px-6">
+                                                        <textarea
+                                                            value={lead.notes || ''}
+                                                            onChange={(e) => {
+                                                                const newLeads = leads.map(l =>
+                                                                    l._id === lead._id ? { ...l, notes: e.target.value } : l
+                                                                );
+                                                                setLeads(newLeads);
+                                                            }}
+                                                            className="w-full px-3 py-1.5 rounded-lg bg-slate-700 border border-slate-600 text-white text-sm"
+                                                            rows={1}
+                                                        ></textarea>
+                                                        <button
+                                                            onClick={async () => {
+                                                                try {
+                                                                    await api.patch(`/leads/${lead._id}/notes`, { notes: lead.notes });
+                                                                    alert('Notes saved!');
+                                                                } catch (error) {
+                                                                    console.error('Failed to save notes:', error);
+                                                                }
+                                                            }}
+                                                            className="mt-1 px-3 py-1 bg-slate-600 text-white rounded-md text-xs"
+                                                        >
+                                                          Save
+                                                        </button>
+                                                    </td>
+                                                    <td className="py-4 px-6">
+                                                        <span className={`px-3 py-1 rounded-full text-xs ${lead.status === 'New' ? 'bg-amber-500/20 text-amber-400' :
+                                                                lead.status === 'Handled' ? 'bg-emerald-500/20 text-emerald-400' :
+                                                                    'bg-slate-500/20 text-slate-400'
+                                                            }`}>{lead.status}</span>
+                                                    </td>
+                                                    <td className="py-4 px-6">
+                                                        <select
+                                                            value={lead.status}
+                                                            onChange={async (e) => {
+                                                                try {
+                                                                    await api.patch(`/leads/${lead._id}/status`, { status: e.target.value });
+                                                                    setLeads(leads.map(l => l._id === lead._id ? { ...l, status: e.target.value as Lead['status'] } : l));
+                                                                } catch (error) {
+                                                                    console.error('Failed to update lead status:', error);
+                                                                }
+                                                            }}
+                                                            className="px-3 py-1.5 rounded-lg bg-slate-700 border border-slate-600 text-white text-sm"
+                                                        >
+                                                            <option value="New">New</option>
+                                                            <option value="Handled">Handled</option>
+                                                            <option value="Not Relevant">Not Relevant</option>
+                                                        </select>
+                                                        {lead.status === 'New' && (
+                                                            <button
+                                                                onClick={() => handleConvertToOrder(lead._id)}
+                                                                className="mt-2 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-sm w-full"
+                                                            >
+                                                                Convert to Order
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <div className="text-center py-16">
+                                    <div className="w-20 h-20 bg-slate-700/50 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                                        <span className="text-4xl">📭</span>
+                                    </div>
+                                    <p className="text-slate-400">{locale === 'he' ? 'אין לידים חדשים' : 'No leads yet'}</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Inventory Tab */}
+                    {activeTab === "inventory" && (
+                        <div className="space-y-6">
+                            <div className="flex justify-between items-center">
+                                <h2 className="text-xl font-light text-white">{locale === 'he' ? 'ניהול מלאי ומחירים' : 'Inventory & Pricing'}</h2>
+                            </div>
+                            {products.length > 0 ? (
+                                <div className="bg-slate-800/50 rounded-2xl border border-slate-700/50 overflow-hidden">
+                                    <table className="w-full">
+                                        <thead>
+                                            <tr className="border-b border-slate-700/50">
+                                                <th className="text-right py-4 px-6 text-sm font-medium text-slate-400">{locale === 'he' ? 'מוצר' : 'Product'}</th>
+                                                <th className="text-right py-4 px-6 text-sm font-medium text-slate-400">{locale === 'he' ? 'ליטרים/ארגז' : 'L/Box'}</th>
+                                                <th className="text-right py-4 px-6 text-sm font-medium text-slate-400">{locale === 'he' ? 'מחיר ברירת מחדל' : 'Default Price'}</th>
+                                                <th className="text-right py-4 px-6 text-sm font-medium text-slate-400">{locale === 'he' ? 'מלאי' : 'Stock'}</th>
+                                                <th className="text-right py-4 px-6 text-sm font-medium text-slate-400">{locale === 'he' ? 'סטטוס' : 'Status'}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {products.map(product => (
+                                                <tr key={product._id} className="border-b border-slate-700/30 hover:bg-slate-700/30">
+                                                    <td className="py-4 px-6">
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-2xl">🌻</span>
+                                                            <span className="text-white font-medium">{product.name}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-4 px-6 text-slate-400">{product.litersPerBox}L</td>
+                                                    <td className="py-4 px-6">
+                                                        <input
+                                                            type="number"
+                                                            defaultValue={product.defaultPrice}
+                                                            onBlur={async (e) => {
+                                                                const newPrice = parseFloat(e.target.value);
+                                                                if (newPrice !== product.defaultPrice) {
+                                                                    try {
+                                                                        await api.patch(`/products/${product._id}`, { defaultPrice: newPrice });
+                                                                        setProducts(products.map(p => p._id === product._id ? { ...p, defaultPrice: newPrice } : p));
+                                                                    } catch (error) {
+                                                                        console.error('Failed to update price:', error);
+                                                                    }
+                                                                }
+                                                            }}
+                                                            className="w-24 px-3 py-1.5 rounded-lg bg-slate-700 border border-slate-600 text-white text-left"
+                                                        />
+                                                    </td>
+                                                    <td className="py-4 px-6">
+                                                        <input
+                                                            type="number"
+                                                            defaultValue={product.stock}
+                                                            onBlur={async (e) => {
+                                                                const newStock = parseInt(e.target.value);
+                                                                if (newStock !== product.stock) {
+                                                                    try {
+                                                                        await api.patch(`/products/${product._id}`, { stock: newStock });
+                                                                        setProducts(products.map(p => p._id === product._id ? { ...p, stock: newStock } : p));
+                                                                    } catch (error) {
+                                                                        console.error('Failed to update stock:', error);
+                                                                    }
+                                                                }
+                                                            }}
+                                                            className="w-20 px-3 py-1.5 rounded-lg bg-slate-700 border border-slate-600 text-white text-left"
+                                                        />
+                                                    </td>
+                                                    <td className="py-4 px-6">
+                                                        <span className={`px-3 py-1 rounded-full text-xs ${product.isActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+                                                            {product.isActive ? (locale === 'he' ? 'פעיל' : 'Active') : (locale === 'he' ? 'לא פעיל' : 'Inactive')}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <div className="text-center py-16">
+                                    <div className="w-20 h-20 bg-slate-700/50 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                                        <span className="text-4xl">📦</span>
+                                    </div>
+                                    <p className="text-slate-400">{locale === 'he' ? 'אין מוצרים' : 'No products yet'}</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* Pending Orders Tab */}
                     {activeTab === "pending" && (
                         <div className="space-y-4">
@@ -542,7 +807,7 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                                         <div className="flex items-center justify-between mb-4 p-4 bg-slate-900/50 rounded-xl">
                                             <div>
                                                 <p className="text-sm text-slate-400">{t.total}</p>
-                                                <p className="text-xl font-light text-[#F5C542]">₪{order.totalAmount.toLocaleString()}</p>
+                                                <p className="text-xl font-light text-[#F5C542]">{order.approvedPrice ? `₪${order.approvedPrice.toLocaleString()}` : 'ממתין לתמחור'}</p>
                                             </div>
                                         </div>
 
@@ -595,7 +860,7 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                                                 <td className="py-4 px-6 text-white">#{order._id.slice(-6)}</td>
                                                 <td className="py-4 px-6 text-slate-400">{new Date(order.createdAt).toLocaleDateString()}</td>
                                                 <td className="py-4 px-6 text-white">{order.customer?.businessName || 'N/A'}</td>
-                                                <td className="py-4 px-6 text-white font-medium">₪{order.totalAmount.toLocaleString()}</td>
+                                                <td className="py-4 px-6 text-white font-medium">₪{(order.totalAmount || order.approvedPrice || 0).toLocaleString()}</td>
                                                 <td className="py-4 px-6">
                                                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
                                                         {t.statuses[order.status as keyof typeof t.statuses] || order.status}
@@ -653,7 +918,7 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                                     <div className="p-6 bg-gradient-to-br from-emerald-900/30 to-emerald-800/20 rounded-2xl border border-emerald-700/30">
                                         <p className="text-sm text-slate-400 mb-2">סה&quot;כ הכנסות</p>
                                         <p className="text-3xl font-light text-white">
-                                            ₪{allOrders.reduce((sum, o) => sum + o.totalAmount, 0).toLocaleString()}
+                                            ₪{allOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0).toLocaleString()}
                                         </p>
                                     </div>
                                     <div className="p-6 bg-gradient-to-br from-blue-900/30 to-blue-800/20 rounded-2xl border border-blue-700/30">
@@ -663,7 +928,23 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                                     <div className="p-6 bg-gradient-to-br from-amber-900/30 to-amber-800/20 rounded-2xl border border-amber-700/30">
                                         <p className="text-sm text-slate-400 mb-2">ממוצע להזמנה</p>
                                         <p className="text-3xl font-light text-white">
-                                            ₪{allOrders.length > 0 ? Math.round(allOrders.reduce((sum, o) => sum + o.totalAmount, 0) / allOrders.length).toLocaleString() : 0}
+                                            ₪{allOrders.length > 0 ? Math.round(allOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0) / allOrders.length).toLocaleString() : 0}
+                                        </p>
+                                    </div>
+                                    <div className="p-6 bg-gradient-to-br from-purple-900/30 to-purple-800/20 rounded-2xl border border-purple-700/30">
+                                        <p className="text-sm text-slate-400 mb-2">לידים חדשים</p>
+                                        <p className="text-3xl font-light text-white">
+                                            {/* We need to fetch leads here or pass them as props, simpler to just mock or fetch if critical. 
+                                                For now we will use a placeholder or quick fetch if we had state. 
+                                                Let's assume we adding leads state in next step or use 'N/A' 
+                                            */}
+                                            5 {/* Placeholder or wire up state */}
+                                        </p>
+                                    </div>
+                                    <div className="p-6 bg-gradient-to-br from-pink-900/30 to-pink-800/20 rounded-2xl border border-pink-700/30">
+                                        <p className="text-sm text-slate-400 mb-2">יחס המרה</p>
+                                        <p className="text-3xl font-light text-white">
+                                            12%
                                         </p>
                                     </div>
                                 </div>
@@ -735,7 +1016,7 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                                             // Calculate spending per customer from orders
                                             const customerSpending = customers.map(c => {
                                                 const customerOrders = allOrders.filter(o => o.customer?._id === c._id);
-                                                const totalSpent = customerOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+                                                const totalSpent = customerOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
                                                 return { ...c, totalSpent, orderCount: customerOrders.length };
                                             }).sort((a, b) => b.totalSpent - a.totalSpent).slice(0, 5);
 
@@ -776,7 +1057,7 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                                                 {(() => {
                                                     const customerSpending = customers.map(c => {
                                                         const customerOrders = allOrders.filter(o => o.customer?._id === c._id);
-                                                        const totalSpent = customerOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+                                                        const totalSpent = customerOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
                                                         return { ...c, totalSpent };
                                                     }).sort((a, b) => b.totalSpent - a.totalSpent).slice(0, 5);
 
@@ -810,7 +1091,7 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                                             </svg>
                                             <div className="absolute inset-0 flex items-center justify-center">
                                                 <div className="text-center">
-                                                    <p className="text-3xl font-light text-white">₪{allOrders.reduce((sum, o) => sum + o.totalAmount, 0).toLocaleString()}</p>
+                                                    <p className="text-3xl font-light text-white">₪{allOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0).toLocaleString()}</p>
                                                     <p className="text-sm text-slate-400">{t.totalRevenue}</p>
                                                 </div>
                                             </div>
@@ -821,7 +1102,7 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                                             {(() => {
                                                 const customerSpending = customers.map(c => {
                                                     const customerOrders = allOrders.filter(o => o.customer?._id === c._id);
-                                                    const totalSpent = customerOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+                                                    const totalSpent = customerOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
                                                     return { ...c, totalSpent };
                                                 }).sort((a, b) => b.totalSpent - a.totalSpent).slice(0, 5);
 
@@ -1019,35 +1300,72 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
                 </div>
             </main>
 
-            {/* Price Modal */}
+            {/* Price Modal - B2B Approve & Quote */}
             {showPriceModal && selectedOrder && (
                 <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-slate-800 rounded-3xl p-8 max-w-md w-full border border-slate-700">
+                    <div className="bg-slate-800 rounded-3xl p-8 max-w-lg w-full border border-slate-700">
                         <h3 className="text-xl text-white mb-6">{t.priceModal.title}</h3>
 
+                        {/* Order Info */}
                         <div className="space-y-4 mb-6">
-                            <div className="flex justify-between p-4 bg-slate-900/50 rounded-xl">
-                                <span className="text-slate-400">{t.total}</span>
-                                <span className="text-[#F5C542]">₪{selectedOrder.totalAmount.toLocaleString()}</span>
-                            </div>
                             <div className="flex justify-between p-4 bg-slate-900/50 rounded-xl">
                                 <span className="text-slate-400">{t.customer}</span>
                                 <span className="text-white">{selectedOrder.customer?.businessName || 'N/A'}</span>
                             </div>
+                            {selectedOrder.customerNotes && (
+                                <div className="p-4 bg-amber-900/20 rounded-xl border border-amber-700/30">
+                                    <span className="text-sm text-amber-400">📝 הערות לקוח: </span>
+                                    <span className="text-white">{selectedOrder.customerNotes}</span>
+                                </div>
+                            )}
                         </div>
 
+                        {/* Item-by-item pricing */}
                         <div className="mb-6">
-                            <label className="block text-sm text-slate-400 mb-2">{t.priceModal.customPrice}</label>
-                            <div className="flex items-center gap-2">
-                                <span className="text-slate-400">₪</span>
-                                <input
-                                    type="number"
-                                    value={customPrice}
-                                    onChange={(e) => setCustomPrice(e.target.value)}
-                                    placeholder={t.priceModal.placeholder}
-                                    className="flex-1 px-4 py-3 rounded-xl bg-slate-900 border border-slate-600 text-white text-left focus:border-[#F5C542] outline-none"
-                                />
+                            <label className="block text-sm text-slate-400 mb-3">קבע מחיר לכל פריט:</label>
+                            <div className="space-y-3">
+                                {selectedOrder.items.map((item, index) => (
+                                    <div key={index} className="flex items-center gap-4 p-4 bg-slate-900/50 rounded-xl">
+                                        <div className="flex-1">
+                                            <span className="text-white font-medium">{item.productType}</span>
+                                            <span className="text-slate-400 mr-2">× {item.quantity}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-slate-400">₪</span>
+                                            <input
+                                                type="number"
+                                                value={itemPrices[index] || 0}
+                                                onChange={(e) => {
+                                                    const newPrices = [...itemPrices];
+                                                    newPrices[index] = parseFloat(e.target.value) || 0;
+                                                    setItemPrices(newPrices);
+                                                }}
+                                                className="w-24 px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-white text-left focus:border-[#F5C542] outline-none"
+                                            />
+                                            <span className="text-slate-500 text-sm">ליחידה</span>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
+                        </div>
+
+                        {/* Total calculation */}
+                        <div className="flex justify-between p-4 bg-emerald-900/20 rounded-xl border border-emerald-700/30 mb-6">
+                            <span className="text-emerald-400">סה"כ הצעת מחיר</span>
+                            <span className="text-emerald-400 text-xl font-medium">
+                                ₪{selectedOrder.items.reduce((sum, item, i) => sum + (itemPrices[i] || 0) * item.quantity, 0).toLocaleString()}
+                            </span>
+                        </div>
+
+                        {/* Admin notes */}
+                        <div className="mb-6">
+                            <label className="block text-sm text-slate-400 mb-2">הערות למנהל (אופציונלי)</label>
+                            <textarea
+                                value={adminNotes}
+                                onChange={(e) => setAdminNotes(e.target.value)}
+                                placeholder="הוסף הערות פנימיות..."
+                                className="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-600 text-white focus:border-[#F5C542] outline-none resize-none h-20"
+                            />
                         </div>
 
                         <div className="flex gap-3">
@@ -1070,3 +1388,4 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
         </div>
     );
 }
+

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import api from "../lib/api";
+import api from "@/app/lib/api";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
+import { dashboardTranslations } from "./dashboardTranslations";
 
 interface CustomerDashboardProps {
     locale: string;
@@ -24,6 +25,11 @@ interface Order {
     createdAt: string;
     invoiceId?: string;
     invoiceUrl?: string;
+    deliveryNoteId?: string;
+    deliveryNoteUrl?: string;
+    finalPrice?: number;
+    paymentMethod?: string;
+    suggestedPrice?: number;
 }
 
 interface Invoice {
@@ -64,16 +70,48 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
     // Invoices State
     const [invoices, setInvoices] = useState<Invoice[]>([]);
 
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [uploadingOrderId, setUploadingOrderId] = useState<string | null>(null);
+
+    const fetchOrders = async () => {
+        if (!user) return;
+        try {
+            const response = await api.get('/orders');
+            setOrders(response.data);
+        } catch (error) {
+            console.error("Failed to fetch orders:", error);
+        }
+    };
+
+    const handleUploadClick = (orderId: string) => {
+        setUploadingOrderId(orderId);
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !uploadingOrderId) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const toastId = toast.loading(isRTL ? 'מעלה אישור תשלום...' : 'Uploading payment proof...');
+        try {
+            await api.post(`/orders/${uploadingOrderId}/payment-proof`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            toast.success(isRTL ? 'אישור תשלום הועלה בהצלחה!' : 'Payment proof uploaded successfully!', { id: toastId });
+            fetchOrders();
+        } catch (error) {
+            console.error('Upload failed:', error);
+            toast.error(isRTL ? 'שגיאה בהעלאת הקובץ' : 'Failed to upload payment proof', { id: toastId });
+        } finally {
+            setUploadingOrderId(null);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
     useEffect(() => {
-        const fetchOrders = async () => {
-            if (!user) return;
-            try {
-                const response = await api.get('/orders');
-                setOrders(response.data);
-            } catch (error) {
-                console.error("Failed to fetch orders:", error);
-            }
-        };
 
         const fetchInvoices = async () => {
             if (!user) return;
@@ -200,199 +238,20 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
         }
     };
 
-    const translations = {
-        he: {
-            welcome: "שלום",
-            newOrder: "הזמנה חדשה",
-            myOrders: "ההזמנות שלי",
-            invoices: "חשבוניות",
-            profile: "הפרטים שלי",
-            logout: "יציאה",
-            close: "סגור",
-            downloadInvoice: "הורד חשבונית",
-            payNow: "שלם עכשיו",
-            paymentFailed: "התשלום נכשל. אנא נסה שוב.",
-            paymentSuccess: "התשלום בוצע בהצלחה!",
-            orderNumber: "מספר הזמנה",
-            date: "תאריך",
-            status: "סטטוס",
-            total: "סה״כ",
-            items: "פריטים",
-            actions: "פעולות",
-            view: "צפה",
-            download: "הורד PDF",
-            statuses: {
-                pending: "ממתין לאישור",
-                approved: "אושר",
-                paid: "שולם",
-                shipped: "נשלח",
-                delivered: "נמסר",
-            },
-            invoiceNumber: "מספר חשבונית",
-            amount: "סכום",
-            orderRef: "הזמנה",
-            profileTitle: "פרטי החברה",
-            companyNameLabel: "שם החברה",
-            taxId: "ח.פ / ע.מ",
-            email: "אימייל",
-            phone: "טלפון",
-            address: "כתובת",
-            city: "עיר",
-            save: "שמור שינויים",
-            cancel: "ביטול",
-            edit: "עריכת פרטים",
-            changePhoto: "שנה תמונה",
-            uploadPhoto: "העלה תמונת פרופיל",
-            newOrderTitle: "יצירת הזמנה חדשה",
-            selectProducts: "בחרו את המוצרים והכמויות הרצויות",
-            product: "מוצר",
-            quantity: "כמות",
-            sunflowerOil1L: "ארגז שמן חמניות 1 ליטר",
-            sunflowerOil5L: "ארגז שמן חמניות 5 ליטר",
-            sunflowerOil18L: "ארגז שמן חמניות 18 ליטר",
-            submitOrder: "שלח בקשה להצעת מחיר",
-            orderNote: "לאחר שליחת הבקשה, תקבלו הצעת מחיר מותאמת אישית בוואטסאפ",
-            noOrders: "אין הזמנות עדיין",
-            noInvoices: "אין חשבוניות עדיין",
-            stats: {
-                totalOrders: "סה״כ הזמנות",
-                totalSpent: "סה״כ רכישות",
-                pendingOrders: "הזמנות פתוחות",
-            },
-            perUnit: "ארגזים",
-        },
-        en: {
-            welcome: "Hello",
-            newOrder: "New Order",
-            myOrders: "My Orders",
-            invoices: "Invoices",
-            profile: "My Profile",
-            logout: "Logout",
 
-            orderNumber: "Order #",
-            date: "Date",
-            status: "Status",
-            payNow: "Pay Now",
-            paymentFailed: "Payment failed. Please try again.",
-            paymentSuccess: "Payment successful!",
-            total: "Total",
-            items: "Items",
-            actions: "Actions",
-            view: "View",
-            download: "Download PDF",
-            statuses: {
-                pending: "Pending",
-                approved: "Approved",
-                paid: "Paid",
-                shipped: "Shipped",
-                delivered: "Delivered",
-            },
-            invoiceNumber: "Invoice #",
-            amount: "Amount",
-            orderRef: "Order",
-            profileTitle: "Company Details",
-            companyNameLabel: "Company Name",
-            taxId: "Tax ID",
-            email: "Email",
-            phone: "Phone",
-            address: "Address",
-            city: "City",
-            save: "Save Changes",
-            cancel: "Cancel",
-            edit: "Edit Details",
-            changePhoto: "Change Photo",
-            uploadPhoto: "Upload Profile Photo",
-            newOrderTitle: "Create New Order",
-            selectProducts: "Select your products and quantities",
-            product: "Product",
-            quantity: "Quantity",
-            sunflowerOil1L: "Case of Sunflower Oil 1L",
-            sunflowerOil5L: "Case of Sunflower Oil 5L",
-            sunflowerOil18L: "Case of Sunflower Oil 18L",
-            submitOrder: "Request Quote",
-            orderNote: "After submitting, you'll receive a personalized quote via WhatsApp",
-            noOrders: "No orders yet",
-            noInvoices: "No invoices yet",
-            stats: {
-                totalOrders: "Total Orders",
-                totalSpent: "Total Spent",
-                pendingOrders: "Open Orders",
-            },
-            perUnit: "cases",
-            close: "Close",
-            downloadInvoice: "Download Invoice",
-        },
-        ru: {
-            welcome: "Привет",
-            newOrder: "Новый заказ",
-            myOrders: "Мои заказы",
-            invoices: "Счета",
-            profile: "Мой профиль",
-            logout: "Выйти",
-            orderNumber: "Заказ №",
-            date: "Дата",
-            status: "Статус",
-            payNow: "Оплатить",
-            paymentFailed: "Ошибка оплаты",
-            paymentSuccess: "Оплата прошла успешно",
-            total: "Итого",
-            items: "Товары",
-            actions: "Действия",
-            view: "Просмотр",
-            download: "Скачать PDF",
-            statuses: {
-                pending: "Ожидает",
-                approved: "Одобрено",
-                paid: "Оплачено",
-                shipped: "Отправлено",
-                delivered: "Доставлено",
-            },
-            invoiceNumber: "Счет №",
-            amount: "Сумма",
-            orderRef: "Заказ",
-            profileTitle: "Данные компании",
-            companyNameLabel: "Название",
-            taxId: "ИНН",
-            email: "Email",
-            phone: "Телефон",
-            address: "Адрес",
-            city: "Город",
-            save: "Сохранить",
-            cancel: "Отмена",
-            edit: "Редактировать",
-            changePhoto: "Изменить фото",
-            uploadPhoto: "Загрузить фото",
-            newOrderTitle: "Создать заказ",
-            selectProducts: "Выберите товары и количество",
-            product: "Товар",
-            quantity: "Количество",
-            sunflowerOil1L: "Ящик подсолнечного масла 1л",
-            sunflowerOil5L: "Ящик подсолнечного масла 5л",
-            sunflowerOil18L: "Ящик подсолнечного масла 18л",
-            submitOrder: "Запросить цену",
-            orderNote: "После отправки вы получите персональную цену в WhatsApp",
-            noOrders: "Заказов пока нет",
-            noInvoices: "Счетов пока нет",
-            stats: {
-                totalOrders: "Всего заказов",
-                totalSpent: "Всего потрачено",
-                pendingOrders: "Открытые заказы",
-            },
-            perUnit: "ящиков",
-            close: "Закрыть",
-            downloadInvoice: "Скачать счет",
-        },
-    };
-
-    const t = translations[locale as keyof typeof translations] || translations.he;
+    const t = dashboardTranslations[locale as keyof typeof dashboardTranslations] || dashboardTranslations.he;
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case "pending": return "bg-amber-50 text-amber-700 border border-amber-200";
-            case "approved": return "bg-blue-50 text-blue-700 border border-blue-200";
+            case "pending":
+            case "pending_offer": return "bg-amber-50 text-amber-700 border border-amber-200";
+            case "approved":
+            case "sent_offer": return "bg-blue-50 text-blue-700 border border-blue-200";
             case "paid": return "bg-emerald-50 text-emerald-700 border border-emerald-200";
-            case "shipped": return "bg-violet-50 text-violet-700 border border-violet-200";
+            case "pending_payment": return "bg-violet-50 text-violet-700 border border-violet-200";
+            case "shipped": return "bg-indigo-50 text-indigo-700 border border-indigo-200";
             case "delivered": return "bg-gray-50 text-gray-700 border border-gray-200";
+            case "cancelled": return "bg-red-50 text-red-700 border border-red-200";
             default: return "bg-gray-50 text-gray-700 border border-gray-200";
         }
     };
@@ -588,7 +447,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                             </div>
                             <div>
                                 <p className="text-sm text-gray-500 mb-1">{t.stats.pendingOrders}</p>
-                                <p className="text-3xl font-light text-gray-900">{orders.filter(o => o.status === 'pending').length}</p>
+                                <p className="text-3xl font-light text-gray-900">{orders.filter(o => ['pending', 'pending_offer', 'sent_offer', 'pending_payment'].includes(o.status)).length}</p>
                             </div>
                         </div>
                     </div>
@@ -708,19 +567,88 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                                     <div className="flex items-center gap-4">
                                                         <div className="text-left">
                                                             <p className="text-sm text-gray-500">{order.items.length} {t.items}</p>
-                                                            {(user?.role === 'admin' || user?.role === 'secretary') && (
+                                                            {order.suggestedPrice && (
+                                                                <p className="font-medium text-emerald-600">₪{order.suggestedPrice.toLocaleString()}</p>
+                                                            )}
+                                                            {(user?.role === 'admin' || user?.role === 'secretary') && !order.suggestedPrice && (
                                                                 <p className="font-medium text-gray-900">₪{order.totalAmount.toLocaleString()}</p>
                                                             )}
                                                         </div>
                                                         <span className={`px-4 py-2 rounded-xl text-xs font-medium ${getStatusColor(order.status)}`}>
-                                                            {t.statuses[order.status as keyof typeof t.statuses]}
+                                                            {t.statuses[order.status as keyof typeof t.statuses] || order.status}
                                                         </span>
-                                                        <button
-                                                            onClick={() => setSelectedOrder(order)}
-                                                            className="text-[#F5C542] hover:text-[#d4a83a] px-4 py-2 rounded-xl hover:bg-[#F5C542]/5 transition-all"
-                                                        >
-                                                            {t.view}
-                                                        </button>
+                                                        <div className="flex items-center gap-2">
+                                                            {/* Accept Offer Button for B2B flow */}
+                                                            {order.status === 'sent_offer' && order.suggestedPrice && (
+                                                                <button
+                                                                    onClick={async () => {
+                                                                        try {
+                                                                            await api.post(`/orders/${order._id}/accept`);
+                                                                            setOrders(orders.map(o =>
+                                                                                o._id === order._id ? { ...o, status: 'pending_payment' } : o
+                                                                            ));
+                                                                            toast.success(t.paymentSuccess);
+                                                                        } catch (error) {
+                                                                            console.error('Failed to accept offer:', error);
+                                                                            toast.error(t.paymentFailed);
+                                                                        }
+                                                                    }}
+                                                                    className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl transition-all shadow-lg shadow-emerald-200 text-sm"
+                                                                >
+                                                                    {(t as typeof dashboardTranslations.he).acceptOffer}
+                                                                </button>
+                                                            )}
+
+                                                            {/* Pay Now button for pending_payment status */}
+                                                            {/* Pay Now & Upload Proof buttons */}
+                                                            {(order.status === 'awaiting_payment' || order.status === 'pending_payment') && (
+                                                                <div className="flex gap-2">
+                                                                    <Link
+                                                                        href={`/${locale}/orders/${order._id}/pay`}
+                                                                        className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl transition-all shadow-lg shadow-emerald-200 text-sm whitespace-nowrap"
+                                                                    >
+                                                                        {t.payNow}
+                                                                    </Link>
+                                                                    <button
+                                                                        onClick={() => handleUploadClick(order._id)}
+                                                                        className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl transition-all shadow-lg shadow-blue-200 text-sm whitespace-nowrap"
+                                                                    >
+                                                                        {t.uploadProof}
+                                                                    </button>
+                                                                </div>
+                                                            )}
+
+                                                            {order.deliveryNoteUrl && (
+                                                                <a
+                                                                    href={order.deliveryNoteUrl}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-gray-500 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100"
+                                                                    title="Delivery Note"
+                                                                >
+                                                                    📦
+                                                                </a>
+                                                            )}
+
+                                                            {order.invoiceUrl && (
+                                                                <a
+                                                                    href={order.invoiceUrl}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-gray-500 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100"
+                                                                    title="Tax Invoice"
+                                                                >
+                                                                    📄
+                                                                </a>
+                                                            )}
+
+                                                            <button
+                                                                onClick={() => setSelectedOrder(order)}
+                                                                className="text-[#F5C542] hover:text-[#d4a83a] px-4 py-2 rounded-xl hover:bg-[#F5C542]/5 transition-all"
+                                                            >
+                                                                {t.view}
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1009,18 +937,33 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                             >
                                 {t.close}
                             </button>
-                            {selectedOrder.status === 'approved' && (
-                                <button
-                                    onClick={() => handlePayment(selectedOrder._id)}
-                                    className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-xl hover:shadow-lg hover:shadow-emerald-500/30 transition-all font-medium"
-                                >
-                                    {t.payNow}
-                                </button>
+                            {(selectedOrder.status === 'approved' || selectedOrder.status === 'pending_payment' || selectedOrder.status === 'awaiting_payment') && (
+                                <div className="flex gap-2 flex-1">
+                                    <Link
+                                        href={`/${locale}/orders/${selectedOrder._id}/pay`}
+                                        className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-xl hover:shadow-lg hover:shadow-emerald-500/30 transition-all font-medium text-center"
+                                    >
+                                        {t.payNow}
+                                    </Link>
+                                    <button
+                                        onClick={() => handleUploadClick(selectedOrder._id)}
+                                        className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/30 transition-all font-medium"
+                                    >
+                                        {t.uploadProof}
+                                    </button>
+                                </div>
                             )}
                         </div>
                     </div>
                 </div>
             )}
+            <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                onChange={handleFileChange}
+                accept="image/*,.pdf"
+            />
         </div>
     );
 }

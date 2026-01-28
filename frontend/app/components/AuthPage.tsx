@@ -25,7 +25,11 @@ export default function AuthPage({ locale }: AuthPageProps) {
 
     useEffect(() => {
         if (user) {
-            router.push(`/${locale}/dashboard`);
+            if (user.role === 'admin') {
+                router.push(`/${locale}/admin`);
+            } else {
+                router.push(`/${locale}/dashboard`);
+            }
         }
     }, [user, locale, router]);
 
@@ -153,19 +157,30 @@ export default function AuthPage({ locale }: AuthPageProps) {
                     firstName: firstName,
                     lastName: lastName,
                     phone: formData.phone,
-                    role: 'customer' // Default role
+                    role: 'customer', // Default role
+                    companyName: formData.companyName
                 });
             }
             setStatus("success");
             // Redirect happens in AuthContext
-        } catch (err: unknown) {
-            console.error(err);
+        } catch (err: any) {
+            console.error('Full Auth Error:', err);
             setStatus("error");
-            setError(
-                isRTL
-                    ? "אירעה שגיאה בהתחברות. אנא נסה שוב."
-                    : "Login failed. Please try again."
-            );
+
+            // Constructs a detailed debug message
+            let errorMessage = "Debug Error: ";
+            if (err.response) {
+                // Server responded
+                errorMessage += `Status ${err.response.status} | Data: ${JSON.stringify(err.response.data)}`;
+            } else if (err.request) {
+                // Request made but no response
+                errorMessage += `No Response (Network/CORS) | ${err.message}`;
+            } else {
+                // Setup error
+                errorMessage += `Setup Error | ${err.message}`;
+            }
+
+            setError(errorMessage);
         } finally {
             if (status !== "success") setStatus("idle");
         }
@@ -288,11 +303,18 @@ export default function AuthPage({ locale }: AuthPageProps) {
 
                     {/* Error Message */}
                     {error && (
-                        <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-sm font-light flex items-center gap-2">
-                            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            {error}
+                        <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-sm font-light flex flex-col gap-2">
+                            <div className="flex items-center gap-2">
+                                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span className="font-bold">{error}</span>
+                            </div>
+                            <div className="text-xs font-mono text-gray-500 mt-2 bg-gray-100 p-2 rounded">
+                                <p><strong>Debug Info:</strong></p>
+                                <p>API URL: {process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'}</p>
+                                <p>Time: {new Date().toISOString()}</p>
+                            </div>
                         </div>
                     )}
 

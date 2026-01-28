@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { i18n } from "@/i18n/config";
 import { AuthProvider } from "./context/AuthContext";
 import { Toaster } from "react-hot-toast";
+import FloatingWhatsApp from "@/components/FloatingWhatsApp";
 
 export const metadata: Metadata = {
   title: "Crystolia – Premium Sunflower Oil",
@@ -78,6 +79,11 @@ export default function RootLayout({
         />
         <AuthProvider>
           {children}
+          <div className="fixed bottom-0 right-0 z-[9999]">
+            {/* Dynamic Import or Client Component */}
+          </div>
+          {/* We import the component at the top normally, assuming it is client safe */}
+          <FloatingWhatsApp />
         </AuthProvider>
       </body>
     </html>
