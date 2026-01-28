@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState } from 'react';
-import api from '../lib/api';
+import api from '@/app/lib/api';
 import { useRouter } from 'next/navigation';
 
 interface Customer {
@@ -34,6 +34,7 @@ interface RegisterData {
     lastName: string;
     phone?: string;
     role?: string;
+    companyName?: string;
 }
 
 interface AuthContextType {

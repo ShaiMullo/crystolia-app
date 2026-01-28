@@ -23,5 +23,11 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL(`/en${pathname}`, req.url));
   }
 
+  // Redirect /login to /auth
+  if (pathname.endsWith("/login")) {
+    const newPath = pathname.replace("/login", "/auth");
+    return NextResponse.redirect(new URL(newPath, req.url));
+  }
+
   return NextResponse.next();
 }

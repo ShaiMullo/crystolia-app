@@ -22,6 +22,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://127.0.0.1:4000/api
     ports:
       - "3000:3000" # localhost:3000 → container:3000
     environment:
