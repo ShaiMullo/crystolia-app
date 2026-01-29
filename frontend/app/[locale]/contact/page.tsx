@@ -18,7 +18,7 @@ export default function ContactPage() {
 
     const onSubmit = async (data: ContactFormInputs) => {
         try {
-            await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/leads`, data);
+            await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/leads`, data);
             setSubmitted(true);
             toast.success('הפנייה נשלחה בהצלחה! ניצור קשר בהקדם.');
             reset();

@@ -1,7 +1,15 @@
 import axios from 'axios';
 
+// Get base URL - env var should already include /api
+const getBaseUrl = () => {
+    if (typeof window === 'undefined') {
+        return process.env.BACKEND_URL || 'http://127.0.0.1:4000/api';
+    }
+    return process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:4000/api';
+};
+
 const api = axios.create({
-    baseURL: (typeof window === 'undefined' ? process.env.BACKEND_URL : process.env.NEXT_PUBLIC_API_URL) || 'http://127.0.0.1:4000/api',
+    baseURL: getBaseUrl(),
     headers: {
         'Content-Type': 'application/json',
     },

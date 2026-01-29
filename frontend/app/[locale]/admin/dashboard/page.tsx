@@ -42,7 +42,7 @@ export default function LeadDashboard() {
   const fetchLeads = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/leads/admin`, {
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/leads/admin`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setLeads(res.data);
@@ -59,7 +59,7 @@ export default function LeadDashboard() {
       // Optimistic update
       setLeads(prev => prev.map(l => l._id === id ? { ...l, status: newStatus } : l));
 
-      await axios.patch(`${process.env.NEXT_PUBLIC_API_URL}/api/leads/${id}`,
+      await axios.patch(`${process.env.NEXT_PUBLIC_API_URL}/leads/${id}`,
         { status: newStatus },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -74,7 +74,7 @@ export default function LeadDashboard() {
     if (!window.confirm('Are you sure you want to delete this lead?')) return;
     try {
       setLeads(prev => prev.filter(l => l._id !== id));
-      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/api/leads/${id}`, {
+      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/leads/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success('Lead deleted');
@@ -94,7 +94,7 @@ export default function LeadDashboard() {
     if (!editingLead) return;
     try {
       setLeads(prev => prev.map(l => l._id === editingLead._id ? { ...l, notes: noteContent } : l));
-      await axios.patch(`${process.env.NEXT_PUBLIC_API_URL}/api/leads/${editingLead._id}`,
+      await axios.patch(`${process.env.NEXT_PUBLIC_API_URL}/leads/${editingLead._id}`,
         { notes: noteContent },
         { headers: { Authorization: `Bearer ${token}` } }
       );
