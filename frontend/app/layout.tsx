@@ -2,7 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { i18n } from "@/i18n/config";
 import { AuthProvider } from "./context/AuthContext";
-import { Toaster } from "react-hot-toast";
+import ToasterProvider from "./components/ToasterProvider";
 import FloatingWhatsApp from "@/components/FloatingWhatsApp";
 
 export const metadata: Metadata = {
@@ -53,30 +53,7 @@ export default function RootLayout({
             `,
           }}
         />
-        <Toaster
-          position="top-center"
-          toastOptions={{
-            duration: 4000,
-            style: {
-              background: '#333',
-              color: '#fff',
-              borderRadius: '12px',
-              padding: '16px',
-            },
-            success: {
-              iconTheme: {
-                primary: '#F5C542',
-                secondary: '#fff',
-              },
-            },
-            error: {
-              iconTheme: {
-                primary: '#ef4444',
-                secondary: '#fff',
-              },
-            },
-          }}
-        />
+        <ToasterProvider />
         <AuthProvider>
           {children}
           <div className="fixed bottom-0 right-0 z-[9999]">

@@ -39,8 +39,8 @@ export default function Contact({ locale, dict }: ContactProps) {
     setStatus("sending");
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      const response = await fetch(`${apiUrl}/api/leads`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+      const response = await fetch(`${apiUrl}/leads`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

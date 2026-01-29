@@ -28,7 +28,7 @@ export default function LeadsManagement() {
     const fetchLeads = async () => {
         if (!token) return;
         try {
-            const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/leads`, {
+            const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/leads`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setLeads(res.data);
@@ -42,7 +42,7 @@ export default function LeadsManagement() {
 
     const updateStatus = async (id: string, status: string) => {
         try {
-            await axios.patch(`${process.env.NEXT_PUBLIC_API_URL}/api/leads/${id}/status`, { status }, {
+            await axios.patch(`${process.env.NEXT_PUBLIC_API_URL}/leads/${id}/status`, { status }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setLeads(leads.map(l => l._id === id ? { ...l, status: status as any } : l));
@@ -55,7 +55,7 @@ export default function LeadsManagement() {
     const deleteLead = async (id: string) => {
         if (!confirm('האם אתה בטוח שברצונך למחוק ליד זה?')) return;
         try {
-            await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/api/leads/${id}`, {
+            await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/leads/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setLeads(leads.filter(l => l._id !== id));
