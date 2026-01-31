@@ -20,6 +20,8 @@ spec:
           imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
           ports:
             - containerPort: 3000
+          resources:
+{{ toYaml .Values.backend.resources | indent 12 }}
           env:
             - name: PORT
               value: "3000"
@@ -39,25 +41,55 @@ spec:
               value: "{{ .Values.backend.env.GOOGLE_CLIENT_SECRET }}"
             # Green Invoice
             - name: GREEN_INVOICE_API_ID
-              value: "{{ .Values.secrets.greenInvoice.apiId }}"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: GREEN_INVOICE_API_ID
             - name: GREEN_INVOICE_SECRET
-              value: "{{ .Values.secrets.greenInvoice.secret }}"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: GREEN_INVOICE_SECRET
             - name: GREEN_INVOICE_SANDBOX
-              value: "{{ .Values.secrets.greenInvoice.sandbox }}"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: GREEN_INVOICE_SANDBOX
             # WhatsApp
             - name: WHATSAPP_ACCESS_TOKEN
-              value: "{{ .Values.secrets.whatsapp.accessToken }}"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: WHATSAPP_ACCESS_TOKEN
             - name: WHATSAPP_PHONE_NUMBER_ID
-              value: "{{ .Values.secrets.whatsapp.phoneNumberId }}"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: WHATSAPP_PHONE_NUMBER_ID
             - name: WHATSAPP_WEBHOOK_VERIFY_TOKEN
-              value: "{{ .Values.secrets.whatsapp.webhookVerifyToken }}"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: WHATSAPP_WEBHOOK_VERIFY_TOKEN
             # Twilio
             - name: TWILIO_ACCOUNT_SID
-              value: "{{ .Values.secrets.twilio.accountSid }}"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: TWILIO_ACCOUNT_SID
             - name: TWILIO_AUTH_TOKEN
-              value: "{{ .Values.secrets.twilio.authToken }}"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: TWILIO_AUTH_TOKEN
             - name: TWILIO_PHONE_NUMBER
-              value: "{{ .Values.secrets.twilio.phoneNumber }}"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: TWILIO_PHONE_NUMBER
             # Payment
             - name: PAYMENT_PROVIDER
-              value: "{{ .Values.secrets.payment.provider }}"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: PAYMENT_PROVIDER
