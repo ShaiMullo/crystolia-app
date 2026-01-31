@@ -12,6 +12,13 @@ frontend:
     type: ClusterIP
     port: 3000
   replicaCount: 2
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "250m"
+      memory: "256Mi"
 
 backend:
   image:
@@ -28,6 +35,13 @@ backend:
     GOOGLE_CLIENT_ID: "42819184159-tqh018b0d0dkhv6sc37abov9rmjkgaer.apps.googleusercontent.com"
     GOOGLE_CLIENT_SECRET: "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"
     JWT_SECRET: "crystolia-super-secret-jwt-key-2026"
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
 
 mongodb:
   image:
@@ -41,8 +55,15 @@ mongodb:
   backup:
     enabled: true
     schedule: "0 2 * * *"  # Daily at 2 AM
-    s3Bucket: ""  # crystolia-backups
+    s3Bucket: "crystolia-backups"
     awsRegion: "us-east-1"
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
 
 ingress:
   enabled: true
@@ -53,9 +74,11 @@ ingress:
     enabled: true
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# 🔐 Production Secrets (Override via --set or secrets.yaml)
+# 🔐 Secrets (Values to be injected via secrets.yaml)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 secrets:
+  # These keys correspond to the structure in templates/secret.yaml
+  # Do NOT put actual secrets here. Use secrets.yaml and install with -f
   greenInvoice:
     apiId: ""
     secret: ""
@@ -69,5 +92,5 @@ secrets:
     authToken: ""
     phoneNumber: ""
   payment:
-    provider: "mock"  # mock or meshulam
+    provider: "mock"
 

@@ -20,6 +20,8 @@ spec:
           imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
           ports:
             - containerPort: 3000
+          resources:
+{{ toYaml .Values.frontend.resources | indent 12 }}
           env:
             - name: NEXT_PUBLIC_API_URL
-              value: "http://{{ .Release.Name }}-backend:{{ .Values.backend.service.port }}"
+              value: "https://{{ .Values.ingress.host }}/api"

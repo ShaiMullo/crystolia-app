@@ -1,0 +1,43 @@
+# ===========================================
+# Docker Ignore File
+# ===========================================
+# Prevents unnecessary files from being copied to Docker image
+
+# Dependencies (will be installed fresh in container)
+node_modules
+npm-debug.log
+
+# Build output (will be built in container)
+.next
+out
+build
+dist
+
+# Development files
+.git
+.gitignore
+*.md
+!README.md
+
+# IDE & Editor
+.vscode
+.idea
+*.swp
+*.swo
+
+# Environment files (should be passed as env vars)
+.env
+.env.*
+!.env.example
+
+# Testing
+coverage
+.nyc_output
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
