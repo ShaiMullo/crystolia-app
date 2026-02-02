@@ -70,10 +70,9 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
       - uses: aws-actions/amazon-ecr-login@v2
         id: login-ecr
-        with:
-          registries: ${{ env.ECR_REGISTRY }}
+        # Fixed: Removed 'registries' input to allow auto-detection of default account ID
 
-      # Build Backend (Conditional)
+        # Build Backend (Conditional)
       - name: Build Backend
         if: ${{ needs.changes.outputs.backend == 'true' }}
         uses: docker/build-push-action@v5
