@@ -8,7 +8,7 @@ on:
       - 'backend-legacy/**'
       - 'frontend-client/**'
       - 'helm/**'
-      - '.github/workflows/staging.yml'
+      - '.github/workflows/**'
 
 env:
   AWS_REGION: us-east-1
