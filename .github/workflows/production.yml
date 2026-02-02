@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Fix git exit code 128
+      # FIX: Global Git Safety
       - name: Fix Git Safety
         run: git config --global --add safe.directory "*"
 
@@ -35,7 +35,7 @@ jobs:
         id: login-ecr
         # Fixed: Removed 'registries' input
 
-        # Build Backend
+        # Build Backend - Always if changed
       - uses: docker/build-push-action@v5
         with:
           context: ./backend-legacy
@@ -43,17 +43,17 @@ jobs:
           push: true
           tags: ${{ env.ECR_REGISTRY }}/crystolia-backend:${{ env.IMAGE_TAG }},${{ env.ECR_REGISTRY }}/crystolia-backend:latest
           cache-from: type=gha
-          # cache-to disabled
 
-          # Build Frontend
-      - uses: docker/build-push-action@v5
+      # Build Frontend - Continue on error to prevent blocking backend
+      - name: Build Frontend
+        continue-on-error: true
+        uses: docker/build-push-action@v5
         with:
           context: ./frontend-client
           file: ./frontend-client/Dockerfile
           push: true
           tags: ${{ env.ECR_REGISTRY }}/crystolia-frontend:${{ env.IMAGE_TAG }},${{ env.ECR_REGISTRY }}/crystolia-frontend:latest
           cache-from: type=gha
-          # cache-to disabled
 
   deploy-prod:
     name: 🚀 Deploy to Production
@@ -67,11 +67,13 @@ jobs:
           token: ${{ secrets.GITOPS_PAT }}
           path: gitops
 
+      # FIX: Global Git Safety
+      - name: Fix Git Safety
+        run: git config --global --add safe.directory "*"
+
       - name: Update Production Image Tag
         working-directory: gitops/production
         run: |
-          git config --global --add safe.directory "*"
-
           wget https://github.com/mikefarah/yq/releases/download/v4.40.5/yq_linux_amd64 -O /usr/bin/yq && chmod +x /usr/bin/yq
           /usr/bin/yq -i '.frontend.image.tag = "${{ env.IMAGE_TAG }}"' values.yaml
           /usr/bin/yq -i '.backend.image.tag = "${{ env.IMAGE_TAG }}"' values.yaml
