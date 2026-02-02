@@ -20,11 +20,17 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+
+      # Fix git exit code 128
+      - name: Fix Git Safety
+        run: git config --global --add safe.directory "*"
+
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
+
       - uses: aws-actions/amazon-ecr-login@v2
         id: login-ecr
         # Fixed: Removed 'registries' input
@@ -37,7 +43,7 @@ jobs:
           push: true
           tags: ${{ env.ECR_REGISTRY }}/crystolia-backend:${{ env.IMAGE_TAG }},${{ env.ECR_REGISTRY }}/crystolia-backend:latest
           cache-from: type=gha
-          # cache-to disabled for stability
+          # cache-to disabled
 
           # Build Frontend
       - uses: docker/build-push-action@v5
@@ -47,7 +53,7 @@ jobs:
           push: true
           tags: ${{ env.ECR_REGISTRY }}/crystolia-frontend:${{ env.IMAGE_TAG }},${{ env.ECR_REGISTRY }}/crystolia-frontend:latest
           cache-from: type=gha
-          # cache-to disabled for stability
+          # cache-to disabled
 
   deploy-prod:
     name: 🚀 Deploy to Production
