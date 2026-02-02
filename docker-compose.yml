@@ -1,79 +1,60 @@
-# 🐳 Crystolia - Docker Compose
-# ===============================================
-# Run: docker compose up
-# Run in background: docker compose up -d
-# Stop: docker compose down
+version: '3.8'
 
 services:
-  # ─────────────────────────────────────────────
-  # 🍃 MongoDB - Database
-  # ─────────────────────────────────────────────
+  # Database
   mongo:
-    image: mongo:6.0
+    image: mongo:latest
     ports:
       - "27017:27017"
     volumes:
-      - db_data:/data/db
-    restart: unless-stopped
-  # ─────────────────────────────────────────────
-  # 🎨 Frontend - Next.js
-  # ─────────────────────────────────────────────
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: http://127.0.0.1:4000/api
-    ports:
-      - "3000:3000" # localhost:3000 → container:3000
-    environment:
-      - NODE_ENV=production
-      - BACKEND_URL=http://backend:4000/api
-      - NEXT_PUBLIC_API_URL=http://localhost:4000/api
-    depends_on:
-      - backend # מחכה ש-backend יעלה קודם
-    restart: unless-stopped # אוטומטית קם מחדש אם נופל
+      - ./data/mongo:/data/db
+    networks:
+      - crystolia-net
 
-  # ─────────────────────────────────────────────
-  # 🔧 Backend - Express.js
-  # ─────────────────────────────────────────────
+  # Backend API
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "4000:4000" # localhost:4000 → container:4000
+      - "4000:4000"
     environment:
-      - NODE_ENV=production
       - PORT=4000
-      - FRONTEND_URL=http://localhost:3000
-      # WhatsApp Cloud API
-      - WHATSAPP_ACCESS_TOKEN=EAALfyC3Vz6sBQQYtlrS3Mtv4MjsU6QJpq4t5Jy8stSoaZCisNZBcYuKKHaPwoSxeC7aORZCWo6ntDf2IirRlLt6xDtsQwNZAjfbZApz9jIJaXmUO3o5l41QAAlPEZCcBZBYWjK5LKbpl3X8mxIwG6baHOYz6ucvLaZA0OBai5AZBZCZAHBLNqX7JAz82VI671A4ZBurrZClRAqUBrU4UQVQbJZAUdrdZCcynjRt6hzcz2uboncCfKRElMOJhZBG0Bt3j5EH9rAVJFNPc8jZAD6XrAUA0pDkT9
-      - WHATSAPP_PHONE_NUMBER_ID=882550054951675
-      - WHATSAPP_WEBHOOK_VERIFY_TOKEN=crystolia-whatsapp-secret-2026
       - MONGO_URI=mongodb://mongo:27017/crystolia
-      # Social Auth Keys
-      - GOOGLE_CLIENT_ID=42819184159-6itdouie84tgkar7ug33iskn5evsento.apps.googleusercontent.com
-      - GOOGLE_CLIENT_SECRET=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
-      - JWT_SECRET=crystolia-super-secret-jwt-key-2026
-      # SMS (Twilio)
-      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
-      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
-      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
-      # Green Invoice
-      - GREEN_INVOICE_API_ID=8c586910-c6ae-4e16-8arn-1507addc07
-      - GREEN_INVOICE_SECRET=hoglY594Fcmlleb_ynt3
-      - GREEN_INVOICE_SANDBOX=false
-      # - APPLE_SERVICE_ID=...
-      # - APPLE_TEAM_ID=...
-      # - APPLE_KEY_ID=...
-      # - APPLE_PRIVATE_KEY_PATH=...
+      # Add other backend vars here
     depends_on:
       - mongo
-    restart: unless-stopped
+    networks:
+      - crystolia-net
 
-# ─────────────────────────────────────────────
-# 💾 Volumes (לעתיד - מסד נתונים)
-# ─────────────────────────────────────────────
-volumes:
-  db_data:
+  # Frontend Client (Customer)
+  frontend-client:
+    build:
+      context: ./frontend-client
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:4000
+    depends_on:
+      - backend
+    networks:
+      - crystolia-net
+
+  # Frontend Admin (CRM)
+  frontend-admin:
+    build:
+      context: ./frontend-admin
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3000" # Mapped to 3001 to avoid conflict
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:4000
+    depends_on:
+      - backend
+    networks:
+      - crystolia-net
+
+networks:
+  crystolia-net:
+    driver: bridge

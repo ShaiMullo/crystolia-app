@@ -1,4 +1,4 @@
-name: Production Deployment
+name: Production Deployment (PAUSED)
 
 on:
   push:
@@ -12,85 +12,44 @@ env:
   GITOPS_REPO: ShaiMullo/crystolia-gitops
 
 jobs:
-  build-push:
-    name: 🏗️ Build & Push (Prod)
+  build-dry-run:
+    name: 🏗️ Build (Dry Run)
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
     steps:
       - uses: actions/checkout@v4
       - name: Fix Git Safety
         run: git config --global --add safe.directory "*"
 
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+      # AWS CREDENTIALS DISABLED
+      # - uses: aws-actions/configure-aws-credentials@v4 ...
+      # - uses: aws-actions/amazon-ecr-login@v2 ...
 
-      - uses: aws-actions/amazon-ecr-login@v2
-        id: login-ecr
-
-      # Build Backend
+      # Build Backend (No Push)
       - uses: docker/build-push-action@v5
         with:
-          context: ./backend-legacy
-          file: ./backend-legacy/Dockerfile
-          push: true
-          tags: ${{ env.ECR_REGISTRY }}/crystolia-backend:${{ env.IMAGE_TAG }},${{ env.ECR_REGISTRY }}/crystolia-backend:latest
-          cache-from: type=gha
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false # DISABLED
+          tags: ${{ env.ECR_REGISTRY }}/crystolia-backend:${{ env.IMAGE_TAG }}
 
-      # Build Frontend Client
+      # Build Frontend Client (No Push)
       - name: Build Frontend Client
         continue-on-error: true
         uses: docker/build-push-action@v5
         with:
           context: ./frontend-client
           file: ./frontend-client/Dockerfile
-          push: true
-          tags: ${{ env.ECR_REGISTRY }}/crystolia-frontend-client:${{ env.IMAGE_TAG }},${{ env.ECR_REGISTRY }}/crystolia-frontend-client:latest
-          cache-from: type=gha
+          push: false # DISABLED
+          tags: ${{ env.ECR_REGISTRY }}/crystolia-frontend-client:${{ env.IMAGE_TAG }}
 
-      # Build Frontend Admin
+      # Build Frontend Admin (No Push)
       - name: Build Frontend Admin
         continue-on-error: true
         uses: docker/build-push-action@v5
         with:
           context: ./frontend-admin
           file: ./frontend-admin/Dockerfile
-          push: true
-          tags: ${{ env.ECR_REGISTRY }}/crystolia-frontend-admin:${{ env.IMAGE_TAG }},${{ env.ECR_REGISTRY }}/crystolia-frontend-admin:latest
-          cache-from: type=gha
-
-  deploy-prod:
-    name: 🚀 Deploy to Production
-    needs: build-push
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout GitOps Repo
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ env.GITOPS_REPO }}
-          token: ${{ secrets.GITOPS_PAT }}
-          path: gitops
-
-      - name: Fix Git Safety
-        run: git config --global --add safe.directory "*"
-
-      - name: Update Production Image Tag
-        working-directory: gitops/production
-        run: |
-          wget https://github.com/mikefarah/yq/releases/download/v4.40.5/yq_linux_amd64 -O /usr/bin/yq && chmod +x /usr/bin/yq
-          /usr/bin/yq -i '.frontend_client.image.tag = "${{ env.IMAGE_TAG }}"' values.yaml
-          /usr/bin/yq -i '.frontend_admin.image.tag = "${{ env.IMAGE_TAG }}"' values.yaml
-          /usr/bin/yq -i '.backend.image.tag = "${{ env.IMAGE_TAG }}"' values.yaml
-
-      - name: Commit & Push
-        working-directory: gitops
-        run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git add production/values.yaml
-          git commit -m "🚀 Deploy(Prod): Update images to ${{ env.IMAGE_TAG }}"
-          git push origin main
+          push: false # DISABLED
+          tags: ${{ env.ECR_REGISTRY }}/crystolia-frontend-admin:${{ env.IMAGE_TAG }}
+  # Deploy Job DISABLED
+  # deploy-prod: ...
