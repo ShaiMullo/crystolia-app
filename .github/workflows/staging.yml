@@ -1,0 +1,137 @@
+name: Staging Deployment
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend-legacy/**'
+      - 'frontend-client/**'
+      - 'helm/**'
+      - '.github/workflows/staging.yml'
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: 268456953512.dkr.ecr.us-east-1.amazonaws.com
+  IMAGE_TAG: ${{ github.sha }}
+  GITOPS_REPO: ShaiMullo/crystolia-gitops
+
+jobs:
+  changes:
+    name: 🔍 Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend-legacy/**'
+              - 'helm/**'
+              - '.github/workflows/staging.yml'
+            frontend:
+              - 'frontend-client/**'
+              - '.github/workflows/staging.yml'
+
+  test-frontend:
+    name: 🧪 Test Frontend
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm ci
+        working-directory: frontend-client
+      - run: npm run lint
+        working-directory: frontend-client
+
+  build-deploy:
+    name: 🏗️ Build & Deploy
+    needs: [ changes, test-frontend ]
+    # Run if backend changed OR (frontend changed AND passed)
+    if: ${{ always() && (needs.changes.outputs.backend == 'true' || (needs.changes.outputs.frontend == 'true' && needs.test-frontend.result == 'success')) }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: login-ecr
+        # Fixed: Removed 'registries' input to allow auto-detection of default account ID
+
+        # Build Backend (Conditional)
+      - name: Build Backend
+        if: ${{ needs.changes.outputs.backend == 'true' }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend-legacy
+          file: ./backend-legacy/Dockerfile
+          push: true
+          tags: ${{ env.ECR_REGISTRY }}/crystolia-backend:${{ env.IMAGE_TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Build Frontend (Conditional)
+      - name: Build Frontend
+        if: ${{ needs.changes.outputs.frontend == 'true' && needs.test-frontend.result == 'success' }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend-client
+          file: ./frontend-client/Dockerfile
+          push: true
+          tags: ${{ env.ECR_REGISTRY }}/crystolia-frontend:${{ env.IMAGE_TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Deploy
+      - name: Checkout GitOps Repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.GITOPS_REPO }}
+          token: ${{ secrets.GITOPS_PAT }}
+          path: gitops
+
+      - name: Update Staging Image Tags
+        working-directory: gitops/staging
+        run: |
+          wget https://github.com/mikefarah/yq/releases/download/v4.40.5/yq_linux_amd64 -O /usr/bin/yq && chmod +x /usr/bin/yq
+
+          # Only update frontend tag if built
+          if [[ "${{ needs.changes.outputs.frontend }}" == "true" && "${{ needs.test-frontend.result }}" == "success" ]]; then
+             echo "Updating Frontend Tag..."
+             /usr/bin/yq -i '.frontend.image.tag = "${{ env.IMAGE_TAG }}"' values.yaml
+          fi
+
+          # Only update backend tag if built
+          if [[ "${{ needs.changes.outputs.backend }}" == "true" ]]; then
+             echo "Updating Backend Tag..."
+             /usr/bin/yq -i '.backend.image.tag = "${{ env.IMAGE_TAG }}"' values.yaml
+          fi
+
+      - name: Commit & Push
+        working-directory: gitops
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+          # Check if there are changes to commit
+          if [ -n "$(git status --porcelain)" ]; then
+            git add staging/values.yaml
+            git commit -m "🚀 Deploy(Staging): Update images to ${{ env.IMAGE_TAG }}"
+            git push origin main
+          else
+            echo "No changes to commit (tags were likely already up to date or no relevant component built)."
+          fi
