@@ -31,8 +31,8 @@ spec:
               service:
                 name: {{ $.Release.Name }}-{{ .service }}
                 port:
-                  number: 3000
-                  {{- /* All our services listen on port 3000 (ClusterIP) per values.yaml service.port */ -}}
+                  number: {{ if eq .service "backend" }}4000{{ else }}3000{{ end }}
+                  {{- /* patched for backend legacy port 4000 */ -}}
           {{- end }}
     {{- end }}
 {{- end }}

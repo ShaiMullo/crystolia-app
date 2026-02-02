@@ -47,8 +47,8 @@ jobs:
       # Build Backend
       - uses: docker/build-push-action@v5
         with:
-          context: ./backend
-          file: ./backend/Dockerfile
+          context: ./backend-legacy
+          file: ./backend-legacy/Dockerfile
           push: true
           tags: ${{ env.ECR_REGISTRY }}/crystolia-backend:${{ env.IMAGE_TAG }}
           cache-from: type=gha

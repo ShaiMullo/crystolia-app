@@ -29,7 +29,7 @@ backend:
     pullPolicy: Always
   service:
     type: ClusterIP
-    port: 3000
+    port: 4000
   replicaCount: 2
   env:
     MONGO_URI: "mongodb://mongo:27017/crystolia"
