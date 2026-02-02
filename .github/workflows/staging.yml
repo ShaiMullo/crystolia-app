@@ -7,6 +7,7 @@ on:
     paths:
       - 'backend-legacy/**'
       - 'frontend-client/**'
+      - 'frontend-admin/**'
       - 'helm/**'
       - '.github/workflows/**'
 
@@ -22,11 +23,12 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
-      frontend: ${{ steps.filter.outputs.frontend }}
+      frontend_client: ${{ steps.filter.outputs.frontend_client }}
+      frontend_admin: ${{ steps.filter.outputs.frontend_admin }}
     steps:
       - uses: actions/checkout@v4
 
-      # FIX: Global Git Safety (Required for paths-filter too)
+      # FIX: Global Git Safety
       - name: Fix Git Safety
         run: git config --global --add safe.directory "*"
 
@@ -38,45 +40,60 @@ jobs:
               - 'backend-legacy/**'
               - 'helm/**'
               - '.github/workflows/staging.yml'
-            frontend:
+            frontend_client:
               - 'frontend-client/**'
               - '.github/workflows/staging.yml'
+            frontend_admin:
+              - 'frontend-admin/**'
+              - '.github/workflows/staging.yml'
 
-  test-frontend:
-    name: 🧪 Test Frontend
+  test-frontend-client:
+    name: 🧪 Test Frontend Client
     needs: changes
-    if: ${{ needs.changes.outputs.frontend == 'true' }}
+    if: ${{ needs.changes.outputs.frontend_client == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      # FIX: Global Git Safety
       - name: Fix Git Safety
         run: git config --global --add safe.directory "*"
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with: { node-version: '20' }
       - run: npm ci
         working-directory: frontend-client
-      # Tests must NEVER block deployment
+      # Non-blocking Tests
       - run: npm run lint || echo "Lint failed but proceeding"
         continue-on-error: true
         working-directory: frontend-client
 
+  test-frontend-admin:
+    name: 🧪 Test Frontend Admin
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend_admin == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fix Git Safety
+        run: git config --global --add safe.directory "*"
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm ci
+        working-directory: frontend-admin
+      # Non-blocking Tests
+      - run: npm run lint || echo "Lint failed but proceeding"
+        continue-on-error: true
+        working-directory: frontend-admin
+
   build-deploy:
     name: 🏗️ Build & Deploy
-    needs: [ changes, test-frontend ]
-    # Run if backend changed OR frontend changed (regardless of test result)
-    if: ${{ always() && (needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true') }}
+    needs: [ changes, test-frontend-client, test-frontend-admin ]
+    # Run if ANY service changed (regardless of test results)
+    if: ${{ always() && (needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend_client == 'true' || needs.changes.outputs.frontend_admin == 'true') }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
     steps:
       - uses: actions/checkout@v4
-
-      # FIX: Global Git Safety
       - name: Fix Git Safety
         run: git config --global --add safe.directory "*"
 
@@ -100,19 +117,28 @@ jobs:
           tags: ${{ env.ECR_REGISTRY }}/crystolia-backend:${{ env.IMAGE_TAG }}
           cache-from: type=gha
 
-      # Build Frontend - Only attempt if tests passed? No, attempt anyway as "last resort" if changed.
-      # User wants: "If frontend is broken, deploy LAST known good full image". But we can't do that easily without retagging old image.
-      # User wants: "Frontend lint/test failures MUST NOT block deployment".
-      # So we try to build. If build fails (compile error), deployment stops for frontend ONLY.
-      - name: Build Frontend
-        if: ${{ needs.changes.outputs.frontend == 'true' }}
-        continue-on-error: true # Even frontend build failure shouldn't stop backend deploy?
+      # Build Frontend Client
+      - name: Build Frontend Client
+        if: ${{ needs.changes.outputs.frontend_client == 'true' }}
+        continue-on-error: true
         uses: docker/build-push-action@v5
         with:
           context: ./frontend-client
           file: ./frontend-client/Dockerfile
           push: true
-          tags: ${{ env.ECR_REGISTRY }}/crystolia-frontend:${{ env.IMAGE_TAG }}
+          tags: ${{ env.ECR_REGISTRY }}/crystolia-frontend-client:${{ env.IMAGE_TAG }}
+          cache-from: type=gha
+
+      # Build Frontend Admin
+      - name: Build Frontend Admin
+        if: ${{ needs.changes.outputs.frontend_admin == 'true' }}
+        continue-on-error: true
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend-admin
+          file: ./frontend-admin/Dockerfile
+          push: true
+          tags: ${{ env.ECR_REGISTRY }}/crystolia-frontend-admin:${{ env.IMAGE_TAG }}
           cache-from: type=gha
 
       # Deploy
@@ -127,22 +153,25 @@ jobs:
         working-directory: gitops/staging
         run: |
           git config --global --add safe.directory "*"
-
           wget https://github.com/mikefarah/yq/releases/download/v4.40.5/yq_linux_amd64 -O /usr/bin/yq && chmod +x /usr/bin/yq
 
-          # Update Frontend Tag (Check if pushed?)
-          # Actually, checking test result is safer. If tests failed, we likely shouldn't update tag.
-          # User requested: "1) Frontend lint/test must be non-blocking".
-          # If we update tag for broken code, the pod will crash loop.
-          # Better logic: If tests failed, DO NOT UPDATE TAG. Let old pod run. This is "deploy last known good".
-          if [[ "${{ needs.changes.outputs.frontend }}" == "true" && "${{ needs.test-frontend.result }}" == "success" ]]; then
-             echo "Updating Frontend Tag..."
-             /usr/bin/yq -i '.frontend.image.tag = "${{ env.IMAGE_TAG }}"' values.yaml
+          # Update Frontend Client
+          if [[ "${{ needs.changes.outputs.frontend_client }}" == "true" && "${{ needs.test-frontend-client.result }}" == "success" ]]; then
+             echo "Updating Frontend Client Tag..."
+             /usr/bin/yq -i '.frontend_client.image.tag = "${{ env.IMAGE_TAG }}"' values.yaml
           else
-             echo "Skipping Frontend Update (Tests Failed or Unchanged). Running old version."
+             echo "Skipping Frontend Client Update"
           fi
 
-          # Update Backend Tag (ALWAYS if changed)
+          # Update Frontend Admin
+          if [[ "${{ needs.changes.outputs.frontend_admin }}" == "true" && "${{ needs.test-frontend-admin.result }}" == "success" ]]; then
+             echo "Updating Frontend Admin Tag..."
+             /usr/bin/yq -i '.frontend_admin.image.tag = "${{ env.IMAGE_TAG }}"' values.yaml
+          else
+             echo "Skipping Frontend Admin Update"
+          fi
+
+          # Update Backend
           if [[ "${{ needs.changes.outputs.backend }}" == "true" ]]; then
              echo "Updating Backend Tag..."
              /usr/bin/yq -i '.backend.image.tag = "${{ env.IMAGE_TAG }}"' values.yaml
