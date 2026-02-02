@@ -75,9 +75,5 @@ ENV HOSTNAME="0.0.0.0"
 
 # Start the application
 # Copy entrypoint script
-COPY docker-entrypoint.sh ./
-RUN chmod +x docker-entrypoint.sh
-
-# Start the application using entrypoint
-ENTRYPOINT ["./docker-entrypoint.sh"]
+# Start the application
 CMD ["node", "server.js"]
