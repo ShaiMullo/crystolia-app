@@ -1,0 +1,322 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+
+  /* Enhanced Gold Palette */
+  --crystolia-gold: #F5C542;
+  --crystolia-gold-dark: #d4a83a;
+  --crystolia-gold-deep: #B8860B;
+  --crystolia-gold-light: #FFE082;
+  --crystolia-gold-glow: rgba(245, 197, 66, 0.3);
+
+  /* Premium Earthy Tones */
+  --crystolia-chocolate: #3D2914;
+  --crystolia-brown: #5D4037;
+  --crystolia-cream: #FFF8E7;
+  --crystolia-cream-warm: #FEF3E2;
+
+  /* Natural Accents */
+  --crystolia-olive: #6B8E23;
+  --crystolia-olive-light: #9ACD32;
+  --crystolia-amber: #FFBF00;
+
+  /* Gradients */
+  --gradient-gold: linear-gradient(135deg, #F5C542 0%, #B8860B 100%);
+  --gradient-warm: linear-gradient(135deg, #FFF8E7 0%, #FFE082 100%);
+  --gradient-premium: linear-gradient(135deg, #3D2914 0%, #5D4037 50%, #B8860B 100%);
+  --gradient-hero-overlay: linear-gradient(135deg, rgba(61, 41, 20, 0.7) 0%, rgba(0, 0, 0, 0.5) 100%);
+
+  /* Shadows */
+  --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.08);
+  --shadow-hover: 0 8px 30px rgba(0, 0, 0, 0.12);
+  --shadow-gold: 0 4px 20px rgba(245, 197, 66, 0.25);
+  --shadow-gold-hover: 0 8px 30px rgba(245, 197, 66, 0.4);
+
+  /* Transitions */
+  --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-weight: 300;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Smooth scroll */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #F5C542;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #d4a83a;
+}
+
+/* ════════════════════════════════════════════════════════════
+   ✨ Premium Animations
+   ════════════════════════════════════════════════════════════ */
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* 🌻 Falling Sunflowers Animation */
+@keyframes fall {
+  0% {
+    transform: translateY(-100px) rotate(0deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(100vh) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+.animate-fall {
+  animation: fall linear forwards;
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 197, 66, 0.4);
+  }
+
+  50% {
+    box-shadow: 0 0 20px 10px rgba(245, 197, 66, 0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.6s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.6s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.6s ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.4s ease-out;
+}
+
+.animate-fade-in-delay {
+  animation: fade-in 0.6s ease-out 0.15s both;
+}
+
+.animate-fade-in-delay-2 {
+  animation: fade-in 0.6s ease-out 0.3s both;
+}
+
+.animate-fade-in-delay-3 {
+  animation: fade-in 0.6s ease-out 0.45s both;
+}
+
+/* ════════════════════════════════════════════════════════════
+   🎴 Premium Card Effects
+   ════════════════════════════════════════════════════════════ */
+
+.card-premium {
+  background: white;
+  border-radius: 16px;
+  box-shadow: var(--shadow-soft);
+  transition: var(--transition-smooth);
+}
+
+.card-premium:hover {
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-4px);
+}
+
+.card-glass {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 16px;
+}
+
+/* ════════════════════════════════════════════════════════════
+   🔘 Button Enhancements
+   ════════════════════════════════════════════════════════════ */
+
+.btn-premium {
+  position: relative;
+  overflow: hidden;
+  transition: var(--transition-smooth);
+}
+
+.btn-premium::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.5s ease;
+}
+
+.btn-premium:hover::before {
+  left: 100%;
+}
+
+.btn-premium:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(245, 197, 66, 0.4);
+}
+
+.btn-premium:active {
+  transform: translateY(0);
+}
+
+/* ════════════════════════════════════════════════════════════
+   📊 Stats Card Animation
+   ════════════════════════════════════════════════════════════ */
+
+.stat-card {
+  transition: var(--transition-smooth);
+}
+
+.stat-card:hover {
+  transform: scale(1.02);
+}
+
+.stat-number {
+  background: linear-gradient(135deg, var(--crystolia-gold), var(--crystolia-gold-dark));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ════════════════════════════════════════════════════════════
+   🔄 Loading States
+   ════════════════════════════════════════════════════════════ */
+
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+/* ════════════════════════════════════════════════════════════
+   📱 Smooth Page Transitions
+   ════════════════════════════════════════════════════════════ */
+
+.page-enter {
+  animation: fade-in 0.3s ease-out, slide-up 0.4s ease-out;
+}
+
+/* Input focus effects */
+input:focus,
+textarea:focus,
+select:focus {
+  transition: var(--transition-smooth);
+}
+
+/* Table row hover */
+tr {
+  transition: background-color 0.2s ease;
+}
+
+/* Sidebar item transitions */
+.sidebar-item {
+  transition: var(--transition-smooth);
+}
+
+.sidebar-item:hover {
+  background: rgba(245, 197, 66, 0.1);
+  transform: translateX(4px);
+}
+
+/* Modal backdrop */
+.modal-backdrop {
+  animation: fade-in 0.2s ease-out;
+}
+
+.modal-content {
+  animation: scale-in 0.3s ease-out;
+}
