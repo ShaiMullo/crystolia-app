@@ -1,12 +1,74 @@
-
-node_modules
-dist
-.env
+########################
+# OS / Editor
+########################
 .DS_Store
-coverage
-.next
-.turbo
-build
-.npm-cache
-**/.terraform/
+.idea/
+.vscode/
+*.swp
+
+########################
+# Environment files
+########################
+.env
+.env.*
+!.env.example
+
+########################
+# Node / JavaScript
+########################
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+########################
+# Next.js / Frontend
+########################
+.next/
+out/
+build/
+dist/
+.turbo/
+coverage/
+
+########################
+# Docker
+########################
+docker-data/
+*.pid
+
+########################
+# Mongo / Local Data
+########################
 data/mongo/
+data/mongodb/
+*.lock
+
+########################
+# Terraform / Infra
+########################
+**/.terraform/
+**/.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+tfplan
+
+########################
+# GitHub Actions / CI
+########################
+.github/workflows.disabled/
+
+########################
+# Cache / Temp
+########################
+.npm-cache/
+.cache/
+tmp/
+temp/
+
+########################
+# Accidental duplicates
+########################
+* 2
+* 2.*
