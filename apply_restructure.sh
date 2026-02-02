@@ -9,10 +9,14 @@ mkdir -p ../crystolia-gitops
 cp -R restructure_staging/crystolia-gitops/* ../crystolia-gitops/
 echo "✅ GitOps repo populated."
 
+# 1.5 Clean Staging and Destination safety checks
+echo "🧹 Pre-cleaning staging artifacts..."
+find restructure_staging -name ".terraform" -type d -exec rm -rf {} + 2>/dev/null || true
+find restructure_staging -name ".git" -type d -exec rm -rf {} + 2>/dev/null || true
+
 # 2. Setup Crystolia Infra
 echo "🏗️  Setting up crystolia-infra..."
-# Backup existing terraform if needed, but we assume we want to clean it
-# We will overwrite terraform folder with our copy
+# Copy clean files
 cp -R restructure_staging/crystolia-infra/* ../crystolia-infra/
 # Remove legacy artifacts from infra
 rm -rf ../crystolia-infra/argocd 2>/dev/null || true
