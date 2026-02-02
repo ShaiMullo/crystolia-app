@@ -27,7 +27,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
       - uses: aws-actions/amazon-ecr-login@v2
         id: login-ecr
-        # Fixed: Removed 'registries' input to allow auto-detection of default account ID
+        # Fixed: Removed 'registries' input
 
         # Build Backend
       - uses: docker/build-push-action@v5
@@ -37,9 +37,9 @@ jobs:
           push: true
           tags: ${{ env.ECR_REGISTRY }}/crystolia-backend:${{ env.IMAGE_TAG }},${{ env.ECR_REGISTRY }}/crystolia-backend:latest
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # cache-to disabled for stability
 
-      # Build Frontend
+          # Build Frontend
       - uses: docker/build-push-action@v5
         with:
           context: ./frontend-client
@@ -47,7 +47,7 @@ jobs:
           push: true
           tags: ${{ env.ECR_REGISTRY }}/crystolia-frontend:${{ env.IMAGE_TAG }},${{ env.ECR_REGISTRY }}/crystolia-frontend:latest
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # cache-to disabled for stability
 
   deploy-prod:
     name: 🚀 Deploy to Production
@@ -64,6 +64,8 @@ jobs:
       - name: Update Production Image Tag
         working-directory: gitops/production
         run: |
+          git config --global --add safe.directory "*"
+
           wget https://github.com/mikefarah/yq/releases/download/v4.40.5/yq_linux_amd64 -O /usr/bin/yq && chmod +x /usr/bin/yq
           /usr/bin/yq -i '.frontend.image.tag = "${{ env.IMAGE_TAG }}"' values.yaml
           /usr/bin/yq -i '.backend.image.tag = "${{ env.IMAGE_TAG }}"' values.yaml
