@@ -23,5 +23,7 @@ spec:
           resources:
 {{ toYaml .Values.frontend.resources | indent 12 }}
           env:
-            - name: NEXT_PUBLIC_API_URL
-              value: "https://{{ .Values.ingress.host }}/api"
+            {{- range $key, $value := .Values.frontend.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}

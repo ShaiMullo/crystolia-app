@@ -19,6 +19,8 @@ frontend:
     limits:
       cpu: "250m"
       memory: "256Mi"
+  env:
+    NEXT_PUBLIC_API_URL: "https://crystolia.com/api"
 
 backend:
   image:
@@ -66,12 +68,21 @@ mongodb:
       memory: "1Gi"
 
 ingress:
-  enabled: true
-  host: crystolia.com
-  hostWWW: www.crystolia.com
-  # hostIL: crystolia.co.il  # Disabled until DNS is configured
-  tls:
-    enabled: true
+  enabled: false
+  className: "nginx"
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 🔐 Secrets (Values to be injected via secrets.yaml)

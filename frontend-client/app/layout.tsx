@@ -28,6 +28,7 @@ export default function RootLayout({
   return (
     <html lang={i18n.defaultLocale} dir={defaultDir} suppressHydrationWarning>
       <body suppressHydrationWarning>
+        <script src="/env-config.js" />
         {/* Blocking script to set correct lang/dir from URL - runs before React hydration */}
         <script
           dangerouslySetInnerHTML={{

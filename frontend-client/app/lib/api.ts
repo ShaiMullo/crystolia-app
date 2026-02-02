@@ -2,6 +2,9 @@ import axios from 'axios';
 
 // Get base URL - env var should already include /api
 const getBaseUrl = () => {
+    if (typeof window !== 'undefined' && (window as any).__ENV?.API_URL) {
+        return (window as any).__ENV.API_URL;
+    }
     if (typeof window === 'undefined') {
         return process.env.BACKEND_URL || 'http://127.0.0.1:4000/api';
     }

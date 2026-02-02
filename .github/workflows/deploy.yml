@@ -1,0 +1,120 @@
+name: Production Deployment
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: 268456953512.dkr.ecr.us-east-1.amazonaws.com
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  build-and-push:
+    name: 🏗️ Build & Push
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registries: ${{ env.ECR_REGISTRY }}
+
+      # Backend
+      - name: Build & Push Backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: ${{ env.ECR_REGISTRY }}/crystolia-backend:${{ env.IMAGE_TAG }},${{ env.ECR_REGISTRY }}/crystolia-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Frontend Client (Next.js)
+      - name: Build & Push Frontend Client
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend-client
+          file: ./frontend-client/Dockerfile
+          push: true
+          # Note: Runtime config handles the API URL, so we don't strictly need build-arg if using the new entrypoint.
+          # However, keeping it as a fallback doesn't hurt.
+          build-args: |
+            NEXT_PUBLIC_API_URL=https://crystolia.com/api
+          tags: ${{ env.ECR_REGISTRY }}/crystolia-frontend:${{ env.IMAGE_TAG }},${{ env.ECR_REGISTRY }}/crystolia-frontend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      # Frontend Admin (Add when ready)
+      # - name: Build & Push Frontend Admin
+      #   uses: docker/build-push-action@v5
+      #   with:
+      #     context: ./frontend-admin
+      #     file: ./frontend-admin/Dockerfile
+      #     push: true
+      #     tags: ${{ env.ECR_REGISTRY }}/crystolia-admin:${{ env.IMAGE_TAG }},${{ env.ECR_REGISTRY }}/crystolia-admin:latest
+
+  update-gitops:
+    name: 🔄 Update GitOps Config
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: main # Start from main to get latest chart
+
+      - name: Switch to Deploy Branch
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          # Check if branch exists, if not create orphan, else checkout
+          git fetch origin deploy/production || true
+          if git rev-parse --verify origin/deploy/production; then
+            git checkout deploy/production
+            git merge main -X theirs --allow-unrelated-histories -m "Merge main into deploy/production"
+          else
+            git checkout --orphan deploy/production
+            git rm -rf .
+            git checkout main -- helm/crystolia-chart # Only bring the chart
+            git commit -m "Initialize deploy branch"
+          fi
+
+      - name: Update Image Tag
+        run: |
+          # YQ is safer than sed but usually not pre-installed. Using sed for simplicity.
+          # Update Frontend Tag
+          sed -i 's/tag: ".*"/tag: "${{ env.IMAGE_TAG }}"/' helm/crystolia-chart/values.yaml
+          # Update Backend Tag (Assuming same tag for monorepo)
+          # Note: This sed command is risky if multiple tags exist. Better to be specific.
+          # Replacing specific lines implies we know line numbers or context.
+          # Let's use a more robust sed pattern if possible, or assume yq is available (it often is in ubuntu-latest).
+
+          # Using yq (portable-yq)
+          wget https://github.com/mikefarah/yq/releases/download/v4.40.5/yq_linux_amd64 -O /usr/bin/yq && chmod +x /usr/bin/yq
+          yq -i '.frontend.image.tag = "${{ env.IMAGE_TAG }}"' helm/crystolia-chart/values.yaml
+          yq -i '.backend.image.tag = "${{ env.IMAGE_TAG }}"' helm/crystolia-chart/values.yaml
+
+      - name: Commit & Push
+        run: |
+          git add helm/crystolia-chart/values.yaml
+          git commit -m "🚀 Deploy: Update images to ${{ env.IMAGE_TAG }}"
+          git push origin deploy/production

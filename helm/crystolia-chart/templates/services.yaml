@@ -24,7 +24,7 @@ spec:
   type: {{ .Values.backend.service.type }}
   ports:
     - port: {{ .Values.backend.service.port }}
-      targetPort: 3000
+      targetPort: 4000
       protocol: TCP
       name: http
   selector:
