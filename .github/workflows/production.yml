@@ -1,65 +1,112 @@
-name: Production Deployment
+# =============================================================================
+# Production CI/CD Pipeline
+# =============================================================================
+# Builds and pushes Docker images to ECR on version tags.
+#
+# Authentication: GitHub OIDC → AWS IAM Role (no static credentials)
+# Trigger: Version tags (v*)
+#
+# SECURITY:
+# - Uses OIDC for AWS authentication
+# - Role restricted to ECR push only
+# - No secrets in repository
+
+name: Production Build & Push
 
 on:
   push:
     tags:
       - 'v*'
+  # Manual trigger for testing
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image tag (default: sha)'
+        required: false
+        default: ''
 
 env:
   AWS_REGION: us-east-1
   ECR_REGISTRY: 268456953512.dkr.ecr.us-east-1.amazonaws.com
-  IMAGE_TAG: ${{ github.ref_name }} # e.g. v1.0.0
-  GITOPS_REPO: ShaiMullo/crystolia-gitops
 
 jobs:
   build-push:
-    name: 🏗️ Build & Push (Prod)
+    name: 🏗️ Build & Push Images
     runs-on: ubuntu-latest
     permissions:
-      id-token: write
+      id-token: write # Required for OIDC
       contents: read
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      # Fix git exit code 128
-      - name: Fix Git Safety
-        run: git config --global --add safe.directory "*"
+      # Determine image tag
+      - name: Set Image Tag
+        id: set-tag
+        run: |
+          if [ "${{ github.event_name }}" == "push" ]; then
+            # Tag push: use tag name (e.g., v1.0.0)
+            echo "IMAGE_TAG=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          elif [ -n "${{ github.event.inputs.image_tag }}" ]; then
+            # Manual with custom tag
+            echo "IMAGE_TAG=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+          else
+            # Default to short SHA
+            echo "IMAGE_TAG=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+          fi
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      # AWS Authentication via OIDC
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: arn:aws:iam::268456953512:role/github-actions-ecr-push-role
+          role-session-name: github-actions-ecr-push
           aws-region: ${{ env.AWS_REGION }}
 
-      - uses: aws-actions/amazon-ecr-login@v2
+      # ECR Login
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
         id: login-ecr
-        # Fixed: Removed 'registries' input
 
-        # Build Backend
-      - uses: docker/build-push-action@v5
+      # Set up Docker Buildx for caching
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build and Push Backend
+      - name: Build & Push Backend
+        uses: docker/build-push-action@v5
         with:
-          context: ./backend-legacy
-          file: ./backend-legacy/Dockerfile
-          # push: false # DISABLED
-          push: false
-          tags: ${{ env.ECR_REGISTRY }}/crystolia-backend:${{ env.IMAGE_TAG }},${{ env.ECR_REGISTRY }}/crystolia-backend:latest
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/crystolia-backend:${{ steps.set-tag.outputs.IMAGE_TAG }}
+            ${{ env.ECR_REGISTRY }}/crystolia-backend:latest
           cache-from: type=gha
-          # cache-to disabled
+          cache-to: type=gha,mode=max
 
-          # Build Frontend
-      - uses: docker/build-push-action@v5
+      # Build and Push Frontend
+      - name: Build & Push Frontend
+        uses: docker/build-push-action@v5
         with:
           context: ./frontend-client
           file: ./frontend-client/Dockerfile
-          # push: false # DISABLED
-          push: false
-          tags: ${{ env.ECR_REGISTRY }}/crystolia-frontend:${{ env.IMAGE_TAG }},${{ env.ECR_REGISTRY }}/crystolia-frontend:latest
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/crystolia-frontend:${{ steps.set-tag.outputs.IMAGE_TAG }}
+            ${{ env.ECR_REGISTRY }}/crystolia-frontend:latest
           cache-from: type=gha
-          # cache-to disabled
+          cache-to: type=gha,mode=max
+          build-args: |
+            NEXT_PUBLIC_API_URL=https://api.crystolia.com
 
-          # deploy-prod:
-          #   name: 🚀 Deploy to Production
-          #   needs: build-push
-          #   runs-on: ubuntu-latest
-          #   steps:
-          #     - run: echo "DEPLOY DISABLED (Build-Only)"
+      # Summary
+      - name: Print Summary
+        run: |
+          echo "### 🎉 Images Pushed Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Image | Tag |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-----|" >> $GITHUB_STEP_SUMMARY
+          echo "| crystolia-backend | \`${{ steps.set-tag.outputs.IMAGE_TAG }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| crystolia-frontend | \`${{ steps.set-tag.outputs.IMAGE_TAG }}\` |" >> $GITHUB_STEP_SUMMARY
