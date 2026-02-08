@@ -32,7 +32,7 @@ backend:
     port: 4000
   replicaCount: 2
   env:
-    MONGO_URI: "mongodb://mongo:27017/crystolia"
+    MONGO_URI: "mongodb://mongodb.mongodb.svc.cluster.local:27017/crystolia"
     FRONTEND_URL: "https://crystolia.com"
     GOOGLE_CLIENT_ID: "42819184159-tqh018b0d0dkhv6sc37abov9rmjkgaer.apps.googleusercontent.com"
     GOOGLE_CLIENT_SECRET: "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"
@@ -45,27 +45,6 @@ backend:
       cpu: "500m"
       memory: "512Mi"
 
-mongodb:
-  image:
-    repository: mongo
-    tag: 6.0
-  service:
-    port: 27017
-  persistence:
-    enabled: false
-    size: 5Gi
-  backup:
-    enabled: true
-    schedule: "0 2 * * *"  # Daily at 2 AM
-    s3Bucket: "crystolia-backups"
-    awsRegion: "us-east-1"
-  resources:
-    requests:
-      cpu: "200m"
-      memory: "256Mi"
-    limits:
-      cpu: "500m"
-      memory: "1Gi"
 
 ingress:
   enabled: false
