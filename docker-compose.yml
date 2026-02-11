@@ -18,10 +18,10 @@ services:
       dockerfile: Dockerfile
     ports:
       - "4000:4000"
+    env_file:
+      - .env
     environment:
-      - PORT=4000
-      - MONGO_URI=mongodb://mongo:27017/crystolia
-      # Add other backend vars here
+      - NODE_ENV=development
     depends_on:
       - mongo
     networks:

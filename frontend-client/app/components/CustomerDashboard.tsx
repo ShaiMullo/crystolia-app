@@ -77,7 +77,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
         if (!user) return;
         try {
             const response = await api.get('/orders');
-            setOrders(response.data);
+            setOrders(response.data.data || []);
         } catch (error) {
             console.error("Failed to fetch orders:", error);
         }
@@ -117,7 +117,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
             if (!user) return;
             try {
                 const response = await api.get('/invoices');
-                setInvoices(response.data);
+                setInvoices(response.data.data || []);
             } catch (error) {
                 console.error("Failed to fetch invoices:", error);
             }
@@ -125,26 +125,34 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
 
         const fetchProfile = async () => {
             try {
-                const response = await api.get('/customers/my-profile');
-                if (response.data && response.data.businessName) {
-                    const data = response.data;
+                // CHANGED: Fetch from new /users/me endpoint
+                const response = await api.get('/users/me');
+                const userData = response.data.data.user; // { ...user, company: { ... } }
+
+                if (userData && userData.company) {
+                    const company = userData.company;
+
                     setHasProfile(true);
                     setProfile({
-                        companyName: data.businessName,
-                        contactPerson: data.contactPerson || "",
-                        businessType: data.businessType || "",
-                        taxId: data.taxId || "",
-                        email: user?.email || "",
-                        phone: data.phone || "",
-                        address: data.address?.street || "",
-                        city: data.address?.city || "",
-                        profileImage: null,
+                        companyName: company.name,
+                        contactPerson: userData.name || "", // User name is contact person
+                        businessType: "Unknown", // Field not in new schema yet, default it
+                        taxId: company.vatNumber || "",
+                        email: company.email || userData.email || "",
+                        phone: company.phone || "",
+                        address: company.address || "", // Now simple string
+                        city: company.city || "",       // Now simple string
+                        profileImage: userData.avatar || null,
                     });
+
+                    // Also update auth context if avatar changed? 
+                    // ideally auth context should be source of truth for user.avatar
                 } else {
                     setHasProfile(false);
                 }
             } catch (error) {
-                console.error("Failed to fetch customer profile:", error);
+                console.error("Failed to fetch user profile:", error);
+                // If 404/error, assumes no profile
                 setHasProfile(false);
             }
         };
@@ -226,7 +234,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
 
             // Refresh orders
             const response = await api.get('/orders');
-            setOrders(response.data);
+            setOrders(response.data.data || []);
         } catch (error: unknown) {
             console.error("Failed to submit order:", error);
             const err = error as { response?: { status?: number; data?: { message?: string } }; message?: string };
@@ -346,11 +354,13 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
 
                                 {/* Profile Picture */}
                                 <div className="relative group">
-                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#F5C542] to-[#d4a83a] flex items-center justify-center text-white font-medium text-lg shadow-lg shadow-[#F5C542]/20 overflow-hidden">
-                                        {user?.profilePicture ? (
-                                            <Image src={user.profilePicture} alt="Profile" fill className="object-cover" />
+                                    <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-[#F5C542] to-[#d4a83a] flex items-center justify-center text-white font-medium text-lg shadow-lg shadow-[#F5C542]/20 overflow-hidden">
+                                        {user?.avatar ? (
+                                            <Image src={user.avatar} alt="Profile" fill className="object-cover" sizes="48px" />
+                                        ) : user?.profilePicture ? (
+                                            <Image src={user.profilePicture} alt="Profile" fill className="object-cover" sizes="48px" />
                                         ) : profile.profileImage ? (
-                                            <Image src={profile.profileImage} alt="Profile" fill className="object-cover" />
+                                            <Image src={profile.profileImage} alt="Profile" fill className="object-cover" sizes="48px" />
                                         ) : (
                                             profile.companyName.charAt(0) || user?.firstName?.charAt(0) || '?'
                                         )}
@@ -719,9 +729,9 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                             onClick={handleProfileImageUpload}
                                             className="relative group"
                                         >
-                                            <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-[#F5C542] to-[#d4a83a] flex items-center justify-center text-white font-light text-3xl shadow-xl shadow-[#F5C542]/30 overflow-hidden">
+                                            <div className="relative w-24 h-24 rounded-3xl bg-gradient-to-br from-[#F5C542] to-[#d4a83a] flex items-center justify-center text-white font-light text-3xl shadow-xl shadow-[#F5C542]/30 overflow-hidden">
                                                 {profile.profileImage ? (
-                                                    <Image src={profile.profileImage} alt="Profile" fill className="object-cover" />
+                                                    <Image src={profile.profileImage} alt="Profile" fill className="object-cover" sizes="96px" />
                                                 ) : (
                                                     profile.companyName.charAt(0)
                                                 )}

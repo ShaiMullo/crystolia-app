@@ -59,7 +59,7 @@ export default function Footer({ locale, dict }: FooterProps) {
 
         {/* Developer Credit */}
         <div className="mt-8 pt-6 border-t border-white/10 text-center">
-          <p className="text-xs font-light text-white/50">
+          <p className="text-xs font-light text-white/50" suppressHydrationWarning>
             © {new Date().getFullYear()} All rights reserved to Shai Mullokandov
           </p>
         </div>

@@ -44,6 +44,7 @@ docker-data/
 data/mongo/
 data/mongodb/
 *.lock
+cookies*.txt
 
 ########################
 # Terraform / Infra
@@ -53,6 +54,7 @@ data/mongodb/
 *.tfstate
 *.tfstate.*
 tfplan
+*.tfplan
 
 ########################
 # GitHub Actions / CI

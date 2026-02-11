@@ -1,0 +1,140 @@
+version: '3.8'
+
+services:
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # 🗄️ MongoDB Database
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  mongo:
+    image: mongo:7.0
+    container_name: crystolia-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=crystolia
+    networks:
+      - crystolia-net
+    healthcheck:
+      test: [ "CMD", "mongosh", "--eval", "db.runCommand('ping').ok" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # 🔧 Backend API (Node.js + Express)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: crystolia-backend
+    ports:
+      - "4000:4000"
+    volumes:
+      # Mount source code for hot reload
+      - ./backend/src:/app/src:ro
+      - ./backend/tsconfig.json:/app/tsconfig.json:ro
+      - ./backend/package.json:/app/package.json:ro
+      # Exclude node_modules to avoid conflicts
+      - /app/node_modules
+    env_file:
+      - .env
+    environment:
+      # Explicitly pass secrets to ensure they are available
+      - NODE_ENV=development
+      - JWT_SECRET=${JWT_SECRET}
+      - MONGO_URI=${MONGO_URI}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL}
+      - FRONTEND_URL=${FRONTEND_URL}
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - crystolia-net
+    command: npm run dev
+    restart: unless-stopped
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # 🌐 Frontend Client (Next.js - Customer Portal)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  frontend-client:
+    build:
+      context: ./frontend-client
+      dockerfile: Dockerfile.dev
+    container_name: crystolia-frontend-client
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount source code for hot reload
+      - ./frontend-client/app:/app/app:ro
+      - ./frontend-client/components:/app/components:ro
+      - ./frontend-client/lib:/app/lib:ro
+      - ./frontend-client/public:/app/public:ro
+      - ./frontend-client/i18n:/app/i18n:ro
+      - ./frontend-client/middleware.ts:/app/middleware.ts:ro
+      - ./frontend-client/next.config.ts:/app/next.config.ts:ro
+      - ./frontend-client/tsconfig.json:/app/tsconfig.json:ro
+      - ./frontend-client/package.json:/app/package.json:ro
+      # Exclude node_modules and .next build cache
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NEXT_PUBLIC_API_URL=/api
+      - BACKEND_URL=http://backend:4000
+    depends_on:
+      - backend
+    networks:
+      - crystolia-net
+    command: npm run dev
+    restart: unless-stopped
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # 👨‍💼 Frontend Admin (Next.js - CRM/Admin Portal)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  frontend-admin:
+    build:
+      context: ./frontend-admin
+      dockerfile: Dockerfile.dev
+    container_name: crystolia-frontend-admin
+    ports:
+      - "3001:3000" # Mapped to 3001 to avoid conflict with client
+    volumes:
+      # Mount source code for hot reload
+      - ./frontend-admin/app:/app/app:ro
+      - ./frontend-admin/components:/app/components:ro
+      - ./frontend-admin/lib:/app/lib:ro
+      - ./frontend-admin/public:/app/public:ro
+      - ./frontend-admin/next.config.ts:/app/next.config.ts:ro
+      - ./frontend-admin/tsconfig.json:/app/tsconfig.json:ro
+      - ./frontend-admin/package.json:/app/package.json:ro
+      - ./frontend-admin/types:/app/types:ro
+      # Exclude node_modules and .next build cache
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NEXT_PUBLIC_API_URL=/api
+      - BACKEND_URL=http://backend:4000
+    depends_on:
+      - backend
+    networks:
+      - crystolia-net
+    command: npm run dev
+    restart: unless-stopped
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 📦 Volumes
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+volumes:
+  mongo_data:
+    driver: local
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 🌐 Networks
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+networks:
+  crystolia-net:
+    driver: bridge

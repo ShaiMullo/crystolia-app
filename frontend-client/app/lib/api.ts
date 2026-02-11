@@ -1,14 +1,14 @@
 import axios from 'axios';
 
 // Get base URL - env var should already include /api
+// Get base URL - Use relative path in browser to leverage Next.js rewrites
 const getBaseUrl = () => {
-    if (typeof window !== 'undefined' && (window as any).__ENV?.API_URL) {
-        return (window as any).__ENV.API_URL;
-    }
     if (typeof window === 'undefined') {
-        return process.env.BACKEND_URL || 'http://127.0.0.1:4000/api';
+        // Server-side: Use Docker internal network
+        return process.env.BACKEND_URL || 'http://backend:4000/api';
     }
-    return process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:4000/api';
+    // Client-side: Use relative path to hit Next.js proxy (http://localhost:3000/api)
+    return '/api';
 };
 
 const api = axios.create({
@@ -16,6 +16,7 @@ const api = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
+    withCredentials: true, // Send cookies with requests
 });
 
 // Add a request interceptor to attach the token

@@ -82,13 +82,18 @@ export default function OnboardingPage({ locale }: OnboardingPageProps) {
             const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
             const token = localStorage.getItem('token');
 
-            const response = await fetch(`${API_URL}/customers/onboarding`, {
+            const response = await fetch(`${API_URL}/customers/complete-profile`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
+                    companyName: formData.businessName, // Map to backend expectation
+                    vatNumber: formData.businessId, // Map businessId to vatNumber if needed (backend expects vatNumber?)
+                    // Let's check backend/src/routes/customers.ts again to be sure about other fields
+                    // Backend expects: companyName, vatNumber, phone, address, city
+                    // Frontend has: businessName, businessId, address, city, phone
                     ...formData,
                     userId: user?._id
                 })

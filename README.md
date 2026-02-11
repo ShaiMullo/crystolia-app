@@ -102,29 +102,41 @@ graph TB
 
 ```bash
 # Clone the repository
-git clone https://github.com/ShaiMullo/crystolia-devops-platform.git
-cd crystolia-devops-platform
+git clone https://github.com/ShaiMullo/crystolia-app.git
+cd crystolia-app
 
-# Start all services
-docker compose up --build
+# Create environment file
+cp .env.local.example .env.local
 
-# Access the application
-# Frontend: http://localhost:3000
-# Backend:  http://localhost:4000/api/health
+# Start all services (MongoDB + Backend + Frontends)
+make up
+
+# View logs
+make logs
 ```
 
-### Seed Demo Data
+**Services:**
+| Service | URL | Description |
+|---------|-----|-------------|
+| Frontend Client | http://localhost:3000 | Customer portal |
+| Frontend Admin | http://localhost:3001 | Admin/CRM portal |
+| Backend API | http://localhost:4000 | REST API |
+| MongoDB | localhost:27017 | Database |
 
+**Makefile Commands:**
 ```bash
-cd backend
-npm run seed
+make dev      # Start (foreground, logs visible)
+make up       # Start (detached/background)
+make down     # Stop all services
+make logs     # Follow all logs
+make clean    # Stop + delete database
+make rebuild  # Rebuild Docker images
 ```
 
-**Default Users:**
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | admin@crystolia.com | admin |
-| Customer | olive@restaurant.com | 123 |
+**Health Endpoints:**
+- `/api/health` - Overall health check (includes DB status)
+- `/api/ready` - Kubernetes readiness probe
+- `/api/live` - Kubernetes liveness probe
 
 ---
 

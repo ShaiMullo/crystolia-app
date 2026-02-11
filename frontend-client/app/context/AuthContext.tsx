@@ -17,7 +17,8 @@ interface User {
     role: string;
     firstName: string;
     lastName: string;
-    profilePicture?: string;
+    profilePicture?: string; // Legacy/Social
+    avatar?: string; // New Standard
     onboardingComplete?: boolean;
     customer?: Customer;
 }
@@ -102,21 +103,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const login = async (credentials: LoginData) => {
         try {
             const response = await api.post('/auth/login', credentials);
-            const { access_token, user } = response.data;
+            const { token: access_token, user } = response.data;
 
-            setToken(access_token);
+            // Normalize token key if backend returns 'token' instead of 'access_token'
+            const finalToken = access_token || response.data.token;
+
+            setToken(finalToken);
             setUser(user);
 
-            localStorage.setItem('token', access_token);
+            localStorage.setItem('token', finalToken);
             localStorage.setItem('user', JSON.stringify(user));
+
+            // Get current locale from URL or default to 'he'
+            const currentPath = window.location.pathname;
+            const segments = currentPath.split('/').filter(Boolean);
+            const locale = segments[0] === 'en' || segments[0] === 'ru' ? segments[0] : 'he';
 
             // Redirect based on role
             if (user.role === 'admin') {
-                router.push('/he/admin');
-            } else if (user.role === 'secretary') {
-                router.push('/he/secretary');
+                // Admin login not really supported here, but handle just in case
+                window.location.href = 'http://localhost:3001/admin';
+            } else if (user.role === 'agent') {
+                window.location.href = 'http://localhost:3001/agent';
             } else {
-                router.push('/he/dashboard');
+                router.push(`/${locale}/dashboard`);
             }
         } catch (error) {
             console.error('Login failed:', error);
@@ -126,16 +136,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const register = async (userData: RegisterData) => {
         try {
-            const response = await api.post('/auth/register', userData);
-            const { access_token, user } = response.data;
+            // STRICT Payload Construction for Backend
+            // Fixed: Combining names, filtering out excluded fields
+            const payload = {
+                name: `${userData.firstName} ${userData.lastName}`,
+                email: userData.email,
+                password: userData.password,
+                companyName: userData.companyName
+            };
 
-            setToken(access_token);
+            const response = await api.post('/auth/register', payload);
+            const { token: access_token, user } = response.data;
+            // Normalize token key
+            const finalToken = access_token || response.data.token;
+
+            setToken(finalToken);
             setUser(user);
 
-            localStorage.setItem('token', access_token);
+            localStorage.setItem('token', finalToken);
             localStorage.setItem('user', JSON.stringify(user));
 
-            router.push('/he/dashboard');
+            // Get current locale
+            const currentPath = window.location.pathname;
+            const segments = currentPath.split('/').filter(Boolean);
+            const locale = segments[0] === 'en' || segments[0] === 'ru' ? segments[0] : 'he';
+
+            // Force hard navigation to ensure state is fresh
+            window.location.href = `/${locale}/dashboard`;
         } catch (error) {
             console.error('Registration failed:', error);
             throw error;
