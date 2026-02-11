@@ -64,18 +64,22 @@ export async function sendTextMessage(
     message: string
 ): Promise<SendMessageResult> {
     try {
+        const payload = {
+            messaging_product: 'whatsapp',
+            recipient_type: 'individual',
+            to: to,
+            type: 'text',
+            text: {
+                preview_url: false,
+                body: message,
+            },
+        };
+
+        console.log('📤 Sending WhatsApp payload:', JSON.stringify(payload, null, 2));
+
         const response = await axios.post(
             `${WHATSAPP_API_URL}/${PHONE_NUMBER_ID}/messages`,
-            {
-                messaging_product: 'whatsapp',
-                recipient_type: 'individual',
-                to: to,
-                type: 'text',
-                text: {
-                    preview_url: false,
-                    body: message,
-                },
-            },
+            payload,
             {
                 headers: {
                     'Authorization': `Bearer ${ACCESS_TOKEN}`,

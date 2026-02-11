@@ -1,0 +1,71 @@
+// ===============================================
+// 🗄️ MongoDB Connection Module
+// ===============================================
+
+import mongoose from 'mongoose';
+import { config } from '../config/index.js';
+
+let isConnected = false;
+
+export async function connectDatabase(): Promise<void> {
+    if (isConnected) {
+        console.log('📦 MongoDB already connected');
+        return;
+    }
+
+    try {
+        console.log('📦 Connecting to MongoDB...');
+
+        await mongoose.connect(config.mongoUri, {
+            // Connection pool settings for production
+            maxPoolSize: 10,
+            minPoolSize: 2,
+            serverSelectionTimeoutMS: 5000,
+            socketTimeoutMS: 45000,
+        });
+
+        isConnected = true;
+        console.log('✅ MongoDB connected successfully');
+
+        // Connection event handlers
+        mongoose.connection.on('error', (err) => {
+            console.error('❌ MongoDB connection error:', err);
+            isConnected = false;
+        });
+
+        mongoose.connection.on('disconnected', () => {
+            console.warn('⚠️ MongoDB disconnected');
+            isConnected = false;
+        });
+
+        mongoose.connection.on('reconnected', () => {
+            console.log('🔄 MongoDB reconnected');
+            isConnected = true;
+        });
+
+    } catch (error) {
+        console.error('❌ Failed to connect to MongoDB:', error);
+        throw error;
+    }
+}
+
+export async function disconnectDatabase(): Promise<void> {
+    if (!isConnected) {
+        return;
+    }
+
+    try {
+        await mongoose.disconnect();
+        isConnected = false;
+        console.log('📦 MongoDB disconnected gracefully');
+    } catch (error) {
+        console.error('❌ Error disconnecting from MongoDB:', error);
+        throw error;
+    }
+}
+
+export function isDatabaseConnected(): boolean {
+    return isConnected && mongoose.connection.readyState === 1;
+}
+
+export default { connectDatabase, disconnectDatabase, isDatabaseConnected };

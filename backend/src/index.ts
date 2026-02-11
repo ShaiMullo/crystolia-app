@@ -1,52 +1,116 @@
 // ===============================================
 // 🚀 Crystolia Backend - Main Entry Point
 // ===============================================
+// Production-ready with MongoDB, graceful shutdown, timeouts
 
 import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import { Server } from 'http';
+
+import cookieParser from 'cookie-parser';
+
+import { config } from './config/index.js';
+import { connectDatabase, disconnectDatabase, isDatabaseConnected } from './db/connection.js';
 import leadsRouter from './routes/leads.js';
 import whatsappRouter from './routes/whatsapp.js';
+import authRouter from './routes/auth.js';
+import usersRouter from './routes/users.js';
+import auditRouter from './routes/audit.js';
+import ordersRouter from './routes/orders.js';
+import customersRouter from './routes/customers.js';
+import invoicesRouter from './routes/invoices.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import passport from './config/passport.js';
 
-// יצירת האפליקציה
+// Application instance
 const app = express();
+let server: Server;
+
+// Initialize Passport
+app.use(passport.initialize());
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 🔒 Middleware - אבטחה והגדרות
+// 🔒 Middleware - Security & Configuration
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-// Helmet - מוסיף headers לאבטחה
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🔒 Middleware - Security & Configuration
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// Helmet - Security headers
 app.use(helmet());
 
-// CORS - מאפשר בקשות מה-frontend
+// CORS - Allow frontend requests (MUST be before other middleware)
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: 'http://localhost:3000',
     credentials: true,
 }));
 
-// JSON parser - מפענח בקשות JSON
-app.use(express.json());
+// Cookie Parser - Parse cookies
+app.use(cookieParser());
+
+// GLOBAL DEBUG LOGGER
+app.use((req, res, next) => {
+    console.log(`\n[REQUEST] ${req.method} ${req.url}`);
+    console.log(`[DEBUG] Origin: ${req.headers.origin}`);
+    console.log(`[DEBUG] Cookies:`, req.cookies);
+    // console.log(`[DEBUG] Headers:`, req.headers); 
+    next();
+});
+
+// JSON parser with limit
+app.use(express.json({ limit: '10mb' }));
+
+// Request timeout middleware
+app.use((req, res, next) => {
+    res.setTimeout(config.server.requestTimeout, () => {
+        res.status(408).json({ error: 'Request timeout' });
+    });
+    next();
+});
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 📍 Routes - הנתיבים
+// 📍 Routes
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-// Health check - לבדיקת תקינות (Kubernetes)
+// Health check - Kubernetes readiness/liveness
 app.get('/api/health', (_req: Request, res: Response) => {
-    res.json({
-        status: 'ok',
+    const dbConnected = isDatabaseConnected();
+
+    res.status(dbConnected ? 200 : 503).json({
+        status: dbConnected ? 'ok' : 'degraded',
         timestamp: new Date().toISOString(),
         service: 'crystolia-backend',
+        database: dbConnected ? 'connected' : 'disconnected',
+        environment: config.nodeEnv,
     });
 });
 
-// Leads API
-app.use('/api/leads', leadsRouter);
+// Readiness probe (for Kubernetes)
+app.get('/api/ready', (_req: Request, res: Response) => {
+    if (isDatabaseConnected()) {
+        res.status(200).json({ ready: true });
+    } else {
+        res.status(503).json({ ready: false, reason: 'Database not connected' });
+    }
+});
 
-// WhatsApp API
+// Liveness probe (for Kubernetes)
+app.get('/api/live', (_req: Request, res: Response) => {
+    res.status(200).json({ alive: true });
+});
+
+// API Routes
+app.use('/api/auth', authRouter);
+app.use('/api/leads', leadsRouter);
+app.use('/api/users', usersRouter);
+app.use('/api/orders', ordersRouter);
+app.use('/api/customers', customersRouter);
+app.use('/api/invoices', invoicesRouter);
 app.use('/api/whatsapp', whatsappRouter);
+app.use('/api/audit', auditRouter);
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ⚠️ Error Handler
@@ -54,20 +118,71 @@ app.use('/api/whatsapp', whatsappRouter);
 app.use(errorHandler);
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🛑 Graceful Shutdown
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function gracefulShutdown(signal: string): Promise<void> {
+    console.log(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
+
+    // Stop accepting new connections
+    server.close(async () => {
+        console.log('📦 HTTP server closed');
+
+        try {
+            // Disconnect from database
+            await disconnectDatabase();
+            console.log('✅ Graceful shutdown complete');
+            process.exit(0);
+        } catch (error) {
+            console.error('❌ Error during shutdown:', error);
+            process.exit(1);
+        }
+    });
+
+    // Force shutdown after 30 seconds
+    setTimeout(() => {
+        console.error('⚠️ Forced shutdown after timeout');
+        process.exit(1);
+    }, 30000);
+}
+
+// Signal handlers
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 🚀 Start Server
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-const PORT = process.env.PORT || 4000;
+async function startServer(): Promise<void> {
+    try {
+        // Connect to MongoDB
+        await connectDatabase();
 
-app.listen(PORT, () => {
-    console.log(`
+        // Start HTTP server
+        server = app.listen(config.port, () => {
+            console.log(`
   🌻 Crystolia Backend is running!
   
-  📍 Local:    http://localhost:${PORT}
-  📍 Health:   http://localhost:${PORT}/api/health
-  📍 Leads:    http://localhost:${PORT}/api/leads
+  📍 Local:     http://localhost:${config.port}
+  📍 Health:    http://localhost:${config.port}/api/health
+  📍 Ready:     http://localhost:${config.port}/api/ready
+  📍 Leads:     http://localhost:${config.port}/api/leads
   
-  🔧 Environment: ${process.env.NODE_ENV || 'development'}
-  `);
-});
+  🔧 Environment: ${config.nodeEnv}
+  📦 MongoDB:     ${isDatabaseConnected() ? 'Connected' : 'Disconnected'}
+            `);
+        });
+
+        // Set production timeouts
+        server.keepAliveTimeout = config.server.keepAliveTimeout;
+        server.headersTimeout = config.server.headersTimeout;
+
+    } catch (error) {
+        console.error('❌ Failed to start server:', error);
+        process.exit(1);
+    }
+}
+
+// Start the application
+startServer();
 
 export default app;

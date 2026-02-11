@@ -1,0 +1,27 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 🔧 Crystolia Backend - Development Dockerfile
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Purpose: Hot-reload development environment
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies (including dev dependencies for tsx)
+RUN npm ci
+
+# Copy tsconfig (needed for tsx)
+COPY tsconfig.json ./
+
+# Source code will be mounted as volume for hot reload
+# No need to copy src/ here
+
+# Expose port
+EXPOSE 4000
+
+# Start dev server with hot reload (tsx watch)
+CMD ["npm", "run", "dev"]
