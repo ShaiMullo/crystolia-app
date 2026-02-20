@@ -42,9 +42,9 @@ router.get(
             const cookieOptions = {
                 expires: new Date(Date.now() + config.cookieExpiresIn * 24 * 60 * 60 * 1000),
                 httpOnly: true,
-                secure: config.nodeEnv === 'production',
+                secure: config.secureCookie,
                 sameSite: 'lax' as const,
-                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+                domain: config.cookieDomain,
                 path: '/'
             };
 
@@ -53,7 +53,7 @@ router.get(
                 options: cookieOptions
             });
 
-            res.cookie('token', token, cookieOptions);
+            res.cookie('auth_token', token, cookieOptions);
 
             // Redirect Logic
             if (hasCompany) {
@@ -83,31 +83,31 @@ const signToken = (id: string, role: string) => {
 const createSendToken = (user: any, statusCode: number, res: Response) => {
     const token = signToken(user._id, user.role);
 
+    // 🚀 SECURITY: Cookie Options
+    // Must match frontend expectation exactly.
     const cookieOptions = {
         expires: new Date(Date.now() + cookieExpiresIn * 24 * 60 * 60 * 1000),
-        httpOnly: true, // Prevents XSS attacks
-        secure: process.env.NODE_ENV === 'production', // Only send over HTTPS in prod
-        sameSite: 'lax' as const,
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-        path: '/'
+        httpOnly: true,                 // Prevents XSS attacks
+        secure: config.secureCookie,    // True in Prod, False in Dev
+        sameSite: 'lax' as const,       // Lax for same-origin (via proxy)
+        domain: config.cookieDomain,    // Optional: .crystolia.com
+        path: '/'                       // Available across entire app
     };
 
-    res.cookie('token', token, cookieOptions);
+    console.log('[AUTH] Setting Cookie:', { token: token.substring(0, 10), options: cookieOptions });
+
+    res.cookie('auth_token', token, cookieOptions);
 
     // Remove password from output
     user.password = undefined;
 
     res.status(statusCode).json({
-        token,
+        success: true,
         user,
     });
 };
 
 
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// POST /api/auth/register (Public - Customer Only)
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // POST /api/auth/register (Public - Customer Only)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -194,15 +194,15 @@ router.post('/login', authLimiter, async (req: Request, res: Response, next: Nex
     }
 });
 
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // GET /api/auth/me
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 router.get('/me', protect, (req: Request, res: Response, next: NextFunction) => {
+    // protect middleware already verifies JWT expiration
     res.status(200).json({
         success: true,
-        data: {
-            user: req.user,
-        },
+        user: req.user,
     });
 });
 
@@ -210,10 +210,16 @@ router.get('/me', protect, (req: Request, res: Response, next: NextFunction) => 
 // POST /api/auth/logout
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 router.post('/logout', (req: Request, res: Response) => {
-    res.cookie('token', 'loggedout', {
+    const cookieOptions = {
         expires: new Date(Date.now() + 10 * 1000),
         httpOnly: true,
-    });
+        secure: config.secureCookie,
+        sameSite: 'lax' as const,
+        domain: config.cookieDomain,
+        path: '/'
+    };
+
+    res.cookie('auth_token', 'loggedout', cookieOptions);
     res.status(200).json({ status: 'success' });
 });
 

@@ -29,11 +29,17 @@ spec:
               value: "production"
             # Core
             - name: MONGO_URI
-              value: "{{ .Values.backend.env.MONGO_URI }}"
+              valueFrom:
+                secretKeyRef:
+                  name: crystolia-backend-secret
+                  key: MONGO_URI
             - name: FRONTEND_URL
               value: "{{ .Values.backend.env.FRONTEND_URL }}"
             - name: JWT_SECRET
-              value: "{{ .Values.backend.env.JWT_SECRET }}"
+              valueFrom:
+                secretKeyRef:
+                  name: crystolia-backend-secret
+                  key: JWT_SECRET
             # Google OAuth
             - name: GOOGLE_CLIENT_ID
               value: "{{ .Values.backend.env.GOOGLE_CLIENT_ID }}"

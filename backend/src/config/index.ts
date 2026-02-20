@@ -10,16 +10,18 @@ interface Config {
     port: number;
     nodeEnv: string;
     frontendUrl: string;
+    adminFrontendUrl: string;
     adminPhone: string;
 
     // Database
     mongoUri: string;
 
-    // WhatsApp
+    // WhatsApp (UltraMsg)
     whatsapp: {
-        accessToken: string;
-        phoneNumberId: string;
-        webhookVerifyToken: string;
+        provider: 'ultramsg';
+        instanceId: string;
+        token: string;
+        baseUrl: string;
     };
 
     // Production settings
@@ -40,6 +42,11 @@ interface Config {
         clientSecret: string;
         callbackUrl: string;
     };
+
+    // Production Security
+    corsOrigins: string[];
+    cookieDomain?: string;
+    secureCookie: boolean;
 }
 
 // Strict JWT_SECRET check
@@ -47,6 +54,12 @@ console.log('🔍 Environment check:', {
     NODE_ENV: process.env.NODE_ENV,
     Keys: Object.keys(process.env).filter(k => !k.startsWith('npm_')),
     HasJwtSecret: !!process.env.JWT_SECRET
+});
+
+console.log("UltraMsg configured:", {
+    hasInstance: !!process.env.ULTRAMSG_INSTANCE_ID,
+    hasToken: !!process.env.ULTRAMSG_TOKEN,
+    hasAdmin: !!process.env.ADMIN_PHONE_NUMBER
 });
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -72,16 +85,18 @@ export const config: Config = {
     port: parseInt(getEnvOrDefault('PORT', '4000'), 10),
     nodeEnv: getEnvOrDefault('NODE_ENV', 'development'),
     frontendUrl: getEnvOrDefault('FRONTEND_URL', 'http://localhost:3000'),
-    adminPhone: getEnvOrDefault('ADMIN_PHONE', ''),
+    adminFrontendUrl: getEnvOrDefault('ADMIN_FRONTEND_URL', 'http://localhost:3001'),
+    adminPhone: getEnvOrDefault('ADMIN_PHONE_NUMBER', ''),
 
     // Database
     mongoUri: getEnvOrDefault('MONGO_URI', 'mongodb://localhost:27017/crystolia'),
 
-    // WhatsApp (optional in development)
+    // WhatsApp (UltraMsg)
     whatsapp: {
-        accessToken: getEnvOrThrow('WHATSAPP_ACCESS_TOKEN'),
-        phoneNumberId: getEnvOrThrow('WHATSAPP_PHONE_NUMBER_ID'),
-        webhookVerifyToken: getEnvOrThrow('WHATSAPP_WEBHOOK_VERIFY_TOKEN'),
+        provider: 'ultramsg',
+        instanceId: getEnvOrDefault('ULTRAMSG_INSTANCE_ID', ''),
+        token: getEnvOrDefault('ULTRAMSG_TOKEN', ''),
+        baseUrl: getEnvOrDefault('ULTRAMSG_BASE_URL', 'https://api.ultramsg.com'),
     },
 
     // Production settings
@@ -104,6 +119,11 @@ export const config: Config = {
         clientSecret: getEnvOrDefault('GOOGLE_CLIENT_SECRET', ''),
         callbackUrl: getEnvOrDefault('GOOGLE_CALLBACK_URL', 'http://localhost:4000/api/auth/google/callback'),
     },
+
+    // Production Security
+    corsOrigins: getEnvOrDefault('CORS_ALLOW_ORIGINS', 'http://localhost:3001').split(','),
+    cookieDomain: process.env.COOKIE_DOMAIN, // Undefined by default (host only)
+    secureCookie: process.env.NODE_ENV === 'production', // True in prod, false in dev
 };
 
 export function isDevelopment(): boolean {

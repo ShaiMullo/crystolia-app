@@ -1,101 +1,83 @@
-'use client';
+'use client'
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react'
+import { useRouter, usePathname } from 'next/navigation';
 import api from '@/app/lib/api';
-import { useRouter } from 'next/navigation';
-import { User } from '@/types';
 
-interface LoginData {
-    email: string;
-    password: string;
+interface User {
+    _id: string
+    name: string
+    email: string
+    role: string
 }
 
 interface AuthContextType {
-    user: User | null;
-    token: string | null;
-    login: (data: LoginData) => Promise<void>;
-    logout: () => void;
-    isLoading: boolean;
+    user: User | null
+    isLoading: boolean
+    login: (user: User) => void
+    logout: () => void
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [user, setUser] = useState<User | null>(null);
-    const [token, setToken] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+    const [user, setUser] = useState<User | null>(null)
+    const [isLoading, setIsLoading] = useState(true)
     const router = useRouter();
+    const pathname = usePathname();
+
+    const checkAuth = async () => {
+        try {
+            // Cookie is sent automatically
+            const res = await api.get('/auth/me');
+            setUser(res.data.user);
+        } catch (error) {
+            // Quietly fail context check
+            setUser(null);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     useEffect(() => {
-        // Initialize from localStorage
-        const storedToken = localStorage.getItem('token');
-        const storedUser = localStorage.getItem('user');
-
-        if (storedToken && storedUser) {
-            setToken(storedToken);
-            try {
-                setUser(JSON.parse(storedUser));
-            } catch (e) {
-                console.error("Failed to parse stored user", e);
-                localStorage.removeItem('user');
-            }
-        }
-        setIsLoading(false);
+        checkAuth();
     }, []);
 
-    const login = async (credentials: LoginData) => {
-        try {
-            const response = await api.post('/auth/login', credentials);
+    const login = async (user: User) => {
+        // Token is in HttpOnly cookie. We just update state.
+        setUser(user);
 
-            // STRICT CONTRACT: Response is { token, user }
-            const { token: access_token, user } = response.data;
-
-            if (!user || !access_token) {
-                console.error("Invalid API Response:", response.data);
-                throw new Error('Invalid response from server');
-            }
-
-            if (user.role !== 'admin' && user.role !== 'agent') {
-                throw new Error('Unauthorized: Invalid role');
-            }
-
-            setToken(access_token);
-            setUser(user);
-
-            localStorage.setItem('token', access_token);
-            localStorage.setItem('user', JSON.stringify(user));
-
-            // Role-Based Redirect
-            if (user.role === 'admin') {
-                router.push('/admin');
-            } else if (user.role === 'agent') {
-                router.push('/agent');
-            }
-        } catch (error) {
-            console.error('Login failed:', error);
-            throw error;
+        // Redirect based on role
+        if (user.role === 'agent') {
+            router.push('/agent');
+        } else {
+            router.push('/admin');
         }
     };
 
-    const logout = () => {
-        setToken(null);
-        setUser(null);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        router.push('/login');
-    };
+    const logout = async () => {
+        try {
+            await api.post('/auth/logout');
+        } catch (err) {
+            console.error("Logout error", err);
+        } finally {
+            setUser(null);
+            router.push('/login');
+        }
+    }
 
     return (
-        <AuthContext.Provider value={{ user, token, login, logout, isLoading }}>
+        <AuthContext.Provider value={{ user, isLoading, login, logout }}>
             {children}
         </AuthContext.Provider>
-    );
-};
+    )
+}
 
 export const useAuth = () => {
-    const context = useContext(AuthContext);
-    if (context === undefined) {
-        throw new Error('useAuth must be used within an AuthProvider');
+    const context = useContext(AuthContext)
+    if (!context) {
+        throw new Error('useAuth must be used within AuthProvider')
     }
-    return context;
-};
+    return context
+}
+

@@ -1,53 +1,9 @@
 // ===============================================
-// 📱 WhatsApp Cloud API Service
+// 📱 WhatsApp Service (UltraMsg Provider)
 // ===============================================
 
-import axios, { AxiosError } from 'axios';
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 🔧 Configuration
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-const WHATSAPP_API_URL = 'https://graph.facebook.com/v18.0';
-const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
-const ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
-const WEBHOOK_VERIFY_TOKEN = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 📦 Types
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-export interface WhatsAppMessage {
-    from: string;
-    id: string;
-    timestamp: string;
-    type: string;
-    text?: {
-        body: string;
-    };
-}
-
-export interface WebhookPayload {
-    object: string;
-    entry: Array<{
-        id: string;
-        changes: Array<{
-            value: {
-                messaging_product: string;
-                metadata: {
-                    display_phone_number: string;
-                    phone_number_id: string;
-                };
-                contacts?: Array<{
-                    profile: { name: string };
-                    wa_id: string;
-                }>;
-                messages?: WhatsAppMessage[];
-            };
-            field: string;
-        }>;
-    }>;
-}
+import axios from 'axios';
+import { config } from '../config/index.js';
 
 export interface SendMessageResult {
     success: boolean;
@@ -56,153 +12,80 @@ export interface SendMessageResult {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 📤 Send Text Message
+// 🔧 Helper: Phone Number Normalization
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+/**
+ * Normalizes phone number to international format (Israel default).
+ * 054... -> 97254...
+ * 972... -> 972...
+ * Removes non-digits.
+ */
+export function normalizePhoneNumber(phone: string): string {
+    let clean = phone.replace(/\D/g, ''); // Remove non-digits
+
+    if (clean.startsWith('05')) {
+        // Israel local format
+        clean = '972' + clean.substring(1);
+    }
+    // If it already starts with 972, leave it.
+    // If it's another country code, we leave it as is for now implies input is mostly IL.
+
+    return clean;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 📤 Send Text Message (UltraMsg)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 export async function sendTextMessage(
     to: string,
     message: string
 ): Promise<SendMessageResult> {
+    const { instanceId, token, baseUrl } = config.whatsapp;
+
+    if (!instanceId || !token) {
+        console.warn('⚠️ [WhatsApp] UltraMsg configuration missing. Message skipped.');
+        return { success: false, error: 'Configuration missing' };
+    }
+
+    const normalizedTo = normalizePhoneNumber(to);
+    const url = `${baseUrl}/${instanceId}/messages/chat`;
+
     try {
+        // UltraMsg API expects JSON or UrlEncoded. Axios defaults to JSON.
+        // Body: { token, to, body }
         const payload = {
-            messaging_product: 'whatsapp',
-            recipient_type: 'individual',
-            to: to,
-            type: 'text',
-            text: {
-                preview_url: false,
-                body: message,
-            },
+            token: token,
+            to: normalizedTo,
+            body: message
         };
 
-        console.log('📤 Sending WhatsApp payload:', JSON.stringify(payload, null, 2));
+        console.log("📤 UltraMsg sending:", { to, message });
 
-        const response = await axios.post(
-            `${WHATSAPP_API_URL}/${PHONE_NUMBER_ID}/messages`,
-            payload,
-            {
-                headers: {
-                    'Authorization': `Bearer ${ACCESS_TOKEN}`,
-                    'Content-Type': 'application/json',
-                },
-            }
-        );
+        const response = await axios.post(url, payload, {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 5000 // 5s timeout
+        });
 
-        console.log(`✅ Message sent to ${to}`);
+        console.log("✅ UltraMsg response:", response.data);
+
+        // Basic success check
+        // UltraMsg returns { "sent": "true", "message": "ok" } on success typically
         return {
             success: true,
-            messageId: response.data.messages?.[0]?.id,
+            messageId: response.data?.id || 'sent',
         };
-    } catch (error) {
-        const axiosError = error as AxiosError;
-        console.error('❌ Failed to send message:', axiosError.response?.data || axiosError.message);
-        return {
-            success: false,
-            error: axiosError.message,
-        };
-    }
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 📤 Send Template Message
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-export async function sendTemplateMessage(
-    to: string,
-    templateName: string,
-    languageCode: string = 'he',
-    components?: Array<{
-        type: string;
-        parameters: Array<{ type: string; text: string }>;
-    }>
-): Promise<SendMessageResult> {
-    try {
-        const response = await axios.post(
-            `${WHATSAPP_API_URL}/${PHONE_NUMBER_ID}/messages`,
-            {
-                messaging_product: 'whatsapp',
-                recipient_type: 'individual',
-                to: to,
-                type: 'template',
-                template: {
-                    name: templateName,
-                    language: {
-                        code: languageCode,
-                    },
-                    components: components,
-                },
-            },
-            {
-                headers: {
-                    'Authorization': `Bearer ${ACCESS_TOKEN}`,
-                    'Content-Type': 'application/json',
-                },
-            }
-        );
-
-        console.log(`✅ Template "${templateName}" sent to ${to}`);
-        return {
-            success: true,
-            messageId: response.data.messages?.[0]?.id,
-        };
-    } catch (error) {
-        const axiosError = error as AxiosError;
-        console.error('❌ Failed to send template:', axiosError.response?.data || axiosError.message);
-        return {
-            success: false,
-            error: axiosError.message,
-        };
-    }
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ✅ Verify Webhook
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-export function verifyWebhook(
-    mode: string | undefined,
-    token: string | undefined,
-    challenge: string | undefined
-): { valid: boolean; challenge?: string } {
-    if (mode === 'subscribe' && token === WEBHOOK_VERIFY_TOKEN) {
-        console.log('✅ Webhook verified successfully');
-        return { valid: true, challenge };
-    }
-    console.warn('⚠️ Webhook verification failed');
-    return { valid: false };
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 📥 Process Incoming Message
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-export function processIncomingMessage(payload: WebhookPayload): WhatsAppMessage[] {
-    const messages: WhatsAppMessage[] = [];
-
-    for (const entry of payload.entry) {
-        for (const change of entry.changes) {
-            if (change.value.messages) {
-                messages.push(...change.value.messages);
-            }
+    } catch (error: any) {
+        // Log warning but don't crash
+        console.error("❌ UltraMsg error:", error.response?.data || error.message);
+        console.warn('⚠️ [WhatsApp] Failed to send message:', error.message);
+        if (error.response) {
+            console.warn('   Response data:', error.response.data);
         }
+        return {
+            success: false,
+            error: error.message,
+        };
     }
-
-    return messages;
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 🔍 Check Configuration
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-export function checkConfiguration(): { configured: boolean; missing: string[] } {
-    const missing: string[] = [];
-
-    if (!PHONE_NUMBER_ID) missing.push('WHATSAPP_PHONE_NUMBER_ID');
-    if (!ACCESS_TOKEN) missing.push('WHATSAPP_ACCESS_TOKEN');
-    if (!WEBHOOK_VERIFY_TOKEN) missing.push('WHATSAPP_WEBHOOK_VERIFY_TOKEN');
-
-    return {
-        configured: missing.length === 0,
-        missing,
-    };
-}

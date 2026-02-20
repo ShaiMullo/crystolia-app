@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
-import { Lead, User } from '@/types';
+import { Lead, User, LeadStatus } from '@/types';
 
 interface LeadEditModalProps {
     isOpen: boolean;
@@ -17,7 +17,7 @@ export default function LeadEditModal({ isOpen, onClose, lead, agents, onSave, c
     // Hooks must be unconditional
     const [status, setStatus] = useState<Lead['status']>(lead?.status || 'new');
     const [assignedTo, setAssignedTo] = useState(lead?.assignedTo || '');
-    const [notes, setNotes] = useState(lead?.notes || '');
+    const [noteText, setNoteText] = useState('');
     const [tags, setTags] = useState(lead?.tags?.join(', ') || '');
     const [loading, setLoading] = useState(false);
 
@@ -26,7 +26,7 @@ export default function LeadEditModal({ isOpen, onClose, lead, agents, onSave, c
         if (lead) {
             setStatus(lead.status);
             setAssignedTo(lead.assignedTo || '');
-            setNotes(lead.notes || '');
+            setNoteText(''); // Reset note input on open
             setTags(lead.tags?.join(', ') || '');
         }
     }, [lead, isOpen]);
@@ -40,7 +40,25 @@ export default function LeadEditModal({ isOpen, onClose, lead, agents, onSave, c
         setLoading(true);
         try {
             const tagsArray = tags.split(',').map(t => t.trim()).filter(Boolean);
-            await onSave(lead._id, { status, assignedTo, notes, tags: tagsArray });
+
+            // Prepare payload
+            const payload: Partial<Lead> = {
+                status,
+                assignedTo,
+                tags: tagsArray
+            };
+
+            // Only append note if text is provided
+            if (noteText.trim()) {
+                const newNote = {
+                    text: noteText.trim(),
+                    createdAt: new Date().toISOString()
+                };
+                // Append to existing notes
+                payload.notes = [...(lead.notes || []), newNote];
+            }
+
+            await onSave(lead._id, payload);
             onClose();
         } catch (error) {
             console.error("Failed to update lead", error);
@@ -65,9 +83,13 @@ export default function LeadEditModal({ isOpen, onClose, lead, agents, onSave, c
                         <option value="new">New</option>
                         <option value="contacted">Contacted</option>
                         <option value="qualified">Qualified</option>
+                        <option value="proposal">Proposal</option>
+                        <option value="won">Won</option>
+                        <option value="lost">Lost</option>
                         <option value="converted">Converted</option>
                         <option value="closed">Closed</option>
                         <option value="archived">Archived</option>
+                        <option value="re-engaged">Re-engaged</option>
                     </select>
                 </div>
 
@@ -104,13 +126,13 @@ export default function LeadEditModal({ isOpen, onClose, lead, agents, onSave, c
 
                 {/* Notes */}
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Notes</label>
+                    <label className="block text-sm font-medium text-gray-700">Add Note</label>
                     <textarea
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
+                        value={noteText}
+                        onChange={(e) => setNoteText(e.target.value)}
                         rows={3}
                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 sm:text-sm"
-                        placeholder="Internal notes..."
+                        placeholder="Add a new note..."
                     />
                 </div>
 

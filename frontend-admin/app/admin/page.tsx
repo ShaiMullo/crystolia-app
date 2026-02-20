@@ -1,16 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import axios from "axios";
+import api from "@/app/lib/api";
 import { toast, Toaster } from "react-hot-toast";
 import { useAuth } from "@/app/context/AuthContext";
-import { Lead, User, AuditLog } from "@/types";
+import { Lead, User, AuditLog, LeadStatus } from "@/types";
 import LeadEditModal from "@/components/leads/LeadEditModal";
 import UserActionModal from "@/components/users/UserActionModal";
+import Link from 'next/link';
 
 
 export default function AdminDashboard() {
-    const { user, token } = useAuth();
+    const { user } = useAuth();
     const [activeTab, setActiveTab] = useState<'leads' | 'users' | 'audit'>('leads');
 
     // Data
@@ -51,8 +52,8 @@ export default function AdminDashboard() {
             if (agentFilter) params.append('assignedTo', agentFilter); // Backend expects assignedTo
             if (searchQuery) params.append('search', searchQuery);
 
-            const response = await axios.get(`/api/leads?${params.toString()}`, {
-                headers: { Authorization: `Bearer ${token}` }
+            const response = await api.get(`/leads?${params.toString()}`, {
+
             });
 
             if (response.data.success && response.data.data) {
@@ -67,13 +68,13 @@ export default function AdminDashboard() {
         } finally {
             setLoading(false);
         }
-    }, [token, page, limit, statusFilter, agentFilter, searchQuery]);
+    }, [page, limit, statusFilter, agentFilter, searchQuery]);
 
     const fetchUsers = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await axios.get("/api/users", {
-                headers: { Authorization: `Bearer ${token}` }
+            const response = await api.get("/users", {
+
             });
             if (response.data.success || response.data.data) {
                 setUsers(response.data.data || []);
@@ -84,13 +85,13 @@ export default function AdminDashboard() {
         } finally {
             setLoading(false);
         }
-    }, [token]);
+    }, []);
 
     const fetchAuditLogs = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await axios.get(`/api/audit?page=${page}&limit=${limit}`, {
-                headers: { Authorization: `Bearer ${token}` }
+            const response = await api.get(`/audit?page=${page}&limit=${limit}`, {
+
             });
             if (response.data.success) {
                 setAuditLogs(response.data.data || []);
@@ -105,15 +106,15 @@ export default function AdminDashboard() {
         } finally {
             setLoading(false);
         }
-    }, [token, page, limit]);
+    }, [page, limit]);
 
     useEffect(() => {
-        if (token) {
+        if (user) {
             if (activeTab === 'leads') fetchLeads();
             if (activeTab === 'users') fetchUsers();
             if (activeTab === 'audit') fetchAuditLogs();
         }
-    }, [token, activeTab, fetchLeads, fetchUsers, fetchAuditLogs]);
+    }, [user, activeTab, fetchLeads, fetchUsers, fetchAuditLogs]);
 
     // Reset page when filters change OR tab changes
     useEffect(() => {
@@ -132,8 +133,8 @@ export default function AdminDashboard() {
 
     const handleSaveLead = async (leadId: string, data: Partial<Lead>) => {
         try {
-            await axios.patch(`/api/leads/${leadId}`, data, {
-                headers: { Authorization: `Bearer ${token}` }
+            await api.patch(`/leads/${leadId}`, data, {
+
             });
             toast.success("Lead updated successfully");
             fetchLeads();
@@ -159,14 +160,14 @@ export default function AdminDashboard() {
     const handleSaveUser = async (data: Partial<User> & { password?: string }) => {
         try {
             if (userModalMode === 'create') {
-                await axios.post("/api/users", data, {
-                    headers: { Authorization: `Bearer ${token}` }
+                await api.post("/users", data, {
+
                 });
                 toast.success("User created successfully");
             } else {
                 if (!currentUser) return;
-                await axios.patch(`/api/users/${currentUser._id}`, data, {
-                    headers: { Authorization: `Bearer ${token}` }
+                await api.patch(`/users/${currentUser._id}`, data, {
+
                 });
                 toast.success("User updated successfully");
             }
@@ -180,8 +181,8 @@ export default function AdminDashboard() {
     const handleToggleActive = async (u: User) => {
         if (!confirm(`Are you sure you want to ${u.isActive ? 'deactivate' : 'activate'} this user?`)) return;
         try {
-            await axios.patch(`/api/users/${u._id}`, { isActive: !u.isActive }, {
-                headers: { Authorization: `Bearer ${token}` }
+            await api.patch(`/users/${u._id}`, { isActive: !u.isActive }, {
+
             });
             toast.success(`User ${u.isActive ? 'deactivated' : 'activated'}`);
             fetchUsers();
@@ -264,9 +265,13 @@ export default function AdminDashboard() {
                             <option value="new">New</option>
                             <option value="contacted">Contacted</option>
                             <option value="qualified">Qualified</option>
+                            <option value="proposal">Proposal</option>
+                            <option value="won">Won</option>
+                            <option value="lost">Lost</option>
                             <option value="converted">Converted</option>
                             <option value="closed">Closed</option>
                             <option value="archived">Archived</option>
+                            <option value="re-engaged">Re-engaged</option>
                         </select>
                         <select
                             value={agentFilter}
@@ -296,8 +301,9 @@ export default function AdminDashboard() {
                                             <tr>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Count</th>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assigned To</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Contact</th>
                                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                                             </tr>
                                         </thead>
@@ -313,18 +319,33 @@ export default function AdminDashboard() {
                                                         <td className="px-6 py-4">
                                                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                                                                 ${lead.status === 'new' ? 'bg-blue-100 text-blue-800' :
-                                                                    lead.status === 'closed' ? 'bg-gray-100 text-gray-800' :
-                                                                        'bg-green-100 text-green-800'}`}>
+                                                                    lead.status === 'contacted' ? 'bg-yellow-100 text-yellow-800' :
+                                                                        lead.status === 'qualified' ? 'bg-purple-100 text-purple-800' :
+                                                                            lead.status === 'proposal' ? 'bg-indigo-100 text-indigo-800' :
+                                                                                lead.status === 'won' ? 'bg-green-100 text-green-800' :
+                                                                                    lead.status === 'lost' ? 'bg-red-100 text-red-800' :
+                                                                                        lead.status === 're-engaged' ? 'bg-teal-100 text-teal-800' :
+                                                                                            lead.status === 'closed' ? 'bg-gray-100 text-gray-800' :
+                                                                                                'bg-green-100 text-green-800'}`}>
                                                                 {lead.status}
                                                             </span>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-sm text-gray-500">
+                                                            {lead.contactCount || 1}
                                                         </td>
                                                         <td className="px-6 py-4 text-sm text-gray-500">
                                                             {assignedAgent ? assignedAgent.name || assignedAgent.email : '-'}
                                                         </td>
                                                         <td className="px-6 py-4 text-gray-500 text-sm">
-                                                            {new Date(lead.createdAt).toLocaleDateString()}
+                                                            {lead.lastContactAt ? new Date(lead.lastContactAt).toLocaleDateString() : new Date(lead.createdAt).toLocaleDateString()}
                                                         </td>
-                                                        <td className="px-6 py-4 text-right text-sm font-medium">
+                                                        <td className="px-6 py-4 text-right text-sm font-medium space-x-3">
+                                                            <Link
+                                                                href={`/admin/leads/${lead._id}`}
+                                                                className="text-blue-600 hover:text-blue-900"
+                                                            >
+                                                                View
+                                                            </Link>
                                                             <button
                                                                 onClick={() => handleEditLead(lead)}
                                                                 className="text-indigo-600 hover:text-indigo-900"
@@ -335,7 +356,7 @@ export default function AdminDashboard() {
                                                     </tr>
                                                 );
                                             })}
-                                            {leads.length === 0 && <tr><td colSpan={5} className="px-6 py-4 text-center text-gray-500">No leads found.</td></tr>}
+                                            {leads.length === 0 && <tr><td colSpan={6} className="px-6 py-4 text-center text-gray-500">No leads found.</td></tr>}
                                         </tbody>
                                     </table>
                                 </div>

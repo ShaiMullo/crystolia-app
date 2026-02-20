@@ -3,6 +3,7 @@
 import { useAuth } from "@/app/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import React from "react";
 
 
 export default function AgentLayout({
@@ -10,23 +11,21 @@ export default function AgentLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const { user, logout, token } = useAuth();
+    const { user, logout, isLoading } = useAuth();
     const router = useRouter();
 
     // 🔒 Authorization Guard
     useEffect(() => {
-        if (!token) {
+        if (isLoading) return;
+
+        if (!user) {
             router.push('/login');
-        } else if (user && user.role !== 'agent' && user.role !== 'admin') {
-            // Admins can technically view Agent dashboard if they want, but stricly speaking they have their own.
-            // Requirement said "Role-Based".
-            // Let's enforce strict Agent-only for this route, or allow Admin to impersonate? 
-            // Better to stick to strict: /agent is for Agents.
+        } else if (user.role !== 'agent' && user.role !== 'admin') {
             router.push('/login');
         }
-    }, [user, token, router]);
+    }, [user, isLoading, router]);
 
-    if (!user) return null;
+    if (isLoading || !user) return null;
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -41,7 +40,7 @@ export default function AgentLayout({
                         </div>
                         <div className="flex items-center space-x-4">
                             <span className="text-sm text-gray-500">
-                                {user.firstName || user.email}
+                                {user.name || user.email}
                             </span>
                             <button
                                 onClick={logout}

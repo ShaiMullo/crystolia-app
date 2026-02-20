@@ -1,11 +1,11 @@
 // ===============================================
-// 📬 Leads Router - Enhanced
+// 📬 Leads Router - CRM Enhanced
 // ===============================================
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { config } from '../config/index.js';
 import Lead from '../models/Lead.js';
-import { sendTextMessage } from '../services/whatsappService.js';
+import { sendTextMessage, normalizePhoneNumber } from '../services/whatsappService.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { validate, AppError } from '../utils/validation.js';
 import { protect, authorize } from '../middleware/auth.js';
@@ -25,7 +25,7 @@ const createLeadLimiter = rateLimit({
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// POST /api/leads - Create new lead
+// POST /api/leads - Create or update lead (upsert)
 // 🔓 Public (Website) or Admin
 // 🛑 Blocked: Agent, Customer
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -36,7 +36,7 @@ router.post('/', createLeadLimiter, async (req: Request, res: Response, next: Ne
         // We allow Public (no token) and Admin.
         // We BLOCK Agent and Customer.
         let token;
-        if (req.cookies?.token) token = req.cookies.token;
+        if (req.cookies?.auth_token) token = req.cookies.auth_token;
         else if (req.headers.authorization?.startsWith('Bearer')) token = req.headers.authorization.split(' ')[1];
 
         if (token) {
@@ -46,11 +46,7 @@ router.post('/', createLeadLimiter, async (req: Request, res: Response, next: Ne
                 if (user && (user.role === 'agent' || user.role === 'customer')) {
                     return res.status(403).json({ success: false, message: "Forbidden" });
                 }
-                // If Admin, proceed.
-                // If user not found (deleted), treat as public? Or fail? 
-                // Let's assume valid token means identified user. 
                 if (user) req.user = user;
-
             } catch (err) {
                 // Invalid token -> Treat as Public (allow)
             }
@@ -67,50 +63,126 @@ router.post('/', createLeadLimiter, async (req: Request, res: Response, next: Ne
             throw new AppError('Invalid email format', 400);
         }
 
-        // Create lead in MongoDB
-        const newLead = await Lead.create({
-            name,
-            phone,
-            email,
-            message: message || '',
-            source: source || 'website',
-            tags: tags || [],
-            status: 'new',
-            isDeleted: false,
-        });
+        // ━━━ Normalize phone BEFORE lookup ━━━
+        const normalizedPhone = normalizePhoneNumber(phone);
 
-        // Audit Log (Only if authenticated aka Admin)
-        if (req.user) {
-            await logAudit({
-                action: 'CREATE',
-                entity: 'Lead',
-                entityId: newLead._id.toString(),
-                req,
-                details: { source: 'manual_entry' }
+        // ━━━ CRM Upsert Logic ━━━
+        let lead = await Lead.findOne({ phone: normalizedPhone, isDeleted: false });
+
+        const timestamp = new Date();
+        const newMessage = {
+            content: message || '',
+            source: source || 'website',
+            createdAt: timestamp,
+        };
+
+        if (lead) {
+            // ══════ UPDATE EXISTING LEAD ══════
+            console.log(`🔄 Updating existing lead: ${lead._id} (contact #${lead.contactCount + 1})`);
+
+            // Increment contact count
+            lead.contactCount = (lead.contactCount || 1) + 1;
+
+            // Append message
+            if (message) {
+                lead.messages.push(newMessage);
+            }
+
+            // Timeline event
+            lead.timeline.push({
+                type: 'lead_updated',
+                at: timestamp,
+                meta: { source: source || 'website', contactCount: lead.contactCount },
             });
+
+            // Re-engagement logic
+            if (lead.status === 'closed' || lead.status === 'archived') {
+                const oldStatus = lead.status;
+                lead.status = 're-engaged';
+                lead.timeline.push({
+                    type: 'status_changed',
+                    at: timestamp,
+                    meta: { from: oldStatus, to: 're-engaged', reason: 'inbound_recontact' },
+                });
+            }
+
+            // Update metadata
+            lead.lastContactAt = timestamp;
+            if (name) lead.name = name;
+            if (email) lead.email = email;
+            if (source) lead.source = source;
+
+            await lead.save();
+
+        } else {
+            // ══════ CREATE NEW LEAD ══════
+            console.log(`✨ Creating new lead for phone: ${normalizedPhone}`);
+
+            lead = await Lead.create({
+                name,
+                phone: normalizedPhone,
+                email,
+                message: message || '',
+                source: source || 'website',
+                tags: tags || [],
+                status: 'new',
+                contactCount: 1,
+                messages: message ? [newMessage] : [],
+                timeline: [{
+                    type: 'lead_created',
+                    at: timestamp,
+                    meta: { source: source || 'website' },
+                }],
+                notes: [],
+                lastContactAt: timestamp,
+                isDeleted: false,
+            });
+
+            // Audit Log (Only for creation)
+            if (req.user) {
+                await logAudit({
+                    action: 'CREATE',
+                    entity: 'Lead',
+                    entityId: lead._id.toString(),
+                    req,
+                    details: { source: 'manual_entry' },
+                });
+            }
         }
 
-        console.log(`📬 New lead received: ${name} - ${phone}`);
+        console.log(`📬 Lead processed: ${name} - ${normalizedPhone} (status=${lead.status}, count=${lead.contactCount})`);
 
-        // 🔔 Notify Admin via WhatsApp (Fire-and-forget)
+        // ━━━ WhatsApp Notification (Fire-and-forget) ━━━
         try {
             if (!config.adminPhone) {
-                console.warn('⚠️ WhatsApp Warning: ADMIN_PHONE_NUMBER is not set. Notification skipped.');
+                console.warn('⚠️ [WhatsApp] ADMIN_PHONE_NUMBER is not set. Notification skipped.');
             } else {
-                sendTextMessage(config.adminPhone, `🚀 New Lead: ${name}\n📱 ${phone}\n💬 ${message || 'No message'}`)
-                    .then(result => {
-                        if (!result.success) console.warn('⚠️ WhatsApp Warning: Failed to send message:', result.error);
+                const waMessage = `🌻 Lead Update (${lead.status})
+Name: ${name}
+Phone: ${phone}
+Message: ${message || 'N/A'}
+Source: ${source || 'N/A'}
+Count: ${lead.contactCount}
+Status: ${lead.status}`;
+
+                sendTextMessage(config.adminPhone, waMessage)
+                    .then(() => {
+                        // Add timeline event for WhatsApp notification
+                        Lead.findByIdAndUpdate(lead!._id, {
+                            $push: { timeline: { type: 'whatsapp_notified', at: new Date(), meta: { to: 'admin' } } }
+                        }).catch(() => { /* silent */ });
                     })
-                    .catch(err => console.warn('⚠️ WhatsApp Warning: Unexpected transport error:', err.message));
+                    .catch((err: Error) => console.warn('⚠️ [WhatsApp] Background send failed:', err.message));
             }
         } catch (waError) {
-            console.warn('⚠️ WhatsApp Warning: logic crash:', waError);
+            console.warn('⚠️ [WhatsApp] Logic crash (should not happen):', waError);
         }
 
+        // Return same shape as before for backward compatibility
         res.status(201).json({
             success: true,
             message: 'Lead received successfully',
-            lead: newLead,
+            lead: lead,
         });
     } catch (error) {
         next(error);
@@ -195,7 +267,7 @@ router.get('/:id', protect, async (req: Request, res: Response, next: NextFuncti
             throw new AppError('Invalid Lead ID', 400);
         }
 
-        const query: any = { _id: req.params.id, isDeleted: false };
+        const query: Record<string, unknown> = { _id: req.params.id, isDeleted: false };
 
         // 2. Agent Filtering
         if (req.user?.role === 'agent') {
@@ -234,17 +306,10 @@ router.patch('/:id', protect, async (req: Request, res: Response, next: NextFunc
 
         const { status, notes, assignedTo, tags, isDeleted } = req.body;
 
-        // Allow soft delete via patch - ADMIN ONLY? User didn't specify. Assuming patch rules apply.
-        // Update data construction
-        const updateData: any = {
+        const updateData: Record<string, unknown> = {
             ...(status && { status }),
             ...(notes !== undefined && { notes }),
             ...(tags !== undefined && { tags }),
-            // assignedTo: Agents cannot reassign leads? Usually only Admin.
-            // Requirement says "agent -> can edit ONLY leads assigned to them".
-            // It doesn't say they can't change assignment. But typically they shouldn't.
-            // Let's restrict reassignment to Admin for safety, unless specified.
-            // For now, I'll allow it if they own it, but practically Agents don't reassign.
         };
 
         if (req.user?.role === 'admin') {
@@ -255,7 +320,7 @@ router.patch('/:id', protect, async (req: Request, res: Response, next: NextFunc
             }
         }
 
-        const query: any = { _id: req.params.id, isDeleted: false };
+        const query: Record<string, unknown> = { _id: req.params.id, isDeleted: false };
         // 2. Agent Filtering
         if (req.user?.role === 'agent') {
             query.assignedTo = req.user._id;

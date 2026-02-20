@@ -1,24 +1,66 @@
 // ===============================================
-// 📬 Lead Model - Enhanced
+// 📬 Lead Model - CRM Enhanced
 // ===============================================
 
 import mongoose, { Document, Schema } from 'mongoose';
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 📦 Interface
+// 📦 Sub-document interfaces
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+export interface ITimelineEvent {
+    type: string;   // lead_created, lead_updated, status_changed, note_added, whatsapp_notified, onboarding_step_completed
+    at: Date;
+    actorId?: string;
+    meta?: Record<string, unknown>;
+}
+
+export interface INote {
+    text: string;
+    createdAt: Date;
+    actorId?: string;
+}
+
+export interface IMessage {
+    content: string;
+    source: string;
+    createdAt: Date;
+}
+
+export interface IOnboarding {
+    currentStep: number;
+    completed: boolean;
+    completedAt?: Date;
+    data: Record<string, unknown>;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 📦 Main Interface
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'proposal' | 'won' | 'lost' | 'converted' | 'closed' | 'archived' | 're-engaged';
 
 export interface ILead extends Document {
     name: string;
-    phone: string;     // Normalized format (e.g., +972501234567)
+    phone: string;
     email?: string;
     message?: string;
     source?: string;
-    status: 'new' | 'contacted' | 'qualified' | 'converted' | 'closed' | 'archived';
-    tags: string[];    // Flexible tagging
+    status: LeadStatus;
+    tags: string[];
     assignedTo?: string;
-    notes?: string;
-    isDeleted: boolean; // Soft delete
+
+    // CRM fields
+    contactCount: number;
+    lastContactAt: Date;
+    ownerId?: string;
+    messages: IMessage[];
+    timeline: ITimelineEvent[];
+    notes: INote[];
+    onboarding: IOnboarding;
+
+    // Soft delete
+    isDeleted: boolean;
     deletedAt?: Date;
     createdAt: Date;
     updatedAt: Date;
@@ -40,7 +82,7 @@ const LeadSchema = new Schema<ILead>(
             type: String,
             required: [true, 'Phone is required'],
             trim: true,
-            unique: true, // Prevent duplicates
+            index: true,
         },
         email: {
             type: String,
@@ -61,7 +103,7 @@ const LeadSchema = new Schema<ILead>(
         },
         status: {
             type: String,
-            enum: ['new', 'contacted', 'qualified', 'converted', 'closed', 'archived'],
+            enum: ['new', 'contacted', 'qualified', 'proposal', 'won', 'lost', 'converted', 'closed', 'archived', 're-engaged'],
             default: 'new',
             index: true,
         },
@@ -75,10 +117,47 @@ const LeadSchema = new Schema<ILead>(
             trim: true,
             index: true,
         },
-        notes: {
+
+        // CRM Fields
+        contactCount: {
+            type: Number,
+            default: 1,
+            min: 1,
+        },
+        lastContactAt: {
+            type: Date,
+            default: Date.now,
+            index: true,
+        },
+        ownerId: {
             type: String,
             trim: true,
+            index: true,
         },
+        messages: [{
+            content: { type: String },
+            source: { type: String },
+            createdAt: { type: Date, default: Date.now },
+        }],
+        timeline: [{
+            type: { type: String },
+            at: { type: Date, default: Date.now },
+            actorId: { type: String },
+            meta: { type: Schema.Types.Mixed },
+        }],
+        notes: [{
+            text: { type: String },
+            createdAt: { type: Date, default: Date.now },
+            actorId: { type: String },
+        }],
+        onboarding: {
+            currentStep: { type: Number, default: 1 },
+            completed: { type: Boolean, default: false },
+            completedAt: { type: Date },
+            data: { type: Schema.Types.Mixed, default: {} },
+        },
+
+        // Soft delete
         isDeleted: {
             type: Boolean,
             default: false,
@@ -97,23 +176,19 @@ const LeadSchema = new Schema<ILead>(
 // 📊 Indexes & Hooks
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-// Compound index for dashboard queries (Active leads by status)
+// Compound index for dashboard queries
 LeadSchema.index({ status: 1, createdAt: -1, isDeleted: 1 });
 
 // Text index for search
 LeadSchema.index({ name: 'text', phone: 'text', email: 'text', message: 'text' });
 
-// Pre-save hook to normalize phone numbers (basic implementation)
+// Pre-save hook to normalize phone numbers
 LeadSchema.pre('save', function (next) {
     if (this.isModified('phone')) {
-        // Remove non-digit characters
         let normalized = this.phone.replace(/\D/g, '');
-
-        // Basic IL normalization (050... -> 97250...)
         if (normalized.startsWith('05')) {
             normalized = '972' + normalized.substring(1);
         }
-
         this.phone = normalized;
     }
     next();

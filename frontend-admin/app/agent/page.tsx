@@ -1,14 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import axios from "axios";
+import api from "@/app/lib/api";
 import { toast, Toaster } from "react-hot-toast";
 import { useAuth } from "@/app/context/AuthContext";
 import { Lead } from "@/types";
 import LeadEditModal from "@/components/leads/LeadEditModal";
 
 export default function AgentDashboard() {
-    const { token } = useAuth();
+    const { user } = useAuth();
     const [leads, setLeads] = useState<Lead[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -20,8 +20,8 @@ export default function AgentDashboard() {
         setLoading(true);
         try {
             // Backend now enforces agent filtering, but we can pass explicit param too
-            const response = await axios.get("/api/leads", {
-                headers: { Authorization: `Bearer ${token}` }
+            const response = await api.get("/leads", {
+
             });
             if (response.data.success || response.data.data) {
                 setLeads(response.data.data?.leads || response.data.data || []);
@@ -32,13 +32,13 @@ export default function AgentDashboard() {
         } finally {
             setLoading(false);
         }
-    }, [token]);
+    }, []);
 
     useEffect(() => {
-        if (token) {
+        if (user) {
             fetchLeads();
         }
-    }, [token, fetchLeads]);
+    }, [user, fetchLeads]);
 
     const handleEditClick = (lead: Lead) => {
         setCurrentLead(lead);
@@ -47,8 +47,8 @@ export default function AgentDashboard() {
 
     const handleSaveLead = async (leadId: string, data: Partial<Lead>) => {
         try {
-            await axios.patch(`/api/leads/${leadId}`, data, {
-                headers: { Authorization: `Bearer ${token}` }
+            await api.patch(`/leads/${leadId}`, data, {
+
             });
             toast.success("Lead updated successfully");
             fetchLeads();

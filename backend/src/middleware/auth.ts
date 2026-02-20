@@ -32,16 +32,10 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
     console.log('[AUTH-DEBUG] Cookies:', req.cookies);
     // console.log('[AUTH-DEBUG] Headers:', req.headers); // Too noisy, verify cookie first
 
-    // 1. Get token from Cookie OR Header
-    if (req.cookies && req.cookies.token) {
-        token = req.cookies.token;
-        console.log('[AUTH-DEBUG] Token found in Cookie');
-    } else if (
-        req.headers.authorization &&
-        req.headers.authorization.startsWith('Bearer')
-    ) {
-        token = req.headers.authorization.split(' ')[1];
-        console.log('[AUTH-DEBUG] Token found in Bearer Header');
+    // 1. Get token from Cookie ONLY (Strict Same-Origin)
+    if (req.cookies && req.cookies.auth_token) {
+        token = req.cookies.auth_token;
+        console.log('[AUTH-DEBUG] Token found in Cookie (auth_token)');
     }
 
     if (!token) {

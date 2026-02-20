@@ -14,7 +14,8 @@ import cookieParser from 'cookie-parser';
 import { config } from './config/index.js';
 import { connectDatabase, disconnectDatabase, isDatabaseConnected } from './db/connection.js';
 import leadsRouter from './routes/leads.js';
-import whatsappRouter from './routes/whatsapp.js';
+import crmRouter from './routes/crm.js';
+
 import authRouter from './routes/auth.js';
 import usersRouter from './routes/users.js';
 import auditRouter from './routes/audit.js';
@@ -22,11 +23,15 @@ import ordersRouter from './routes/orders.js';
 import customersRouter from './routes/customers.js';
 import invoicesRouter from './routes/invoices.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { seedAdmin } from './db/seedAdmin.js';
 import passport from './config/passport.js';
 
 // Application instance
 const app = express();
 let server: Server;
+
+// Fix express-rate-limit X-Forwarded-For warning
+app.set('trust proxy', 1);
 
 // Initialize Passport
 app.use(passport.initialize());
@@ -43,13 +48,22 @@ app.use(passport.initialize());
 app.use(helmet());
 
 // CORS - Allow frontend requests (MUST be before other middleware)
+// 🚀 SECURITY: CORS Configuration
+// STRICT ORIGIN REQUIRED for credentials (cookies) to work.
+// Do NOT use wildcard '*' or dynamic origin unless absolutely necessary.
 app.use(cors({
-    origin: 'http://localhost:3000',
-    credentials: true,
+    origin: config.corsOrigins,      // Allow configured origins
+    credentials: true,               // Allow Cookies
 }));
 
-// Cookie Parser - Parse cookies
+// 🚀 SECURITY: Cookie Parser
+// REQUIRED to read req.cookies.auth_token
 app.use(cookieParser());
+
+// 🚀 SECURITY: CSRF Protection
+// Verifies Origin/Referer for state-changing requests
+import { csrfCheck } from './middleware/csrf.js';
+app.use(csrfCheck);
 
 // GLOBAL DEBUG LOGGER
 app.use((req, res, next) => {
@@ -105,11 +119,12 @@ app.get('/api/live', (_req: Request, res: Response) => {
 // API Routes
 app.use('/api/auth', authRouter);
 app.use('/api/leads', leadsRouter);
+app.use('/api/crm', crmRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/customers', customersRouter);
 app.use('/api/invoices', invoicesRouter);
-app.use('/api/whatsapp', whatsappRouter);
+
 app.use('/api/audit', auditRouter);
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -156,6 +171,9 @@ async function startServer(): Promise<void> {
     try {
         // Connect to MongoDB
         await connectDatabase();
+
+        // Seed default admin in development
+        await seedAdmin();
 
         // Start HTTP server
         server = app.listen(config.port, () => {

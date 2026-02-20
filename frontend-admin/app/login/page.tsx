@@ -1,34 +1,50 @@
 "use client";
 
-import { useState } from "react";
-
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
+import api from "@/app/lib/api";
 
 export default function LoginPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [status, setStatus] = useState<"idle" | "loading" | "error" | "success">("idle");
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const { login } = useAuth();
+    const { login, user, isLoading } = useAuth();
+    const router = useRouter();
+
+    useEffect(() => {
+        if (!isLoading && user) {
+            if (user.role === 'admin') router.replace('/admin');
+            else if (user.role === 'agent') router.replace('/agent');
+        }
+    }, [user, isLoading, router]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setStatus("loading");
+        setLoading(true);
         setError(null);
 
         try {
-            await login({ email, password });
-            setStatus("success"); // Add valid state update
-            // Redirect handled by AuthContext
-        } catch (err: unknown) {
-            console.error(err);
-            setStatus("error");
-            // Safe error extraction
-            const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || (err as Error).message || "Login failed";
-            setError(message);
+            const res = await api.post('/auth/login', {
+                email,
+                password,
+            });
+
+            const { user: newUser } = res.data;
+
+            // Update context
+            login(newUser);
+
+            // Redirect happens in login function or reactive effect
+        } catch (err: any) {
+            console.error('Login failed:', err);
+            setLoading(false);
+            setError(
+                err.response?.data?.message || 'Invalid credentials'
+            );
         }
-        // No finally block resetting to idle - let it stay success/error for UI feedback
     };
 
     return (
@@ -76,10 +92,10 @@ export default function LoginPage() {
 
                         <button
                             type="submit"
-                            disabled={status === "loading"}
+                            disabled={loading}
                             className="w-full py-3 bg-[#F5C542] text-white rounded-lg font-semibold hover:bg-[#d4a83a] transition-colors disabled:opacity-50"
                         >
-                            {status === "loading" ? "Logging in..." : "Login"}
+                            {loading ? "Logging in..." : "Login"}
                         </button>
                     </form>
                 </div>
