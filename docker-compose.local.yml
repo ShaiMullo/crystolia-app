@@ -45,7 +45,7 @@ services:
       # Explicitly pass secrets to ensure they are available
       - NODE_ENV=development
       - JWT_SECRET=${JWT_SECRET}
-      - MONGO_URI=${MONGO_URI}
+      - MONGO_URI=mongodb://mongo:27017/crystolia
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL}
