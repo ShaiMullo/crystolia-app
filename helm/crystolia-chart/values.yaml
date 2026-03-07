@@ -32,11 +32,12 @@ backend:
     port: 4000
   replicaCount: 2
   env:
-    MONGO_URI: "mongodb://mongodb.mongodb.svc.cluster.local:27017/crystolia"
+    # MONGO_URI injected via K8s Secret (crystolia-backend-secret)
     FRONTEND_URL: "https://crystolia.com"
-    GOOGLE_CLIENT_ID: "42819184159-tqh018b0d0dkhv6sc37abov9rmjkgaer.apps.googleusercontent.com"
-    GOOGLE_CLIENT_SECRET: "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"
-    JWT_SECRET: "crystolia-super-secret-jwt-key-2026"
+    CORS_ALLOW_ORIGINS: "https://crystolia.com"
+    # JWT_SECRET injected via K8s Secret (crystolia-backend-secret)
+    # GOOGLE_CLIENT_ID injected via K8s Secret
+    # GOOGLE_CLIENT_SECRET injected via K8s Secret
   resources:
     requests:
       cpu: "100m"
@@ -44,7 +45,6 @@ backend:
     limits:
       cpu: "500m"
       memory: "512Mi"
-
 
 ingress:
   enabled: false
@@ -83,4 +83,3 @@ secrets:
     phoneNumber: ""
   payment:
     provider: "mock"
-

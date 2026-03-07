@@ -16,14 +16,14 @@ name: Production Build & Push
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   # Manual trigger for testing
   workflow_dispatch:
     inputs:
       image_tag:
-        description: 'Image tag (default: sha)'
+        description: "Image tag (default: sha)"
         required: false
-        default: ''
+        default: ""
 
 env:
   AWS_REGION: us-east-1
@@ -101,6 +101,21 @@ jobs:
           build-args: |
             NEXT_PUBLIC_API_URL=https://api.crystolia.com
 
+      # Build and Push Frontend Admin
+      - name: Build & Push Frontend Admin
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend-admin
+          file: ./frontend-admin/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/crystolia-frontend-admin:${{ steps.set-tag.outputs.IMAGE_TAG }}
+            ${{ env.ECR_REGISTRY }}/crystolia-frontend-admin:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NEXT_PUBLIC_API_URL=https://admin.crystolia.com/api
+
       # Summary
       - name: Print Summary
         run: |
@@ -110,3 +125,4 @@ jobs:
           echo "|-------|-----|" >> $GITHUB_STEP_SUMMARY
           echo "| crystolia-backend | \`${{ steps.set-tag.outputs.IMAGE_TAG }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| crystolia-frontend | \`${{ steps.set-tag.outputs.IMAGE_TAG }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| crystolia-frontend-admin | \`${{ steps.set-tag.outputs.IMAGE_TAG }}\` |" >> $GITHUB_STEP_SUMMARY
