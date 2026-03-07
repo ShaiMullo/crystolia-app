@@ -22,6 +22,26 @@ frontend:
   env:
     NEXT_PUBLIC_API_URL: "https://crystolia.com/api"
 
+frontendAdmin:
+  image:
+    repository: 268456953512.dkr.ecr.us-east-1.amazonaws.com/crystolia-frontend-admin
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 3000
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "250m"
+      memory: "256Mi"
+  env:
+    NEXT_PUBLIC_API_URL: "/api"
+    BACKEND_URL: "http://crystolia-backend:4000"
+
 backend:
   image:
     repository: 268456953512.dkr.ecr.us-east-1.amazonaws.com/crystolia-backend

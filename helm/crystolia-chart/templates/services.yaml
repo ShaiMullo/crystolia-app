@@ -29,3 +29,19 @@ spec:
       name: http
   selector:
     app: backend
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-frontend-admin
+  labels:
+    app: frontend-admin
+spec:
+  type: {{ .Values.frontendAdmin.service.type }}
+  ports:
+    - port: {{ .Values.frontendAdmin.service.port }}
+      targetPort: 3000
+      protocol: TCP
+      name: http
+  selector:
+    app: frontend-admin

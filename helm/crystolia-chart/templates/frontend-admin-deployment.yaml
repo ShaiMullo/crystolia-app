@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-frontend-admin
+  labels:
+    app: frontend-admin
+spec:
+  replicas: {{ .Values.frontendAdmin.replicaCount }}
+  selector:
+    matchLabels:
+      app: frontend-admin
+  template:
+    metadata:
+      labels:
+        app: frontend-admin
+    spec:
+      containers:
+        - name: frontend-admin
+          image: "{{ .Values.frontendAdmin.image.repository }}:{{ .Values.frontendAdmin.image.tag }}"
+          imagePullPolicy: {{ .Values.frontendAdmin.image.pullPolicy }}
+          ports:
+            - containerPort: 3000
+          resources:
+{{ toYaml .Values.frontendAdmin.resources | indent 12 }}
+          env:
+            {{- range $key, $value := .Values.frontendAdmin.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
