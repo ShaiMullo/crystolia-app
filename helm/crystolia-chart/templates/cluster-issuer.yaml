@@ -1,4 +1,4 @@
-{{- if .Values.ingress.tls }}
+{{- if .Values.ingress.createClusterIssuer }}
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
