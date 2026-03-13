@@ -51,74 +51,129 @@ jobs:
         with: { node-version: "20" }
       - run: npm ci
         working-directory: frontend-client
-      # CRITICAL FIX: Tests must NEVER block deployment
       - run: npm run lint || echo "Lint failed but proceeding"
         continue-on-error: true
         working-directory: frontend-client
 
-  build-deploy:
-    name: 🏗️ Build & Deploy
+  build-push:
+    name: 🏗️ Build & Push Images
     needs: [changes, test-frontend]
-    # CRITICAL FIX: Run if backend changed OR frontend changed (regardless of test result)
     if: ${{ always() && (needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true') }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
+    outputs:
+      backend_updated: ${{ steps.build-backend.outcome == 'success' }}
+      frontend_updated: ${{ steps.build-frontend.outcome == 'success' }}
+      frontend_admin_updated: ${{ steps.build-frontend-admin.outcome == 'success' }}
     steps:
       - uses: actions/checkout@v4
 
-      # Fix git exit code 128
       - name: Fix Git Safety
         run: git config --global --add safe.directory "*"
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      # OIDC Authentication (no static credentials)
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: arn:aws:iam::268456953512:role/github-actions-ecr-push-role
+          role-session-name: github-actions-staging
           aws-region: ${{ env.AWS_REGION }}
 
       - uses: aws-actions/amazon-ecr-login@v2
         id: login-ecr
-        # Fixed: Removed 'registries' input
 
-        # Build Backend - Always if changed
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build Backend
+        id: build-backend
         if: ${{ needs.changes.outputs.backend == 'true' }}
         uses: docker/build-push-action@v5
         with:
           context: ./backend
           file: ./backend/Dockerfile
           push: true
-          tags: ${{ env.ECR_REGISTRY }}/crystolia-backend:${{ env.IMAGE_TAG }}
+          tags: |
+            ${{ env.ECR_REGISTRY }}/crystolia-backend:${{ env.IMAGE_TAG }}
+            ${{ env.ECR_REGISTRY }}/crystolia-backend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-          # Build Frontend - Even if tests failed (Last Resort Deployment)
-          # Change from previous plan: User said "If frontend is broken, deploy LAST known good image".
-          # Actually, that implies NOT building a broken image.
-          # Reverting to: Only build if tests passed?
-          # User said: "Frontend tests must NEVER block backend build".
-          # User said: "If frontend is broken, deploy LAST known good image".
-          # This means: DO NOT BUILD new frontend image if tests failed. Use old one (don't update tag).
       - name: Build Frontend Client
+        id: build-frontend
         if: ${{ needs.changes.outputs.frontend == 'true' && needs.test-frontend.result == 'success' }}
         uses: docker/build-push-action@v5
         with:
           context: ./frontend-client
           file: ./frontend-client/Dockerfile
           push: true
-          tags: ${{ env.ECR_REGISTRY }}/crystolia-frontend:${{ env.IMAGE_TAG }}
+          tags: |
+            ${{ env.ECR_REGISTRY }}/crystolia-frontend:${{ env.IMAGE_TAG }}
+            ${{ env.ECR_REGISTRY }}/crystolia-frontend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Build Frontend Admin
+        id: build-frontend-admin
         if: ${{ needs.changes.outputs.frontend == 'true' && needs.test-frontend.result == 'success' }}
         uses: docker/build-push-action@v5
         with:
           context: ./frontend-admin
           file: ./frontend-admin/Dockerfile
           push: true
-          tags: ${{ env.ECR_REGISTRY }}/crystolia-frontend-admin:${{ env.IMAGE_TAG }}
+          tags: |
+            ${{ env.ECR_REGISTRY }}/crystolia-frontend-admin:${{ env.IMAGE_TAG }}
+            ${{ env.ECR_REGISTRY }}/crystolia-frontend-admin:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  update-gitops:
+    name: 🚀 Update GitOps
+    needs: [build-push]
+    if: ${{ always() && needs.build-push.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout GitOps repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.GITOPS_REPO }}
+          token: ${{ secrets.GITOPS_PAT }}
+          path: gitops
+
+      - name: Update image tags in staging values
+        working-directory: gitops
+        run: |
+          SHA="${{ env.IMAGE_TAG }}"
+
+          # Update backend tag if backend was built
+          if [ "${{ needs.build-push.outputs.backend_updated }}" == "true" ]; then
+            echo "📦 Updating backend image tag to ${SHA}"
+            sed -i '/^backend:/,/^[a-zA-Z]/ s/^\(\s*tag:\s*\).*/\1"'"${SHA}"'"/' staging/values.yaml
+          fi
+
+          # Update frontend tag if frontend was built
+          if [ "${{ needs.build-push.outputs.frontend_updated }}" == "true" ]; then
+            echo "📦 Updating frontend image tag to ${SHA}"
+            sed -i '/^frontend:/,/^[a-zA-Z]/ s/^\(\s*tag:\s*\).*/\1"'"${SHA}"'"/' staging/values.yaml
+          fi
+
+          # Update frontend-admin tag if it was built
+          if [ "${{ needs.build-push.outputs.frontend_admin_updated }}" == "true" ]; then
+            echo "📦 Updating frontend-admin image tag to ${SHA}"
+            sed -i '/^frontendAdmin:/,/^[a-zA-Z]/ s/^\(\s*tag:\s*\).*/\1"'"${SHA}"'"/' staging/values.yaml
+          fi
+
+          echo "--- Updated values.yaml tags ---"
+          grep -A 3 "tag:" staging/values.yaml || true
+
+      - name: Commit and push
+        working-directory: gitops
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add staging/values.yaml
+          git diff --cached --quiet && echo "No tag changes to commit" && exit 0
+          git commit -m "ci: update staging images to ${{ env.IMAGE_TAG }}"
+          git push
