@@ -14,12 +14,35 @@ spec:
       labels:
         app: backend
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
       containers:
         - name: backend
           image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
           imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
           ports:
             - containerPort: 4000
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 4000
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 4000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
           resources:
 {{ toYaml .Values.backend.resources | indent 12 }}
           env:
@@ -40,11 +63,19 @@ spec:
                 secretKeyRef:
                   name: crystolia-backend-secret
                   key: JWT_SECRET
-            # Google OAuth
+            # Google OAuth (from secret)
             - name: GOOGLE_CLIENT_ID
-              value: "{{ .Values.backend.env.GOOGLE_CLIENT_ID }}"
+              valueFrom:
+                secretKeyRef:
+                  name: crystolia-backend-secret
+                  key: GOOGLE_CLIENT_ID
+                  optional: true
             - name: GOOGLE_CLIENT_SECRET
-              value: "{{ .Values.backend.env.GOOGLE_CLIENT_SECRET }}"
+              valueFrom:
+                secretKeyRef:
+                  name: crystolia-backend-secret
+                  key: GOOGLE_CLIENT_SECRET
+                  optional: true
             # Green Invoice
             - name: GREEN_INVOICE_API_ID
               valueFrom:
@@ -99,3 +130,4 @@ spec:
                 secretKeyRef:
                   name: {{ .Release.Name }}-secrets
                   key: PAYMENT_PROVIDER
+

@@ -1,0 +1,27 @@
+{{- if ge (int .Values.backend.replicaCount) 2 }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ .Release.Name }}-backend-pdb
+  labels:
+    app: backend
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: backend
+{{- end }}
+---
+{{- if ge (int .Values.frontend.replicaCount) 2 }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ .Release.Name }}-frontend-pdb
+  labels:
+    app: frontend
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: frontend
+{{- end }}
