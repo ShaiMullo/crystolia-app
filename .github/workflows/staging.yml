@@ -135,11 +135,21 @@ jobs:
     if: ${{ always() && needs.build-push.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
+      # Generate a short-lived token from the GitHub App
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.GITOPS_APP_ID }}
+          private-key: ${{ secrets.GITOPS_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: crystolia-gitops
+
       - name: Checkout GitOps repo
         uses: actions/checkout@v4
         with:
           repository: ${{ env.GITOPS_REPO }}
-          token: ${{ secrets.GITOPS_PAT }}
+          token: ${{ steps.app-token.outputs.token }}
           path: gitops
 
       - name: Update image tags in staging values
