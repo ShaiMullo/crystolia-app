@@ -2,6 +2,13 @@
 // 🌱 Seed Script
 // ===============================================
 
+// Safety guard: this script deletes and recreates users.
+// It must never run in staging or production.
+if (process.env.NODE_ENV !== 'development') {
+    console.error('❌ seed.ts must not be run outside development (NODE_ENV is not "development").');
+    process.exit(1);
+}
+
 import mongoose from 'mongoose';
 import 'dotenv/config';
 import User from '../models/User.js';
