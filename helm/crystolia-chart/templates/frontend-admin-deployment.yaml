@@ -50,3 +50,8 @@ spec:
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: crystolia-backend-secret
+                  key: JWT_SECRET
