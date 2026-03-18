@@ -66,6 +66,43 @@ export interface User {
     lastLogin?: string;
 }
 
+export type OrderStatus = 'pending' | 'approved' | 'shipped' | 'completed' | 'cancelled';
+
+export type InvoiceStatus = 'draft' | 'issued' | 'paid' | 'cancelled';
+
+export interface Invoice {
+    _id: string;
+    invoiceNumber: string;
+    totalAmount: number;
+    status: InvoiceStatus;
+    issuedAt?: string;
+    dueDate?: string;
+    notes?: string;
+    pdfUrl?: string;
+    greenInvoiceDocId?: string;
+    createdAt: string;
+    company?: { _id: string; name: string } | string;
+    order?: { _id: string; totalAmount: number; status: string } | string;
+}
+
+export interface OrderItem {
+    productName?: string;
+    productType?: string;
+    quantity: number;
+    price?: number;
+}
+
+export interface Order {
+    _id: string;
+    status: OrderStatus;
+    items: OrderItem[];
+    totalAmount: number;
+    notes?: string;
+    createdAt: string;
+    company?: { _id: string; name: string } | string;
+    createdBy?: { _id: string; name?: string; email: string } | string;
+}
+
 export interface AuditLog {
     _id: string;
     action: string;
