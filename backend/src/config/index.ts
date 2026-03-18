@@ -24,6 +24,13 @@ interface Config {
         baseUrl: string;
     };
 
+    // Green Invoice
+    greenInvoice: {
+        apiId: string;
+        secret: string;
+        sandbox: boolean;
+    };
+
     // Production settings
     server: {
         requestTimeout: number;      // Request timeout in ms
@@ -62,6 +69,12 @@ console.log("UltraMsg configured:", {
     hasAdmin: !!process.env.ADMIN_PHONE_NUMBER
 });
 
+console.log("Green Invoice configured:", {
+    hasApiId: !!process.env.GREEN_INVOICE_API_ID,
+    hasSecret: !!process.env.GREEN_INVOICE_SECRET,
+    sandbox: process.env.GREEN_INVOICE_SANDBOX !== 'false',
+});
+
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
     throw new Error("JWT_SECRET is not defined in environment variables");
@@ -97,6 +110,13 @@ export const config: Config = {
         instanceId: getEnvOrDefault('ULTRAMSG_INSTANCE_ID', ''),
         token: getEnvOrDefault('ULTRAMSG_TOKEN', ''),
         baseUrl: getEnvOrDefault('ULTRAMSG_BASE_URL', 'https://api.ultramsg.com'),
+    },
+
+    // Green Invoice
+    greenInvoice: {
+        apiId: getEnvOrDefault('GREEN_INVOICE_API_ID', ''),
+        secret: getEnvOrDefault('GREEN_INVOICE_SECRET', ''),
+        sandbox: getEnvOrDefault('GREEN_INVOICE_SANDBOX', 'true') !== 'false',
     },
 
     // Production settings

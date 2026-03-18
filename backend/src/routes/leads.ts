@@ -308,6 +308,7 @@ router.patch('/:id', protect, async (req: Request, res: Response, next: NextFunc
 
         const updateData: Record<string, unknown> = {
             ...(status && { status }),
+            ...(status === 'contacted' && { lastContactAt: new Date() }),
             ...(notes !== undefined && { notes }),
             ...(tags !== undefined && { tags }),
         };
