@@ -85,6 +85,16 @@ app.use((_req, res, next) => {
 // 📍 Routes
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+// Root catch-all for load balancer / ingress pings (prevents 404 log noise).
+app.get('/', (_req: Request, res: Response) => {
+    res.status(200).send('OK');
+});
+
+// Lightweight health check — no DB dependency, always 200 if process is alive.
+app.get('/health', (_req: Request, res: Response) => {
+    res.status(200).json({ status: 'ok' });
+});
+
 // Health check - Kubernetes readiness/liveness
 app.get('/api/health', (_req: Request, res: Response) => {
     const dbConnected = isDatabaseConnected();

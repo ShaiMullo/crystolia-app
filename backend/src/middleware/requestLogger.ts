@@ -30,8 +30,8 @@ declare global {
     }
 }
 
-// Kubernetes liveness/readiness probes — suppress from logs.
-const SKIP_PATHS = new Set(['/api/health', '/api/ready', '/api/live']);
+// Health/probe paths — suppress from logs to avoid Loki noise.
+const SKIP_PATHS = new Set(['/', '/health', '/api/health', '/api/ready', '/api/live']);
 
 export function requestLogger(req: Request, res: Response, next: NextFunction): void {
     if (SKIP_PATHS.has(req.path)) {
