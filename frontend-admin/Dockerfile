@@ -63,7 +63,13 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-# Set correct permissions
+# Pre-create the Next.js runtime cache directory and fix ownership.
+# The standalone build does not include .next/cache; Next.js creates it at
+# runtime (ISR, fetch cache). Without this, the non-root process cannot
+# mkdir inside a root-owned /app.
+RUN mkdir -p .next/cache && \
+    chown -R nextjs:nodejs /app
+
 USER nextjs
 
 # Expose port 3000
