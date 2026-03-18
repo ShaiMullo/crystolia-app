@@ -92,22 +92,25 @@ spec:
                 secretKeyRef:
                   name: {{ .Release.Name }}-secrets
                   key: GREEN_INVOICE_SANDBOX
-            # WhatsApp
-            - name: WHATSAPP_ACCESS_TOKEN
+            # WhatsApp (UltraMsg provider) — managed via ExternalSecret crystolia-whatsapp-secret
+            - name: ULTRAMSG_INSTANCE_ID
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Release.Name }}-secrets
-                  key: WHATSAPP_ACCESS_TOKEN
-            - name: WHATSAPP_PHONE_NUMBER_ID
+                  name: crystolia-whatsapp-secret
+                  key: ULTRAMSG_INSTANCE_ID
+                  optional: true
+            - name: ULTRAMSG_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Release.Name }}-secrets
-                  key: WHATSAPP_PHONE_NUMBER_ID
-            - name: WHATSAPP_WEBHOOK_VERIFY_TOKEN
+                  name: crystolia-whatsapp-secret
+                  key: ULTRAMSG_TOKEN
+                  optional: true
+            - name: ADMIN_PHONE_NUMBER
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Release.Name }}-secrets
-                  key: WHATSAPP_WEBHOOK_VERIFY_TOKEN
+                  name: crystolia-whatsapp-secret
+                  key: ADMIN_PHONE_NUMBER
+                  optional: true
             # Twilio
             - name: TWILIO_ACCOUNT_SID
               valueFrom:

@@ -93,10 +93,7 @@ secrets:
     apiId: ""
     secret: ""
     sandbox: "false"
-  whatsapp:
-    accessToken: ""
-    phoneNumberId: ""
-    webhookVerifyToken: ""
+  # whatsapp: managed via ExternalSecret (crystolia-whatsapp-secret) — see crystolia-gitops/external-secrets/backend-whatsapp-secret.yaml
   twilio:
     accountSid: ""
     authToken: ""
