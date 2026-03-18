@@ -55,25 +55,20 @@ jobs:
         continue-on-error: true
         working-directory: frontend-client
 
-  build-push:
-    name: 🏗️ Build & Push Images
-    needs: [changes, test-frontend]
-    if: ${{ always() && (needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true') }}
+  build-backend:
+    name: 🏗️ Build & Push Backend
+    needs: [changes]
+    if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
-    outputs:
-      backend_updated: ${{ steps.build-backend.outcome == 'success' }}
-      frontend_updated: ${{ steps.build-frontend.outcome == 'success' }}
-      frontend_admin_updated: ${{ steps.build-frontend-admin.outcome == 'success' }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Fix Git Safety
         run: git config --global --add safe.directory "*"
 
-      # OIDC Authentication (no static credentials)
       - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -82,14 +77,11 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - uses: aws-actions/amazon-ecr-login@v2
-        id: login-ecr
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Backend
-        id: build-backend
-        if: ${{ needs.changes.outputs.backend == 'true' }}
+      - name: Build & Push Backend
         uses: docker/build-push-action@v5
         with:
           context: ./backend
@@ -101,9 +93,33 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build Frontend Client
-        id: build-frontend
-        if: ${{ needs.changes.outputs.frontend == 'true' && needs.test-frontend.result == 'success' }}
+  build-frontend:
+    name: 🏗️ Build & Push Frontend
+    needs: [changes, test-frontend]
+    if: ${{ needs.changes.outputs.frontend == 'true' && needs.test-frontend.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fix Git Safety
+        run: git config --global --add safe.directory "*"
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::268456953512:role/github-actions-ecr-push-role
+          role-session-name: github-actions-staging
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & Push Frontend Client
         uses: docker/build-push-action@v5
         with:
           context: ./frontend-client
@@ -115,9 +131,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build Frontend Admin
-        id: build-frontend-admin
-        if: ${{ needs.changes.outputs.frontend == 'true' && needs.test-frontend.result == 'success' }}
+      - name: Build & Push Frontend Admin
         uses: docker/build-push-action@v5
         with:
           context: ./frontend-admin
@@ -131,8 +145,8 @@ jobs:
 
   update-gitops:
     name: 🚀 Update GitOps
-    needs: [build-push]
-    if: ${{ always() && needs.build-push.result == 'success' }}
+    needs: [build-backend, build-frontend]
+    if: ${{ always() && (needs.build-backend.result == 'success' || needs.build-frontend.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
       # Generate a short-lived token from the GitHub App
@@ -157,20 +171,14 @@ jobs:
         run: |
           SHA="${{ env.IMAGE_TAG }}"
 
-          # Update backend tag if backend was built
-          if [ "${{ needs.build-push.outputs.backend_updated }}" == "true" ]; then
+          if [ "${{ needs.build-backend.result }}" == "success" ]; then
             echo "📦 Updating backend image tag to ${SHA}"
             sed -i '/^backend:/,/^[a-zA-Z]/ s/^\(\s*tag:\s*\).*/\1"'"${SHA}"'"/' staging/values.yaml
           fi
 
-          # Update frontend tag if frontend was built
-          if [ "${{ needs.build-push.outputs.frontend_updated }}" == "true" ]; then
+          if [ "${{ needs.build-frontend.result }}" == "success" ]; then
             echo "📦 Updating frontend image tag to ${SHA}"
             sed -i '/^frontend:/,/^[a-zA-Z]/ s/^\(\s*tag:\s*\).*/\1"'"${SHA}"'"/' staging/values.yaml
-          fi
-
-          # Update frontend-admin tag if it was built
-          if [ "${{ needs.build-push.outputs.frontend_admin_updated }}" == "true" ]; then
             echo "📦 Updating frontend-admin image tag to ${SHA}"
             sed -i '/^frontendAdmin:/,/^[a-zA-Z]/ s/^\(\s*tag:\s*\).*/\1"'"${SHA}"'"/' staging/values.yaml
           fi
