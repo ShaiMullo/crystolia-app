@@ -1,0 +1,1940 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crystolia Architecture & Command Center</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121933;
+      --panel-2: #1a2345;
+      --text: #edf2ff;
+      --muted: #a9b4d0;
+      --line: #2c3765;
+      --accent: #f5c542;
+      --green: #22c55e;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+      --blue: #60a5fa;
+      --chip: #0f1732;
+      --shadow: 0 16px 40px rgba(0, 0, 0, .28);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, Arial, sans-serif;
+      background: linear-gradient(180deg, #0a0f1d 0%, #0f1730 100%);
+      color: var(--text);
+    }
+
+    /* ── Sticky Nav ── */
+    .top-nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(11,16,32,.95);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(8px);
+      padding: 0 24px;
+    }
+    .top-nav ul {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .top-nav a {
+      display: block;
+      padding: 12px 14px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      transition: color .15s;
+    }
+    .top-nav a:hover { color: var(--accent); }
+
+    .wrap {
+      width: min(1440px, 94vw);
+      margin: 0 auto;
+      padding: 24px 0 60px;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      background: linear-gradient(135deg, rgba(245,197,66,.14), rgba(96,165,250,.12));
+      border: 1px solid rgba(245,197,66,.25);
+      border-radius: 28px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+    }
+
+    h1, h2, h3 { margin: 0; }
+    h1 { font-size: 34px; }
+    h2 { font-size: 22px; margin-bottom: 14px; }
+    h3 { font-size: 16px; margin-bottom: 10px; }
+
+    .sub { color: var(--muted); margin-top: 10px; line-height: 1.6; }
+    .meta { color: var(--muted); font-size: 13px; margin-top: 6px; }
+    .muted { color: var(--muted); }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+    button {
+      background: var(--accent);
+      color: #251900;
+      border: none;
+      border-radius: 12px;
+      padding: 10px 16px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+    button:hover { opacity: .88; }
+    button.secondary {
+      background: #24305d;
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+
+    /* ── Layout ── */
+    .grid { display: grid; gap: 16px; }
+    .grid-4 { grid-template-columns: repeat(4, 1fr); }
+    .grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .grid-2 { grid-template-columns: repeat(2, 1fr); }
+    .grid-6 { grid-template-columns: repeat(6, 1fr); }
+
+    .panel {
+      background: rgba(18,25,51,.96);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .kpi {
+      padding: 18px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,.01));
+    }
+    .kpi .num { font-size: 28px; font-weight: 700; margin-top: 8px; }
+
+    .section { margin-top: 20px; }
+
+    /* ── Chips ── */
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      background: var(--chip);
+      border: 1px solid var(--line);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 12px;
+    }
+
+    /* ── Status badges ── */
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .green  { color: #d1fae5; background: rgba(34,197,94,.13);  border-color: rgba(34,197,94,.35); }
+    .yellow { color: #fef3c7; background: rgba(245,158,11,.14); border-color: rgba(245,158,11,.35); }
+    .red    { color: #fee2e2; background: rgba(239,68,68,.14);  border-color: rgba(239,68,68,.35); }
+    .blue   { color: #dbeafe; background: rgba(96,165,250,.14); border-color: rgba(96,165,250,.35); }
+
+    /* ── HTTP method badges ── */
+    .method {
+      display: inline-block;
+      border-radius: 6px;
+      padding: 2px 7px;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: monospace;
+      min-width: 48px;
+      text-align: center;
+    }
+    .m-get    { background: rgba(34,197,94,.18);  color: #6ee7b7; }
+    .m-post   { background: rgba(96,165,250,.18); color: #93c5fd; }
+    .m-patch  { background: rgba(245,158,11,.18); color: #fcd34d; }
+    .m-put    { background: rgba(168,85,247,.18); color: #d8b4fe; }
+    .m-delete { background: rgba(239,68,68,.18);  color: #fca5a5; }
+
+    /* ── Tables ── */
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 10px 10px; border-bottom: 1px solid var(--line); vertical-align: top; text-align: right; }
+    th { color: var(--muted); font-weight: 700; }
+    tr:last-child td { border-bottom: none; }
+    code { font-family: monospace; font-size: 12px; color: #93c5fd; background: rgba(96,165,250,.08); padding: 1px 5px; border-radius: 4px; }
+
+    /* ── Diagram ── */
+    .diagram {
+      display: grid;
+      grid-template-columns: 1fr 50px 1fr 50px 1fr;
+      align-items: center;
+      gap: 10px;
+    }
+    .box {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      min-height: 100px;
+    }
+    .arrow { text-align: center; font-size: 24px; color: var(--accent); opacity: .8; }
+
+    /* ── Data model boxes ── */
+    .model-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 14px; }
+    .model-box {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+    }
+    .model-box h3 { color: var(--accent); margin-bottom: 8px; font-size: 15px; }
+    .model-field { font-size: 12px; color: var(--muted); line-height: 1.8; }
+    .model-field span { color: var(--text); }
+
+    /* ── Cards ── */
+    .card-list { display: grid; gap: 10px; }
+    .task {
+      background: #0f1632;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+    }
+    .task strong { font-size: 14px; }
+
+    .small { font-size: 12px; color: var(--muted); }
+
+    /* ── Textareas ── */
+    textarea {
+      width: 100%;
+      background: #0d1430;
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      font: inherit;
+      font-size: 13px;
+      min-height: 120px;
+      resize: vertical;
+      margin-top: 10px;
+      transition: border-color .2s;
+    }
+    textarea:focus { border-color: var(--accent); outline: none; }
+
+    /* ── Infra rows ── */
+    .infra-row { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; margin: 8px 0; }
+    .infra-label { color: var(--muted); font-size: 12px; min-width: 120px; }
+
+    /* ── Gap severity ── */
+    .gap-critical { border-right: 3px solid var(--red); }
+    .gap-medium   { border-right: 3px solid var(--yellow); }
+    .gap-low      { border-right: 3px solid var(--blue); }
+
+    .footer { margin-top: 28px; text-align: center; color: var(--muted); font-size: 12px; }
+
+    /* ═══════════════════════════════════════════
+       VISUAL GRAPH COMPONENTS — Premium Edition
+       ═══════════════════════════════════════════ */
+
+    /* ── Graph node — glassmorphism card ── */
+    .gn {
+      border: 1px solid;
+      border-radius: 18px;
+      padding: 14px 18px;
+      text-align: center;
+      position: relative;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      transition: transform .2s ease, box-shadow .2s ease;
+      overflow: hidden;
+    }
+    /* inner top-edge highlight */
+    .gn::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 10%; right: 10%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.14), transparent);
+      pointer-events: none;
+    }
+    .gn:hover {
+      transform: translateY(-2px);
+    }
+
+    /* Node typography — clear 3-level hierarchy */
+    .gn-title { font-weight: 700; font-size: 14px; margin-bottom: 5px; letter-spacing: .1px; }
+    .gn-sub   { color: var(--muted); font-size: 11.5px; line-height: 1.55; }
+    .gn-tag   {
+      display: inline-block; font-size: 10.5px; margin-top: 8px;
+      padding: 3px 10px; border-radius: 999px;
+      background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08);
+      color: var(--muted); letter-spacing: .1px;
+    }
+
+    /* Node surface types — gradient fills + colour-tinted glow shadows */
+    .gn-public   {
+      border-color: rgba(34,197,94,.4);
+      background: linear-gradient(155deg, rgba(34,197,94,.13) 0%, rgba(34,197,94,.03) 100%);
+      box-shadow: 0 4px 22px rgba(34,197,94,.1), 0 1px 0 rgba(255,255,255,.07) inset;
+    }
+    .gn-public:hover   { box-shadow: 0 8px 32px rgba(34,197,94,.18), 0 1px 0 rgba(255,255,255,.09) inset; }
+    .gn-internal {
+      border-color: rgba(96,165,250,.4);
+      background: linear-gradient(155deg, rgba(96,165,250,.14) 0%, rgba(96,165,250,.04) 100%);
+      box-shadow: 0 4px 22px rgba(96,165,250,.11), 0 1px 0 rgba(255,255,255,.07) inset;
+    }
+    .gn-internal:hover { box-shadow: 0 8px 32px rgba(96,165,250,.19), 0 1px 0 rgba(255,255,255,.09) inset; }
+    .gn-backend  {
+      border-color: rgba(245,197,66,.45);
+      background: linear-gradient(155deg, rgba(245,197,66,.14) 0%, rgba(245,197,66,.04) 100%);
+      box-shadow: 0 4px 22px rgba(245,197,66,.11), 0 1px 0 rgba(255,255,255,.08) inset;
+    }
+    .gn-backend:hover  { box-shadow: 0 8px 32px rgba(245,197,66,.2), 0 1px 0 rgba(255,255,255,.09) inset; }
+    .gn-store    {
+      border-color: rgba(168,85,247,.4);
+      background: linear-gradient(155deg, rgba(168,85,247,.14) 0%, rgba(168,85,247,.04) 100%);
+      box-shadow: 0 4px 22px rgba(168,85,247,.12), 0 1px 0 rgba(255,255,255,.07) inset;
+    }
+    .gn-store:hover    { box-shadow: 0 8px 32px rgba(168,85,247,.22), 0 1px 0 rgba(255,255,255,.09) inset; }
+    .gn-infra    {
+      border-color: rgba(251,146,60,.4);
+      background: linear-gradient(155deg, rgba(251,146,60,.13) 0%, rgba(251,146,60,.04) 100%);
+      box-shadow: 0 4px 22px rgba(251,146,60,.1), 0 1px 0 rgba(255,255,255,.07) inset;
+    }
+    .gn-infra:hover    { box-shadow: 0 8px 32px rgba(251,146,60,.18), 0 1px 0 rgba(255,255,255,.09) inset; }
+    .gn-control  {
+      border-color: rgba(148,163,184,.28);
+      background: linear-gradient(155deg, rgba(148,163,184,.08) 0%, rgba(148,163,184,.02) 100%);
+      box-shadow: 0 4px 20px rgba(0,0,0,.2), 0 1px 0 rgba(255,255,255,.05) inset;
+    }
+    .gn-control:hover  { box-shadow: 0 8px 28px rgba(0,0,0,.3), 0 1px 0 rgba(255,255,255,.07) inset; }
+    .gn-crm      {
+      border-color: rgba(34,197,94,.35);
+      background: linear-gradient(155deg, rgba(34,197,94,.10) 0%, rgba(34,197,94,.03) 100%);
+      box-shadow: 0 4px 18px rgba(34,197,94,.08), 0 1px 0 rgba(255,255,255,.06) inset;
+    }
+    .gn-commerce {
+      border-color: rgba(96,165,250,.35);
+      background: linear-gradient(155deg, rgba(96,165,250,.11) 0%, rgba(96,165,250,.03) 100%);
+      box-shadow: 0 4px 18px rgba(96,165,250,.08), 0 1px 0 rgba(255,255,255,.06) inset;
+    }
+    .gn-system   {
+      border-color: rgba(148,163,184,.28);
+      background: linear-gradient(155deg, rgba(148,163,184,.07) 0%, rgba(148,163,184,.02) 100%);
+      box-shadow: 0 4px 18px rgba(0,0,0,.15), 0 1px 0 rgba(255,255,255,.05) inset;
+    }
+
+    /* ── Directional arrows — pure CSS (hides Unicode character) ── */
+    .g-flow { display: flex; flex-direction: column; align-items: stretch; gap: 0; }
+
+    .g-arrow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 5px 0;
+      font-size: 0;        /* hide the ↓ character */
+      line-height: 0;
+      gap: 0;
+    }
+    .g-arrow::before {
+      content: '';
+      width: 1.5px;
+      height: 20px;
+      background: linear-gradient(to bottom, rgba(245,197,66,.75), rgba(245,197,66,.2));
+      flex-shrink: 0;
+    }
+    .g-arrow::after {
+      content: '';
+      width: 0;
+      height: 0;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 7px solid rgba(245,197,66,.6);
+      margin-top: -1px;
+      flex-shrink: 0;
+    }
+    .g-arrow-h { color: var(--accent); font-size: 18px; opacity: .85; display: flex; align-items: center; justify-content: center; }
+
+    /* ── Merge funnel — two lanes converging into shared backend ── */
+    .g-merge { display: flex; align-items: flex-end; height: 30px; direction: ltr; }
+    .g-merge-arm        { flex: 1; height: 100%; }
+    .g-merge-arm.left   { border-left: 1.5px solid rgba(245,197,66,.45); border-bottom: 1.5px solid rgba(245,197,66,.45); border-radius: 0 0 0 14px; }
+    .g-merge-arm.right  { border-right: 1.5px solid rgba(245,197,66,.45); border-bottom: 1.5px solid rgba(245,197,66,.45); border-radius: 0 0 14px 0; }
+    .g-merge-mid        { width: 20px; border-bottom: 1.5px solid rgba(245,197,66,.45); }
+
+    /* ── Layout helpers ── */
+    .arch-app-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; direction: ltr; }
+    .arch-shared   { display: flex; flex-direction: column; align-items: stretch; margin: 0 18%; }
+    .deploy-chain  { display: flex; flex-direction: column; align-items: stretch; direction: ltr; }
+
+    /* ── Section header label — for "Application Layer" / "Deployment Chain" ── */
+    .g-section-header {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--muted);
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .g-section-header::before {
+      content: '';
+      display: inline-block;
+      width: 3px;
+      height: 14px;
+      background: linear-gradient(to bottom, var(--accent), rgba(245,197,66,.3));
+      border-radius: 99px;
+      flex-shrink: 0;
+    }
+
+    /* ── Lane surface labels — "PUBLIC SURFACE" / "INTERNAL SURFACE" ── */
+    .g-lane-label {
+      display: inline-block;
+      align-self: center;
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-bottom: 12px;
+    }
+    .g-lane-public   { color: #6ee7b7; background: rgba(34,197,94,.1);  border: 1px solid rgba(34,197,94,.28); }
+    .g-lane-internal { color: #93c5fd; background: rgba(96,165,250,.1); border: 1px solid rgba(96,165,250,.28); }
+    .g-track-label   {
+      font-size: 10.5px; color: var(--muted); text-align: center;
+      margin-bottom: 8px; font-weight: 600; letter-spacing: .3px;
+    }
+
+    /* ── Domain zones — glassmorphism containers ── */
+    .domain-zone {
+      border-radius: 22px;
+      padding: 22px 18px;
+      position: relative;
+      margin: 4px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: 0 6px 32px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.05);
+    }
+    .domain-zone-label {
+      position: absolute;
+      top: -12px;
+      left: 18px;
+      padding: 3px 13px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+    }
+    .zone-crm {
+      border: 1.5px dashed rgba(34,197,94,.4);
+      background: linear-gradient(145deg, rgba(34,197,94,.08) 0%, rgba(34,197,94,.02) 100%);
+    }
+    .zone-crm .domain-zone-label      { background: rgba(34,197,94,.15);   border: 1px solid rgba(34,197,94,.32);   color: #6ee7b7; }
+    .zone-commerce {
+      border: 1.5px dashed rgba(96,165,250,.4);
+      background: linear-gradient(145deg, rgba(96,165,250,.09) 0%, rgba(96,165,250,.02) 100%);
+    }
+    .zone-commerce .domain-zone-label { background: rgba(96,165,250,.15);  border: 1px solid rgba(96,165,250,.32);  color: #93c5fd; }
+    .zone-system {
+      border: 1.5px dashed rgba(148,163,184,.35);
+      background: linear-gradient(145deg, rgba(148,163,184,.06) 0%, rgba(148,163,184,.01) 100%);
+    }
+    .zone-system .domain-zone-label   { background: rgba(148,163,184,.12); border: 1px solid rgba(148,163,184,.28); color: var(--muted); }
+
+    /* ── Domain entity rows ── */
+    .domain-row  { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; direction: ltr; margin-top: 10px; }
+    .domain-node { flex: 1; min-width: 100px; }
+    .domain-rel  { color: var(--accent); font-size: 15px; flex-shrink: 0; opacity: .75; }
+
+    /* ── Runtime topology planes — strong glass panels ── */
+    .topo-plane {
+      border-radius: 22px;
+      padding: 22px;
+      direction: ltr;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 10px 40px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.06);
+    }
+    .topo-runtime {
+      background: linear-gradient(150deg, rgba(34,197,94,.08) 0%, rgba(18,25,51,.97) 55%);
+      border: 1px solid rgba(34,197,94,.22);
+    }
+    .topo-control {
+      background: linear-gradient(150deg, rgba(96,165,250,.08) 0%, rgba(18,25,51,.97) 55%);
+      border: 1px solid rgba(96,165,250,.22);
+    }
+    .topo-plane-title {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--muted);
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .topo-plane-title::before {
+      content: '';
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .topo-runtime .topo-plane-title::before { background: var(--green); box-shadow: 0 0 10px rgba(34,197,94,.55); }
+    .topo-control .topo-plane-title::before { background: var(--blue);  box-shadow: 0 0 10px rgba(96,165,250,.55); }
+
+    /* Kubernetes namespace boxes */
+    .topo-ns {
+      border: 1px dashed rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 13px 15px;
+      margin-top: 12px;
+      background: rgba(255,255,255,.025);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+    }
+    .topo-ns-label { font-size: 11px; color: var(--muted); margin-bottom: 10px; font-weight: 700; letter-spacing: .3px; }
+
+    /* Pod chips — micro glassmorphism */
+    .topo-pods { display: flex; flex-wrap: wrap; gap: 8px; }
+    .topo-pod {
+      background: rgba(255,255,255,.045);
+      border: 1px solid rgba(255,255,255,.11);
+      border-radius: 10px;
+      padding: 5px 13px;
+      font-size: 12px;
+      font-weight: 600;
+      backdrop-filter: blur(4px);
+      box-shadow: 0 2px 8px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.07);
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .topo-pod:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.08); }
+
+    /* ── Legend — pill badges with glow dots ── */
+    .g-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 18px;
+      padding: 14px 18px;
+      background: rgba(255,255,255,.025);
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: 18px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 4px 16px rgba(0,0,0,.15);
+      direction: ltr;
+    }
+    .g-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11.5px;
+      color: var(--muted);
+      padding: 5px 13px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.03);
+      border: 1px solid rgba(255,255,255,.07);
+      transition: background .15s;
+    }
+    .g-legend-item:hover { background: rgba(255,255,255,.055); }
+    .g-legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .ld-public   { background: rgba(34,197,94,.9);   box-shadow: 0 0 7px rgba(34,197,94,.5); }
+    .ld-internal { background: rgba(96,165,250,.9);  box-shadow: 0 0 7px rgba(96,165,250,.5); }
+    .ld-backend  { background: rgba(245,197,66,.9);  box-shadow: 0 0 7px rgba(245,197,66,.5); }
+    .ld-store    { background: rgba(168,85,247,.9);  box-shadow: 0 0 7px rgba(168,85,247,.5); }
+    .ld-infra    { background: rgba(251,146,60,.9);  box-shadow: 0 0 7px rgba(251,146,60,.5); }
+    .ld-control  { background: rgba(148,163,184,.75); box-shadow: 0 0 6px rgba(148,163,184,.35); }
+
+    @media (max-width: 900px) {
+      .arch-app-grid { grid-template-columns: 1fr; }
+      .arch-shared   { margin: 0 5%; }
+      .domain-row    { flex-direction: column; align-items: stretch; }
+      .domain-rel    { transform: rotate(90deg); }
+    }
+
+    /* ── Print ── */
+    @media print {
+      .top-nav, .toolbar, button { display: none; }
+      body { background: #fff; color: #111; }
+      .panel, .kpi, .box, .model-box, .task { border: 1px solid #ccc; }
+      textarea { border: 1px dashed #aaa; }
+      a { color: inherit; }
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 1100px) {
+      .grid-4, .grid-3 { grid-template-columns: repeat(2, 1fr); }
+      .grid-6 { grid-template-columns: repeat(3, 1fr); }
+      .diagram { grid-template-columns: 1fr; }
+      .arrow { transform: rotate(90deg); }
+      .model-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 700px) {
+      .grid-4, .grid-3, .grid-2, .grid-6, .model-grid { grid-template-columns: 1fr; }
+      h1 { font-size: 26px; }
+      .wrap { width: 94vw; }
+    }
+  </style>
+</head>
+
+<body>
+
+<!-- ── Sticky Nav ── -->
+<nav class="top-nav">
+  <ul>
+    <li><a href="#sys-arch">Arch Graph</a></li>
+    <li><a href="#domain-graph">Domain Graph</a></li>
+    <li><a href="#overview">System Overview</a></li>
+    <li><a href="#modules">Modules</a></li>
+    <li><a href="#frontend">Frontend</a></li>
+    <li><a href="#routes">API Routes</a></li>
+    <li><a href="#datamodel">Data Model</a></li>
+    <li><a href="#flows">Flows</a></li>
+    <li><a href="#infra">Infra / GitOps</a></li>
+    <li><a href="#runtime-topology">Runtime Topology</a></li>
+    <li><a href="#gaps">Gaps</a></li>
+    <li><a href="#priority">Priority Stack</a></li>
+    <li><a href="#techdebt">Tech Debt</a></li>
+    <li><a href="#sprint">Sprint</a></li>
+    <li><a href="#notes">Notes</a></li>
+  </ul>
+</nav>
+
+<div class="wrap">
+
+  <!-- ── Hero ── -->
+  <section class="hero" id="top">
+    <h1>Crystolia Architecture Map + Command Center</h1>
+    <div class="sub">מסמך שליטה חי למוצר, לארכיטקטורה, לפערים ולספרינטים. עודכן אוטומטית עם כל שמירה.</div>
+    <div class="meta">
+      Version <span id="doc-version">v2.0</span> &nbsp;·&nbsp; Last updated: <span id="last-updated"></span>
+    </div>
+    <div class="toolbar">
+      <button onclick="saveAll()">שמור הכל (Ctrl+S)</button>
+      <button class="secondary" onclick="window.print()">PDF / הדפסה</button>
+      <button class="secondary" onclick="resetAll()">אפס הערות מקומיות</button>
+    </div>
+  </section>
+
+  <!-- ── KPIs ── -->
+  <section class="grid grid-4">
+    <div class="kpi">
+      <div class="muted">Product Architecture</div>
+      <div class="num" style="color:#f5c542;">7 / 10</div>
+    </div>
+    <div class="kpi">
+      <div class="muted">Operational Maturity</div>
+      <div class="num" style="color:#f59e0b;">6.5 / 10</div>
+    </div>
+    <div class="kpi">
+      <div class="muted">Business Workflow</div>
+      <div class="num" style="color:#f5c542;">7 / 10</div>
+    </div>
+    <div class="kpi">
+      <div class="muted">Current Environment</div>
+      <div class="num" style="color:#60a5fa;">Staging</div>
+    </div>
+  </section>
+
+  <!-- ── System Architecture Graph ── -->
+  <section class="section panel" id="sys-arch">
+    <h2>System Architecture Graph</h2>
+    <div class="small" style="margin-bottom:18px;">Visual flow of the two user-facing surfaces and the shared backend, plus the deployment chain that delivers all services.</div>
+
+    <div class="grid grid-2" style="gap:24px; direction:ltr;">
+
+      <!-- LEFT: App architecture flow -->
+      <div>
+        <div class="g-section-header">Application Layer</div>
+
+        <!-- Two lanes side by side -->
+        <div class="arch-app-grid">
+          <!-- Customer lane -->
+          <div class="g-flow">
+            <div class="g-lane-label g-lane-public">PUBLIC SURFACE</div>
+            <div class="gn gn-public">
+              <div class="gn-title">Customer / Public User</div>
+              <div class="gn-sub">Browser · Mobile</div>
+            </div>
+            <div class="g-arrow">↓</div>
+            <div class="gn gn-public">
+              <div class="gn-title">frontend-client</div>
+              <div class="gn-sub">Next.js · customer storefront</div>
+              <div class="gn-tag">auth_token cookie + withCredentials · localStorage ref</div>
+            </div>
+          </div>
+          <!-- Admin lane -->
+          <div class="g-flow">
+            <div class="g-lane-label g-lane-internal">INTERNAL SURFACE</div>
+            <div class="gn gn-internal">
+              <div class="gn-title">Admin / Agent</div>
+              <div class="gn-sub">Internal staff</div>
+            </div>
+            <div class="g-arrow">↓</div>
+            <div class="gn gn-internal">
+              <div class="gn-title">frontend-admin</div>
+              <div class="gn-sub">Next.js · internal backoffice</div>
+              <div class="gn-tag">HttpOnly cookie · Edge middleware</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Merge funnel -->
+        <div style="margin:4px 8% 0;">
+          <div class="g-merge">
+            <div class="g-merge-arm left"></div>
+            <div class="g-merge-mid"></div>
+            <div class="g-merge-arm right"></div>
+          </div>
+          <div class="g-arrow" style="margin-bottom:4px;">↓</div>
+        </div>
+
+        <!-- Shared backend + DB -->
+        <div class="arch-shared">
+          <div class="gn gn-backend">
+            <div class="gn-title">backend API</div>
+            <div class="gn-sub">Express + TypeScript</div>
+            <div class="gn-tag">auth · leads · orders · invoices · settings · audit</div>
+          </div>
+          <div class="g-arrow">↓</div>
+          <div class="gn gn-store">
+            <div class="gn-title">MongoDB</div>
+            <div class="gn-sub">Primary app database · Mongoose ODM</div>
+            <div class="gn-tag">7 collections · staging only</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Deployment chain -->
+      <div>
+        <div class="g-section-header">Deployment Chain</div>
+        <div class="deploy-chain">
+          <div class="gn gn-control">
+            <div class="gn-title">GitHub</div>
+            <div class="gn-sub">crystolia-app · crystolia-gitops · crystolia-infra</div>
+          </div>
+          <div class="g-arrow">↓</div>
+          <div class="gn gn-control">
+            <div class="gn-title">GitHub Actions</div>
+            <div class="gn-sub">Build · test · push image · update Helm tag</div>
+            <div class="gn-tag">staging.yml · production.yml · sabbath-mode.yml</div>
+          </div>
+          <div class="g-arrow">↓</div>
+          <div class="gn gn-control">
+            <div class="gn-title">AWS ECR</div>
+            <div class="gn-sub">Container image registry — one repo per service</div>
+          </div>
+          <div class="g-arrow">↓</div>
+          <div class="gn gn-infra">
+            <div class="gn-title">ArgoCD</div>
+            <div class="gn-sub">GitOps CD engine · auto-sync from crystolia-gitops</div>
+            <div class="gn-tag">Helm charts · ArgoCD Application manifests</div>
+          </div>
+          <div class="g-arrow">↓</div>
+          <div class="gn gn-infra">
+            <div class="gn-title">AWS EKS</div>
+            <div class="gn-sub">Kubernetes cluster · Spot node groups</div>
+            <div class="gn-tag">ns: crystolia · ns: argocd</div>
+          </div>
+          <div class="g-arrow">↓</div>
+          <div class="gn gn-infra">
+            <div class="gn-title">ALB + ACM + DNS</div>
+            <div class="gn-sub">AWS Application Load Balancer · TLS termination</div>
+            <div class="gn-tag">staging.crystolia.com · admin-staging · argocd</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="g-legend">
+      <div class="g-legend-item"><div class="g-legend-dot ld-public"></div>Public Surface</div>
+      <div class="g-legend-item"><div class="g-legend-dot ld-internal"></div>Internal Surface</div>
+      <div class="g-legend-item"><div class="g-legend-dot ld-backend"></div>Backend Service</div>
+      <div class="g-legend-item"><div class="g-legend-dot ld-store"></div>Data Store</div>
+      <div class="g-legend-item"><div class="g-legend-dot ld-infra"></div>Infra / Delivery</div>
+      <div class="g-legend-item"><div class="g-legend-dot ld-control"></div>Config / Control Plane</div>
+    </div>
+  </section>
+
+  <!-- ── System Overview + Founder Snapshot ── -->
+  <section class="section grid grid-2" id="overview">
+    <div class="panel">
+      <h2>System Overview</h2>
+
+      <div class="diagram" style="margin-top:14px;">
+        <div class="box">
+          <h3>Customers</h3>
+          <ul style="padding-right:16px; margin:8px 0 0;">
+            <li class="small">Marketing site</li>
+            <li class="small">Login / Register / Google OAuth</li>
+            <li class="small">Onboarding</li>
+            <li class="small">Orders / Invoices / Profile</li>
+          </ul>
+        </div>
+        <div class="arrow">←</div>
+        <div class="box">
+          <h3>frontend-client</h3>
+          <div class="chips" style="margin-bottom:8px;">
+            <span class="chip">Next.js 15</span>
+            <span class="chip">i18n</span>
+            <span class="chip">Bearer token</span>
+          </div>
+          <ul style="padding-right:16px; margin:0;">
+            <li class="small">CustomerDashboard (SPA)</li>
+            <li class="small">Settings-driven ordering</li>
+            <li class="small">localStorage auth</li>
+          </ul>
+        </div>
+        <div class="arrow">←</div>
+        <div class="box">
+          <h3>backend</h3>
+          <div class="chips" style="margin-bottom:8px;">
+            <span class="chip">Express + TS</span>
+            <span class="chip">MongoDB</span>
+            <span class="chip">Mongoose</span>
+          </div>
+          <ul style="padding-right:16px; margin:0;">
+            <li class="small">9 route domains</li>
+            <li class="small">JWT + Passport OAuth</li>
+            <li class="small">UltraMsg WhatsApp</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="diagram" style="margin-top:12px;">
+        <div class="box">
+          <h3>Internal Staff</h3>
+          <ul style="padding-right:16px; margin:8px 0 0;">
+            <li class="small">Admin dashboard</li>
+            <li class="small">Agent workspace</li>
+            <li class="small">CRM + Orders + Invoices</li>
+          </ul>
+        </div>
+        <div class="arrow">←</div>
+        <div class="box">
+          <h3>frontend-admin</h3>
+          <div class="chips" style="margin-bottom:8px;">
+            <span class="chip">Next.js 15</span>
+            <span class="chip">HttpOnly cookie</span>
+            <span class="chip">Edge middleware</span>
+          </div>
+          <ul style="padding-right:16px; margin:0;">
+            <li class="small">5 admin tabs</li>
+            <li class="small">Agent quick actions</li>
+            <li class="small">Business settings</li>
+          </ul>
+        </div>
+        <div class="arrow">←</div>
+        <div class="box">
+          <h3>Infra + Delivery</h3>
+          <div class="chips" style="margin-bottom:8px;">
+            <span class="chip">EKS Spot</span>
+            <span class="chip">ArgoCD</span>
+            <span class="chip">Terraform</span>
+            <span class="chip">ALB</span>
+          </div>
+          <ul style="padding-right:16px; margin:0;">
+            <li class="small">staging only (no prod)</li>
+            <li class="small">normal / cheap / sabbath modes</li>
+            <li class="small">External Secrets + ECR</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Founder / CTO Snapshot</h2>
+      <table>
+        <thead>
+          <tr><th>Area</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Customer Portal</td><td><span class="status green">יציב</span></td></tr>
+          <tr><td>Admin Dashboard</td><td><span class="status green">חזק</span></td></tr>
+          <tr><td>Lead CRM</td><td><span class="status green">עובד</span></td></tr>
+          <tr><td>Orders Workflow</td><td><span class="status green">עובד</span></td></tr>
+          <tr><td>Invoice Workflow</td><td><span class="status yellow">בסיסי</span></td></tr>
+          <tr><td>Auth Consistency</td><td><span class="status red">פער</span></td></tr>
+          <tr><td>Production Readiness</td><td><span class="status yellow">חלקי</span></td></tr>
+          <tr><td>Monitoring / Persistence</td><td><span class="status yellow">חלקי</span></td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:16px;">
+        <h3>Top Risks</h3>
+        <ul style="padding-right:18px; margin:8px 0 0;">
+          <li class="small" style="color:var(--text);">customer auth שונה מ-admin auth (Bearer vs HttpOnly cookie)</li>
+          <li class="small" style="color:var(--text);">אין production environment — staging בלבד</li>
+          <li class="small" style="color:var(--text);">invoice flow עדיין חצי ידני, ללא PDF</li>
+          <li class="small" style="color:var(--text);">MongoDB auth disabled in Helm chart — consider enabling for staging</li>
+          <li class="small" style="color:var(--text);">WhatsApp: chain fully wired — one AWS CLI command away from activation (see Infra Gaps section)</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Business Domain Graph ── -->
+  <section class="section panel" id="domain-graph">
+    <h2>Business Domain Graph</h2>
+    <div class="small" style="margin-bottom:18px;">Core entity relationships grouped by domain. Shows how CRM, commerce, and system concerns relate to each other.</div>
+
+    <div class="grid grid-3" style="gap:16px;">
+
+      <!-- CRM Domain -->
+      <div class="domain-zone zone-crm">
+        <div class="domain-zone-label">CRM Domain</div>
+        <div class="gn gn-crm" style="margin-top:8px;">
+          <div class="gn-title">Lead</div>
+          <div class="gn-sub">Pre-customer CRM record</div>
+          <div class="gn-tag">new → contacted → won → lost</div>
+        </div>
+        <div class="g-arrow">↓</div>
+        <div style="font-size:12px;color:var(--muted);text-align:center;padding:4px 8px;border:1px dashed rgba(34,197,94,.3);border-radius:8px;">
+          manual convert<br><span style="font-size:11px;">admin registers customer account</span>
+        </div>
+        <div class="g-arrow" style="opacity:.4;">↓</div>
+        <div class="gn gn-commerce" style="opacity:.7;">
+          <div class="gn-title">User (customer role)</div>
+          <div class="gn-sub">enters Commerce domain</div>
+        </div>
+      </div>
+
+      <!-- Commerce Domain -->
+      <div class="domain-zone zone-commerce">
+        <div class="domain-zone-label">Commerce Domain</div>
+
+        <!-- User ↔ Company row -->
+        <div class="domain-row" style="margin-top:8px;">
+          <div class="domain-node gn gn-commerce">
+            <div class="gn-title">User</div>
+            <div class="gn-sub">customer role</div>
+          </div>
+          <div class="domain-rel">↔</div>
+          <div class="domain-node gn gn-commerce">
+            <div class="gn-title">Company</div>
+            <div class="gn-sub">business account</div>
+          </div>
+        </div>
+
+        <!-- Company → Order + Invoice row -->
+        <div class="domain-row" style="margin-top:10px;">
+          <div class="domain-node gn gn-commerce">
+            <div class="gn-title">Order</div>
+            <div class="gn-sub">items · status<br>pending→shipped</div>
+          </div>
+          <div class="domain-rel" style="font-size:13px;">optional<br>→</div>
+          <div class="domain-node gn gn-commerce">
+            <div class="gn-title">Invoice</div>
+            <div class="gn-sub">billing record<br>draft→paid</div>
+          </div>
+        </div>
+
+        <div style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center;">
+          Company owns Orders + Invoices &nbsp;·&nbsp; Invoice optionally links to an Order
+        </div>
+      </div>
+
+      <!-- System Domain -->
+      <div class="domain-zone zone-system">
+        <div class="domain-zone-label">System Domain</div>
+
+        <div class="gn gn-system" style="margin-top:8px;">
+          <div class="gn-title">Settings</div>
+          <div class="gn-sub">Singleton — business rules</div>
+          <div class="gn-tag">boxPrices · minOrder · currency</div>
+        </div>
+        <div class="g-arrow" style="opacity:.5;">↓</div>
+        <div style="font-size:12px;color:var(--muted);text-align:center;padding:6px;border:1px dashed rgba(148,163,184,.25);border-radius:8px;">
+          drives customer storefront ordering rules
+        </div>
+
+        <div style="margin-top:14px;">
+          <div class="gn gn-system">
+            <div class="gn-title">AuditLog</div>
+            <div class="gn-sub">Cross-cuts all domains</div>
+            <div class="gn-tag">entity · entityId · action · actor</div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:8px;text-align:center;">
+            ⚠ Currently partial — orders/invoices/settings not fully covered
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="g-legend" style="margin-top:16px;">
+      <div class="g-legend-item"><div class="g-legend-dot" style="background:rgba(34,197,94,.6);"></div>CRM Domain — pre-customer lifecycle</div>
+      <div class="g-legend-item"><div class="g-legend-dot" style="background:rgba(96,165,250,.6);"></div>Commerce Domain — customer, orders, invoices</div>
+      <div class="g-legend-item"><div class="g-legend-dot" style="background:rgba(148,163,184,.5);"></div>System Domain — config, audit, cross-cutting concerns</div>
+    </div>
+  </section>
+
+  <!-- ── Module Control Table ── -->
+  <section class="section panel" id="modules">
+    <h2>Module Control Table</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Module</th>
+          <th>State</th>
+          <th>What Works</th>
+          <th>Main Gaps</th>
+          <th>Priority</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Auth</strong></td>
+          <td><span class="status yellow">Mixed</span></td>
+          <td>Login, register, cookie auth (admin), Bearer (customer), Google OAuth</td>
+          <td>Two different auth strategies in the same product</td>
+          <td>High</td>
+        </tr>
+        <tr>
+          <td><strong>Customer Portal</strong></td>
+          <td><span class="status green">Healthy</span></td>
+          <td>Profile, order creation, invoices list, settings-based product catalog</td>
+          <td>Dead payment UI removed; no invoice PDF</td>
+          <td>Medium</td>
+        </tr>
+        <tr>
+          <td><strong>Admin Leads (CRM)</strong></td>
+          <td><span class="status green">Healthy</span></td>
+          <td>Lead list + detail, assign, notes, status, timeline, WhatsApp</td>
+          <td>Dual update paths; partial audit; assignedTo stored as string</td>
+          <td>Medium</td>
+        </tr>
+        <tr>
+          <td><strong>Agent Workspace</strong></td>
+          <td><span class="status green">Healthy</span></td>
+          <td>Assigned leads only, quick status, WhatsApp, notes preview</td>
+          <td>No reminders, no full history tools</td>
+          <td>Low</td>
+        </tr>
+        <tr>
+          <td><strong>Orders</strong></td>
+          <td><span class="status green">Healthy</span></td>
+          <td>Create (customer), list + inline status + detail modal (admin), audit on CREATE + UPDATE (2026-03-17)</td>
+          <td>No pagination, no state machine</td>
+          <td>High</td>
+        </tr>
+        <tr>
+          <td><strong>Invoices</strong></td>
+          <td><span class="status yellow">Basic</span></td>
+          <td>Create, list, status update, customer visibility, order linkage, audit on CREATE + UPDATE (2026-03-17); auto-create on order approval (2026-03-17); Issue & PDF via Green Invoice (2026-03-17)</td>
+          <td>Green Invoice credentials must be filled in Helm secrets to activate PDF</td>
+          <td>High</td>
+        </tr>
+        <tr>
+          <td><strong>Settings</strong></td>
+          <td><span class="status green">Healthy</span></td>
+          <td>Minimum order, box prices, currency — singleton model, audit on UPDATE</td>
+          <td>No seed in staging/prod</td>
+          <td>Medium</td>
+        </tr>
+        <tr>
+          <td><strong>Infrastructure</strong></td>
+          <td><span class="status yellow">Functional</span></td>
+          <td>EKS Spot, ALB, ArgoCD, Terraform, 3 platform modes</td>
+          <td>No prod env; persistence confirmed; monitoring deployed (operational status unverified)</td>
+          <td>High</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── Frontend Map ── -->
+  <section class="section grid grid-2" id="frontend">
+    <div class="panel">
+      <h2>Frontend — Customer (frontend-client)</h2>
+      <div class="chips" style="margin-bottom:12px;">
+        <span class="chip">/[locale]</span>
+        <span class="chip">/auth</span>
+        <span class="chip">/[locale]/dashboard</span>
+        <span class="chip">/[locale]/onboarding</span>
+        <span class="chip">/[locale]/contact</span>
+      </div>
+      <table>
+        <thead><tr><th>Component / Page</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code>CustomerDashboard.tsx</code></td><td>SPA hub — profile, orders, invoices tabs. Real status values only (pending/approved/shipped/completed/cancelled)</td></tr>
+          <tr><td>Order creation form</td><td>Settings-driven product catalog, min-order validated client + server</td></tr>
+          <tr><td>Invoice list</td><td>Read-only; customer sees own company's invoices</td></tr>
+          <tr><td>Auth: Login / Register</td><td>Cookie-only auth — <code>withCredentials: true</code>, no Bearer header. Backend sets <code>auth_token</code> HttpOnly cookie on login/register (all roles). Logout calls <code>POST /api/auth/logout</code> to clear cookie server-side. User profile cached in localStorage for display state only (no security value). Google OAuth (backend sets cookie + redirects directly).</td></tr>
+          <tr><td>i18n</td><td>Hebrew / English locale routing via <code>[locale]</code> segment</td></tr>
+          <tr><td>Dead payment UI</td><td>Removed from CustomerDashboard — backend route never existed</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <h2>Frontend — Internal (frontend-admin)</h2>
+      <div class="chips" style="margin-bottom:12px;">
+        <span class="chip">/admin</span>
+        <span class="chip">/admin/settings</span>
+        <span class="chip">/admin/leads/[id]</span>
+        <span class="chip">/agent</span>
+      </div>
+      <table>
+        <thead><tr><th>Page / Tab</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code>/admin</code> — Leads tab</td><td>Full CRM list, detail, assign, notes, status, tags</td></tr>
+          <tr><td><code>/admin</code> — Users tab</td><td>User list with role management</td></tr>
+          <tr><td><code>/admin</code> — Orders tab</td><td>All orders, inline status select (optimistic), detail modal</td></tr>
+          <tr><td><code>/admin</code> — Invoices tab</td><td>List, inline status, create modal (linked to order), filter</td></tr>
+          <tr><td><code>/admin</code> — Audit tab</td><td>AuditLog list — action, entity, performer, timestamp</td></tr>
+          <tr><td><code>/admin/leads/[id]</code></td><td>Lead detail view</td></tr>
+          <tr><td><code>/admin/settings</code></td><td>Box prices, min order, currency — Settings model has no WhatsApp fields; WhatsApp config is Helm secret</td></tr>
+          <tr><td><code>/agent</code></td><td>Agent workspace — only own leads, quick actions</td></tr>
+        </tbody>
+      </table>
+      <div class="small" style="margin-top:10px;">Auth: HttpOnly cookie → Next.js edge middleware → backend JWT verify</div>
+    </div>
+  </section>
+
+  <!-- ── Backend Route Map ── -->
+  <section class="section panel" id="routes">
+    <h2>Backend API Route Map</h2>
+    <div class="small" style="margin-bottom:14px;">Base: <code>/api</code> — Express + TypeScript — Protected by <code>protect</code> middleware unless marked Public</div>
+
+    <h3 style="color:var(--accent);margin-bottom:8px;">Auth &amp; Users</h3>
+    <table>
+      <thead><tr><th>Method</th><th>Path</th><th>Access</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><span class="method m-post">POST</span></td><td><code>/auth/register</code></td><td>Public</td><td>Register user (name, email, password)</td></tr>
+        <tr><td><span class="method m-post">POST</span></td><td><code>/auth/login</code></td><td>Public</td><td>Login → sets <code>auth_token</code> HttpOnly cookie · backend <code>protect</code> middleware reads cookie only</td></tr>
+        <tr><td><span class="method m-post">POST</span></td><td><code>/auth/logout</code></td><td>Auth</td><td>Clear cookie</td></tr>
+        <tr><td><span class="method m-get">GET</span></td><td><code>/auth/me</code></td><td>Auth</td><td>Current user profile</td></tr>
+        <tr><td><span class="method m-get">GET</span></td><td><code>/auth/google</code></td><td>Public</td><td>Google OAuth redirect</td></tr>
+        <tr><td><span class="method m-get">GET</span></td><td><code>/auth/google/callback</code></td><td>Public</td><td>OAuth callback → JWT + redirect</td></tr>
+        <tr><td><span class="method m-get">GET</span></td><td><code>/users/me</code></td><td>Auth</td><td>Own profile (all roles)</td></tr>
+        <tr><td><span class="method m-get">GET</span></td><td><code>/users</code></td><td>admin</td><td>List all users</td></tr>
+        <tr><td><span class="method m-post">POST</span></td><td><code>/users</code></td><td>admin</td><td>Create user</td></tr>
+        <tr><td><span class="method m-patch">PATCH</span></td><td><code>/users/:id</code></td><td>admin</td><td>Update user — name, email, role, isActive, password</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="color:var(--accent);margin:16px 0 8px;">Leads / CRM</h3>
+    <table>
+      <thead><tr><th>Method</th><th>Path</th><th>Access</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><span class="method m-get">GET</span></td><td><code>/leads</code></td><td>admin/agent</td><td>List leads (agent sees own only)</td></tr>
+        <tr><td><span class="method m-post">POST</span></td><td><code>/leads</code></td><td>Public</td><td>Create lead from contact form / webhook</td></tr>
+        <tr><td><span class="method m-get">GET</span></td><td><code>/leads/:id</code></td><td>admin/agent</td><td>Lead detail</td></tr>
+        <tr><td><span class="method m-patch">PATCH</span></td><td><code>/leads/:id</code></td><td>admin/agent</td><td>Update status, assignedTo, tags</td></tr>
+        <tr><td><span class="method m-delete">DELETE</span></td><td><code>/leads/:id</code></td><td>admin</td><td>Soft delete lead</td></tr>
+        <tr><td><span class="method m-get">GET</span></td><td><code>/crm/leads</code></td><td>admin</td><td>CRM lead list (separate router — <code>router.use(authorize('admin'))</code>)</td></tr>
+        <tr><td><span class="method m-get">GET</span></td><td><code>/crm/leads/:id</code></td><td>admin</td><td>CRM lead detail</td></tr>
+        <tr><td><span class="method m-patch">PATCH</span></td><td><code>/crm/leads/:id/status</code></td><td>admin</td><td>Update lead status</td></tr>
+        <tr><td><span class="method m-post">POST</span></td><td><code>/crm/leads/:id/notes</code></td><td>admin</td><td>Add note to lead</td></tr>
+        <tr><td><span class="method m-patch">PATCH</span></td><td><code>/crm/leads/:id/assign</code></td><td>admin</td><td>Assign lead to agent</td></tr>
+        <tr><td><span class="method m-patch">PATCH</span></td><td><code>/crm/leads/:id/onboarding</code></td><td>admin</td><td>Update onboarding step</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="color:var(--accent);margin:16px 0 8px;">Orders</h3>
+    <table>
+      <thead><tr><th>Method</th><th>Path</th><th>Access</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><span class="method m-get">GET</span></td><td><code>/orders</code></td><td>admin/agent/customer</td><td>List orders (customer → own company only)</td></tr>
+        <tr><td><span class="method m-post">POST</span></td><td><code>/orders</code></td><td>customer</td><td>Create order — items[], company auto-linked</td></tr>
+        <tr><td><span class="method m-patch">PATCH</span></td><td><code>/orders/:id</code></td><td>admin/agent</td><td>Update status (pending→approved→shipped→completed|cancelled). On approved: auto-creates draft Invoice (idempotent)</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="color:var(--accent);margin:16px 0 8px;">Invoices</h3>
+    <table>
+      <thead><tr><th>Method</th><th>Path</th><th>Access</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><span class="method m-get">GET</span></td><td><code>/invoices</code></td><td>admin/agent/customer</td><td>List invoices (customer → own company only); populates company+order</td></tr>
+        <tr><td><span class="method m-post">POST</span></td><td><code>/invoices</code></td><td>admin/agent</td><td>Create invoice (requires company, invoiceNumber, totalAmount; optional order, status, dueDate, notes)</td></tr>
+        <tr><td><span class="method m-patch">PATCH</span></td><td><code>/invoices/:id</code></td><td>admin/agent</td><td>Update status, notes, dueDate, totalAmount only</td></tr>
+        <tr><td><span class="method m-post">POST</span></td><td><code>/invoices/:id/issue</code></td><td>admin/agent</td><td>Issue draft invoice via Green Invoice API → stores pdfUrl + greenInvoiceDocId, sets status=issued</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="color:var(--accent);margin:16px 0 8px;">Customers / Settings / Audit</h3>
+    <table>
+      <thead><tr><th>Method</th><th>Path</th><th>Access</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><span class="method m-get">GET</span></td><td><code>/customers/my-profile</code></td><td>customer</td><td>Own company profile</td></tr>
+        <tr><td><span class="method m-post">POST</span></td><td><code>/customers/complete-profile</code></td><td>customer</td><td>Complete onboarding — creates/links Company</td></tr>
+        <tr><td><span class="method m-patch">PATCH</span></td><td><code>/customers/update-profile</code></td><td>customer</td><td>Update company details</td></tr>
+        <tr><td><span class="method m-get">GET</span></td><td><code>/settings</code></td><td>Public</td><td>Box prices, minimum order, currency</td></tr>
+        <tr><td><span class="method m-put">PUT</span></td><td><code>/settings</code></td><td>admin</td><td>Update settings (singleton upsert)</td></tr>
+        <tr><td><span class="method m-get">GET</span></td><td><code>/audit</code></td><td>admin</td><td>Audit log — paginated, filterable by entity/action</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="color:var(--accent);margin:16px 0 8px;">Health (Public)</h3>
+    <table>
+      <thead><tr><th>Method</th><th>Path</th><th>Access</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><span class="method m-get">GET</span></td><td><code>/health</code></td><td>Public</td><td>Basic health check</td></tr>
+        <tr><td><span class="method m-get">GET</span></td><td><code>/ready</code></td><td>Public</td><td>Readiness probe</td></tr>
+        <tr><td><span class="method m-get">GET</span></td><td><code>/live</code></td><td>Public</td><td>Liveness probe</td></tr>
+      </tbody>
+    </table>
+
+    <div class="small" style="margin-top:12px; color:var(--yellow);">
+      ⚠ No <code>/companies</code> endpoint exists — company creation is implicit via customer onboarding only.
+      Invoice creation requires picking an order (to extract company._id) as a workaround.
+    </div>
+  </section>
+
+  <!-- ── Data Model ── -->
+  <section class="section panel" id="datamodel">
+    <h2>Data Model Map</h2>
+    <div class="small" style="margin-bottom:4px;">MongoDB / Mongoose — all timestamps enabled</div>
+
+    <div class="model-grid">
+      <div class="model-box">
+        <h3>User</h3>
+        <div class="model-field">
+          <span>_id, name, email, passwordHash</span><br>
+          role: <span>admin | agent | customer</span><br>
+          isActive, lastLogin<br>
+          company → ref Company (customer only)<br>
+          googleId (optional)
+        </div>
+      </div>
+      <div class="model-box">
+        <h3>Company</h3>
+        <div class="model-field">
+          <span>_id, name, contactEmail</span><br>
+          phone, address<br>
+          linkedUser → ref User<br>
+          <span style="color:var(--yellow);">No dedicated CRUD endpoint</span>
+        </div>
+      </div>
+      <div class="model-box">
+        <h3>Lead</h3>
+        <div class="model-field">
+          <span>_id, name, phone, email, message</span><br>
+          status: <span>new|contacted|qualified|proposal|won|lost|converted|closed|archived|re-engaged</span><br>
+          source, tags[], assignedTo (string)<br>
+          notes[], timeline[], messages[]<br>
+          onboarding.{currentStep, completed, data}<br>
+          contactCount, lastContactAt, isDeleted
+        </div>
+      </div>
+      <div class="model-box">
+        <h3>Order</h3>
+        <div class="model-field">
+          <span>_id</span><br>
+          company → ref Company<br>
+          createdBy → ref User<br>
+          items[]: {productName (required), quantity (required), price (required)}<br>
+          <span style="color:var(--muted);font-size:11px;">productType not in Mongoose schema — frontend types.ts only</span><br>
+          totalAmount, notes<br>
+          status: <span>pending|approved|shipped|completed|cancelled</span>
+        </div>
+      </div>
+      <div class="model-box">
+        <h3>Invoice</h3>
+        <div class="model-field">
+          <span>_id, invoiceNumber (unique)</span><br>
+          company → ref Company<br>
+          order → ref Order (optional)<br>
+          totalAmount, notes, dueDate, issuedAt<br>
+          status: <span>draft|issued|paid|cancelled</span>
+        </div>
+      </div>
+      <div class="model-box">
+        <h3>Settings (singleton)</h3>
+        <div class="model-field">
+          boxPrices: <span>IBoxPrice[] — {label, sku, pricePerUnit, isActive}</span><br>
+          minimumOrderAmount, currency (default: ILS)<br>
+          updatedBy → ref User<br>
+          <span style="color:var(--yellow);">One document · key: 'business'</span><br>
+          <span style="color:var(--muted);font-size:11px;">No whatsapp fields in schema — WhatsApp config is via Helm secrets</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:14px;">
+      <div class="small" style="font-size:13px; color:var(--text); line-height:2;">
+        <strong>Relationships:</strong> User(customer) → Company → Order → Invoice &nbsp;|&nbsp;
+        Lead is a separate CRM domain (pre-conversion) &nbsp;|&nbsp;
+        AuditLog → polymorphic (entity: string, entityId: string)
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Flows ── -->
+  <section class="section grid grid-2" id="flows">
+    <div class="panel">
+      <h2>Implemented End-to-End Flows</h2>
+      <div class="card-list">
+        <div class="task">
+          <strong>Customer Onboarding</strong>
+          <div class="small">Register/Login → Complete Profile → Company created and linked to User</div>
+        </div>
+        <div class="task">
+          <strong>Customer Order Flow</strong>
+          <div class="small">Load settings (box catalog) → pick products → min-order validated client + server → Order created → admin notified</div>
+        </div>
+        <div class="task">
+          <strong>Admin Order Management</strong>
+          <div class="small">View all orders → inline status change → detail modal with items + totals → <strong>on status=approved: backend auto-creates draft Invoice (2026-03-17)</strong></div>
+        </div>
+        <div class="task">
+          <strong>Admin Invoice Flow</strong>
+          <div class="small">Draft invoice auto-created on order approval → admin reviews in Invoices tab → update status inline. Manual create still available (pick order → auto-fill company + amount → set invoice number).</div>
+        </div>
+        <div class="task">
+          <strong>Lead CRM Flow</strong>
+          <div class="small">Website lead → admin/agent CRM → assign → notes + WhatsApp → status progression → (manual) convert to customer</div>
+        </div>
+        <div class="task">
+          <strong>Settings Flow</strong>
+          <div class="small">Admin edits box prices / min order → storefront immediately reflects changes (no cache)</div>
+        </div>
+        <div class="task">
+          <strong>Agent Flow</strong>
+          <div class="small">Agent sees only assigned leads → quick status update → send WhatsApp → add notes</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Missing / Incomplete Flows</h2>
+      <div class="card-list">
+        <div class="task gap-critical">
+          <strong>Payment Flow</strong>
+          <div class="small">No payment gateway integration exists. Dead UI removed from customer portal. No backend route.</div>
+        </div>
+        <div class="task" style="border-right:3px solid var(--green);">
+          <strong>✓ Invoice PDF Generation — Resolved (2026-03-17)</strong>
+          <div class="small"><code>POST /api/invoices/:id/issue</code> calls Green Invoice API (sandbox by default) → stores <code>pdfUrl</code> + <code>greenInvoiceDocId</code> on Invoice, sets status=issued. Admin "Issue & PDF" button in invoices tab opens PDF in new tab. <strong>To activate:</strong> fill <code>GREEN_INVOICE_API_ID</code> / <code>GREEN_INVOICE_SECRET</code> in Helm secrets and set <code>GREEN_INVOICE_SANDBOX=false</code> for live invoices.<br><strong>⚠️ Caveats (verification pass 2026-03-17):</strong> All API field names, endpoint paths, and response shapes are assumptions — must be confirmed in sandbox before live use. <code>income[0].price = totalAmount</code> assumes pre-VAT amount; if stored amount is VAT-inclusive, PDF totals will be wrong. Bug fixed: <code>issuedAt</code> date now captured before service call so PDF date and DB record share the same timestamp.</div>
+        </div>
+        <div class="task" style="border-right:3px solid var(--green);">
+          <strong>✓ Auto Invoice from Order — Resolved (2026-03-17)</strong>
+          <div class="small"><code>PATCH /api/orders/:id</code> now auto-creates a draft Invoice when <code>status=approved</code>. Idempotent: <code>Invoice.findOne({order})</code> check prevents duplicates. Invoice number: <code>INV-{YYYY}-{6-digit-timestamp}</code>. Failure is isolated and never breaks the order update response.</div>
+        </div>
+        <div class="task gap-medium">
+          <strong>Lead → Customer Conversion</strong>
+          <div class="small">No automated flow. Admin manually registers customer account. Lead stays in CRM separately.</div>
+        </div>
+        <div class="task gap-medium">
+          <strong>Order / Invoice Notifications</strong>
+          <div class="small">No email/WhatsApp notification sent on status change.</div>
+        </div>
+        <div class="task gap-low">
+          <strong>Audit Logging — Orders/Invoices/Settings</strong>
+          <div class="small">AuditLog model exists but orders, invoices, and settings changes are not logged to it.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Infrastructure / GitOps ── -->
+  <section class="section panel" id="infra">
+    <h2>Infrastructure &amp; GitOps</h2>
+    <div class="grid grid-2" style="margin-top:14px;">
+      <div>
+        <h3>Compute + Networking</h3>
+        <table>
+          <tbody>
+            <tr><td class="muted">Cluster</td><td>AWS EKS (Spot node groups)</td></tr>
+            <tr><td class="muted">Ingress</td><td>AWS ALB (via aws-load-balancer-controller)</td></tr>
+            <tr><td class="muted">TLS</td><td>AWS ACM certificates via ALB annotations</td></tr>
+            <tr><td class="muted">Registry</td><td>AWS ECR — one repo per service</td></tr>
+            <tr><td class="muted">DNS</td><td>Automated — Terraform Route53 zone + A-alias records for all subdomains (staging, admin-staging, monitoring-staging, argocd, www)</td></tr>
+            <tr><td class="muted">Environment</td><td>Staging only — no production env</td></tr>
+          </tbody>
+        </table>
+
+        <h3 style="margin-top:16px;">GitOps (crystolia-gitops)</h3>
+        <table>
+          <tbody>
+            <tr><td class="muted">CD Tool</td><td>ArgoCD — auto-sync enabled</td></tr>
+            <tr><td class="muted">Terraform</td><td>crystolia-infra — EKS, VPC, ECR, ACM provisioning</td></tr>
+            <tr><td class="muted">Helm charts</td><td>Single Helm chart (<code>crystolia-chart</code>) for all 3 app services · Bitnami MongoDB Helm chart (standalone)</td></tr>
+            <tr><td class="muted">Secrets</td><td>External Secrets Operator (ns: <code>external-secrets</code>) → AWS Secrets Manager via IRSA</td></tr>
+            <tr><td class="muted">Image tags</td><td>SHA-pinned per commit — confirmed in <code>staging/values.yaml</code> · CI: <code>staging.yml</code> (push to main → detect changes → build → ECR → update <code>staging/values.yaml</code> → ArgoCD auto-sync) · <code>production.yml</code> (v* tag → ECR push only, no GitOps update)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <h3>Platform Modes</h3>
+        <table>
+          <thead><tr><th>Mode</th><th>Description</th><th>Trigger</th></tr></thead>
+          <tbody>
+            <tr><td><span class="status green">normal</span></td><td>Full stack running — all 3 services + DB</td><td>Manual / weekday default</td></tr>
+            <tr><td><span class="status blue">cheap</span></td><td>Reduced replicas, cost-optimized node pools</td><td>GitHub Actions workflow</td></tr>
+            <tr><td><span class="status yellow">sabbath</span></td><td>Minimal footprint — automated Friday→Saturday schedule</td><td>Cron via GitHub Actions</td></tr>
+          </tbody>
+        </table>
+        <div class="small" style="margin-top:8px;">Mode switching: <code>.github/workflows/sabbath-mode.yml</code> in crystolia-gitops · calls <code>scripts/switch-mode.sh &lt;mode&gt;</code> · uses GitHub App token · cron: Friday 18:00 UTC (→ sabbath) / Saturday 23:00 UTC (→ normal)</div>
+
+        <h3 style="margin-top:16px;">Known Infra Gaps</h3>
+        <div class="card-list">
+          <div class="task gap-critical">
+            <strong>No Production Environment</strong>
+            <div class="small">Only staging exists. No prod Terraform workspace, no prod ArgoCD app.</div>
+          </div>
+          <div class="task" style="border-right:3px solid var(--green);">
+            <strong>MongoDB Persistence ✓ Confirmed</strong>
+            <div class="small">Bitnami MongoDB Helm chart with 8Gi PVC on <code>gp3-csi</code> StorageClass. Standalone architecture. Auth disabled in chart config.</div>
+          </div>
+          <div class="task" style="border-right:3px solid var(--green);">
+            <strong>Monitoring Stack ✓ Deployed</strong>
+            <div class="small">ArgoCD apps confirmed in <code>monitoring</code> namespace: <code>monitoring-app</code> (kube-prometheus-stack v72.6.2 → Grafana + Prometheus + Alertmanager), <code>loki-app</code> (SingleBinary, 5Gi gp3-csi, 72h retention), <code>promtail-app</code> (pushes to loki.monitoring.svc:3100). Operational status of dashboards and alert rules not verified from code.</div>
+          </div>
+          <div class="task" style="border-right:3px solid var(--green);">
+            <strong>✓ WhatsApp: UltraMsg, fully wired — pending credentials (2026-03-17)</strong>
+            <div class="small">
+              <strong>Chain (verified end-to-end):</strong><br>
+              AWS SM <code>crystolia/whatsapp</code> → ESO <code>backend-whatsapp-secret.yaml</code> → K8s secret <code>crystolia-whatsapp-secret</code> (ns: crystolia) → backend env <code>ULTRAMSG_INSTANCE_ID</code> / <code>ULTRAMSG_TOKEN</code> / <code>ADMIN_PHONE_NUMBER</code> (optional: true) → <code>config.whatsapp.instanceId/token</code> + <code>config.adminPhone</code> → <code>whatsappService.sendTextMessage()</code> → <code>POST api.ultramsg.com/{instanceId}/messages/chat</code><br><br>
+              <strong>ArgoCD wiring:</strong> <code>external-secrets-config-app</code> watches <code>path: external-secrets</code> — already deploys <code>backend-whatsapp-secret.yaml</code> automatically. No new app needed.<br><br>
+              <strong>To activate:</strong> <code>aws secretsmanager create-secret --name crystolia/whatsapp --region us-east-1 --secret-string '{"instanceId":"instance_XXXX","token":"YOUR_TOKEN","adminPhone":"97250XXXXXXX"}'</code><br><br>
+              <strong>Triggered by:</strong> <code>POST /api/leads</code> only — public endpoint, rate-limited 10/hr per IP. Fire-and-forget admin notification on lead create/update. No UI button exists.<br><br>
+              <strong>Verify after activation (run in order):</strong><br>
+              1. <code>kubectl get externalsecret crystolia-whatsapp-secret -n crystolia</code> — STATUS column must be <code>SecretSynced</code><br>
+              2. <code>kubectl get secret crystolia-whatsapp-secret -n crystolia -o jsonpath='{.data}' | jq 'keys'</code> — expect <code>["ADMIN_PHONE_NUMBER","ULTRAMSG_INSTANCE_ID","ULTRAMSG_TOKEN"]</code><br>
+              3. <code>kubectl exec -n crystolia deploy/crystolia-backend -- env | grep -E 'ULTRAMSG|ADMIN_PHONE'</code> — all three vars must appear with non-empty values<br>
+              4. <code>kubectl logs -n crystolia deploy/crystolia-backend | grep "UltraMsg configured"</code> — expect <code>{ hasInstance: true, hasToken: true, hasAdmin: true }</code><br><br>
+              <strong>Curl test:</strong><br>
+              <code>curl -X POST https://staging.crystolia.com/api/leads -H "Content-Type: application/json" -d '{"name":"Test Lead","phone":"0501234567","message":"WhatsApp activation test"}'</code><br>
+              Expected HTTP response: <code>201 {"success":true,"message":"Lead received successfully","lead":{...}}</code><br><br>
+              <strong>Success log strings (kubectl logs on backend pod):</strong><br>
+              <code>📤 UltraMsg sending: { to: '97250...', message: '🌻 Lead Update...' }</code><br>
+              <code>✅ UltraMsg response: { sent: 'true', message: 'ok' }</code><br><br>
+              <strong>Failure log strings and meaning:</strong><br>
+              <code>⚠️ [WhatsApp] ADMIN_PHONE_NUMBER is not set.</code> — ESO not synced yet; wait or delete K8s secret to force resync<br>
+              <code>⚠️ [WhatsApp] UltraMsg configuration missing.</code> — ULTRAMSG_INSTANCE_ID or ULTRAMSG_TOKEN missing; ESO not synced<br>
+              <code>❌ UltraMsg error: ...</code> — API call failed; check instanceId/token are correct in AWS SM<br>
+              <code>Request failed with status code 401</code> in error — wrong token<br>
+              <code>Request failed with status code 404</code> in error — wrong instanceId
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Runtime Topology ── -->
+  <section class="section panel" id="runtime-topology">
+    <h2>Runtime Topology</h2>
+    <div class="small" style="margin-bottom:18px;">What is actually running and how it's controlled. Runtime plane = live services. Control plane = configuration and delivery inputs.</div>
+
+    <div class="grid grid-2" style="gap:20px;">
+
+      <!-- Runtime Plane -->
+      <div class="topo-plane topo-runtime">
+        <div class="topo-plane-title">Runtime Plane — what's running now</div>
+
+        <!-- Internet entry -->
+        <div class="gn gn-public" style="margin-bottom:8px;">
+          <div class="gn-title">Internet</div>
+          <div class="gn-sub">staging.crystolia.com &nbsp;·&nbsp; admin-staging.crystolia.com &nbsp;·&nbsp; argocd.crystolia.com</div>
+        </div>
+        <div class="g-arrow">↓</div>
+
+        <!-- ACM + ALB -->
+        <div class="gn gn-infra" style="margin-bottom:8px;">
+          <div class="gn-title">ACM + ALB</div>
+          <div class="gn-sub">AWS Certificate Manager · TLS termination<br>aws-load-balancer-controller routes traffic by hostname</div>
+        </div>
+        <div class="g-arrow">↓</div>
+
+        <!-- EKS: crystolia namespace -->
+        <div class="topo-ns">
+          <div class="topo-ns-label">EKS namespace: <strong>crystolia</strong></div>
+          <div class="topo-pods">
+            <div class="topo-pod gn-public" style="border-color:rgba(34,197,94,.4);">frontend-client</div>
+            <div class="topo-pod gn-internal" style="border-color:rgba(96,165,250,.4);">frontend-admin</div>
+            <div class="topo-pod gn-backend" style="border-color:rgba(245,197,66,.4);">backend API</div>
+            <div class="topo-pod gn-store" style="border-color:rgba(168,85,247,.4);">mongodb</div>
+          </div>
+          <div style="font-size:11px;color:#6ee7b7;margin-top:8px;">✓ 8Gi PVC on gp3-csi confirmed (Bitnami Helm chart)</div>
+        </div>
+
+        <!-- EKS: argocd namespace -->
+        <div class="topo-ns" style="margin-top:10px;">
+          <div class="topo-ns-label">EKS namespace: <strong>argocd</strong></div>
+          <div class="topo-pods">
+            <div class="topo-pod gn-infra" style="border-color:rgba(251,146,60,.4);">argocd-server</div>
+          </div>
+        </div>
+
+        <!-- EKS: external-secrets namespace -->
+        <div class="topo-ns" style="margin-top:10px;">
+          <div class="topo-ns-label">EKS namespace: <strong>external-secrets</strong></div>
+          <div class="topo-pods">
+            <div class="topo-pod gn-control" style="border-color:rgba(148,163,184,.3);">external-secrets-operator</div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px;">IRSA: <code>crystolia-cluster-demo-external-secrets</code> role</div>
+        </div>
+
+        <!-- EKS: monitoring namespace (confirmed) -->
+        <div class="topo-ns" style="margin-top:10px;">
+          <div class="topo-ns-label">EKS namespace: <strong>monitoring</strong></div>
+          <div class="topo-pods">
+            <div class="topo-pod" style="background:rgba(251,146,60,.06);border-color:rgba(251,146,60,.3);">grafana</div>
+            <div class="topo-pod" style="background:rgba(251,146,60,.06);border-color:rgba(251,146,60,.3);">prometheus</div>
+            <div class="topo-pod" style="background:rgba(251,146,60,.06);border-color:rgba(251,146,60,.3);">alertmanager</div>
+            <div class="topo-pod" style="background:rgba(251,146,60,.06);border-color:rgba(251,146,60,.3);">loki</div>
+            <div class="topo-pod" style="background:rgba(251,146,60,.06);border-color:rgba(251,146,60,.3);">promtail</div>
+          </div>
+        </div>
+
+        <!-- ESO + Secrets Manager -->
+        <div class="g-arrow" style="opacity:.5;">↑</div>
+        <div class="gn gn-control" style="margin-top:0;">
+          <div class="gn-title">AWS Secrets Manager</div>
+          <div class="gn-sub">External Secrets Operator syncs secrets into cluster at runtime</div>
+        </div>
+      </div>
+
+      <!-- Control Plane -->
+      <div class="topo-plane topo-control">
+        <div class="topo-plane-title">Control Plane — configuration &amp; delivery inputs</div>
+
+        <!-- GitHub repos -->
+        <div class="gn gn-control" style="margin-bottom:8px;">
+          <div class="gn-title">GitHub Repositories</div>
+          <div class="gn-sub">crystolia-app &nbsp;·&nbsp; crystolia-gitops &nbsp;·&nbsp; crystolia-infra</div>
+          <div class="gn-tag">source of truth for code + config + infra</div>
+        </div>
+
+        <!-- Two tracks side by side -->
+        <div class="arch-app-grid" style="gap:14px; margin-top:0;">
+
+          <!-- Track: image build -->
+          <div class="g-flow">
+            <div class="g-track-label">Image Build Track</div>
+            <div class="g-arrow">↓</div>
+            <div class="gn gn-control">
+              <div class="gn-title">GitHub Actions</div>
+              <div class="gn-sub"><code>staging.yml</code>: push main → detect changes → build → ECR → update <code>staging/values.yaml</code><br><code>production.yml</code>: v* tag → ECR push only</div>
+            </div>
+            <div class="g-arrow">↓</div>
+            <div class="gn gn-control">
+              <div class="gn-title">AWS ECR</div>
+              <div class="gn-sub">Image registry — SHA-pinned tags</div>
+            </div>
+            <div class="g-arrow">↓</div>
+            <div class="gn gn-infra">
+              <div class="gn-title">ArgoCD sync</div>
+              <div class="gn-sub">Detects new tag in Helm values, deploys to EKS</div>
+            </div>
+          </div>
+
+          <!-- Track: infra provision -->
+          <div class="g-flow">
+            <div class="g-track-label">Infra Provision Track</div>
+            <div class="g-arrow">↓</div>
+            <div class="gn gn-control">
+              <div class="gn-title">Terraform</div>
+              <div class="gn-sub">crystolia-infra — provisions EKS, VPC, ECR, ACM, node groups</div>
+            </div>
+            <div class="g-arrow">↓</div>
+            <div class="gn gn-control">
+              <div class="gn-title">Platform Mode Switch</div>
+              <div class="gn-sub">GitHub Actions: <code>sabbath-mode.yml</code> (crystolia-gitops)</div>
+              <div class="gn-tag">normal · cheap · sabbath</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:14px; padding:10px 12px; border:1px dashed rgba(239,68,68,.3); border-radius:10px;">
+          <div style="font-size:12px;color:var(--red);font-weight:700;margin-bottom:4px;">Missing: Production Environment</div>
+          <div class="small">No prod Terraform workspace, no prod ArgoCD Application, no prod secrets. Staging is the only deployed environment.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Gaps ── -->
+  <section class="section panel" id="gaps">
+    <h2>Architecture Gaps — Full List</h2>
+    <table>
+      <thead>
+        <tr><th>Severity</th><th>Gap</th><th>Impact</th><th>Fix Path</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="status green">Resolved</span></td>
+          <td>Auth token in localStorage — removed 2026-03-17. frontend-client is now cookie-only: no Bearer header, no localStorage token. Logout calls <code>POST /api/auth/logout</code> to clear HttpOnly cookie server-side.</td>
+          <td>—</td>
+          <td>Done</td>
+        </tr>
+        <tr>
+          <td><span class="status red">Critical</span></td>
+          <td>No production environment</td>
+          <td>Can't safely serve real customers</td>
+          <td>Add prod Terraform workspace + ArgoCD app + secrets</td>
+        </tr>
+        <tr>
+          <td><span class="status blue">Resolved</span></td>
+          <td>MongoDB persistence — confirmed 8Gi PVC on <code>gp3-csi</code> (Bitnami Helm chart, standalone)</td>
+          <td>—</td>
+          <td>No action needed. Auth disabled in chart — review if auth should be enabled.</td>
+        </tr>
+        <tr>
+          <td><span class="status green">Resolved</span></td>
+          <td>Invoice PDF via Green Invoice — implemented (2026-03-17). <code>POST /api/invoices/:id/issue</code> + <code>greenInvoiceService.ts</code>. Activate by filling Helm secrets.</td>
+          <td>—</td>
+          <td>Fill <code>GREEN_INVOICE_API_ID</code> / <code>GREEN_INVOICE_SECRET</code> in Helm secrets, set <code>GREEN_INVOICE_SANDBOX=false</code></td>
+        </tr>
+        <tr>
+          <td><span class="status yellow">Medium</span></td>
+          <td>No auto invoice from order approval</td>
+          <td>Manual admin overhead, risk of missing invoices</td>
+          <td>Add post-save hook or webhook on Order status=approved</td>
+        </tr>
+        <tr>
+          <td><span class="status yellow">Medium</span></td>
+          <td>No companies endpoint</td>
+          <td>Invoice create requires workaround (pick order to get company)</td>
+          <td>Add <code>GET /companies</code> for admin</td>
+        </tr>
+        <tr>
+          <td><span class="status green">Resolved</span></td>
+          <td>Audit log — fully implemented (2026-03-17). Orders: CREATE on POST, UPDATE on PATCH. Invoices: CREATE on POST, UPDATE on PATCH. Settings: UPDATE on PUT (pre-existing). Leads: CREATE on POST (pre-existing).</td>
+          <td>—</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td><span class="status green">Resolved</span></td>
+          <td>WhatsApp provider mismatch — fully resolved. Chain verified end-to-end: AWS SM <code>crystolia/whatsapp</code> → ESO → <code>crystolia-whatsapp-secret</code> → backend env (<code>optional: true</code>). ArgoCD wiring already live via <code>external-secrets-config-app</code>.</td>
+          <td>—</td>
+          <td>Create AWS SM secret <code>crystolia/whatsapp</code>: <code>{"instanceId":"...","token":"...","adminPhone":"972..."}</code></td>
+        </tr>
+        <tr>
+          <td><span class="status blue">Deployed</span></td>
+          <td>Monitoring stack — kube-prometheus-stack (Grafana + Prometheus + Alertmanager) + Loki + Promtail, all in <code>monitoring</code> ns, ArgoCD apps confirmed</td>
+          <td>Operational status of dashboards and alerting rules not verified from code</td>
+          <td>Verify dashboards are configured and alerts are firing correctly in staging</td>
+        </tr>
+        <tr>
+          <td><span class="status blue">Low</span></td>
+          <td>No pagination on orders/invoices</td>
+          <td>Performance at scale</td>
+          <td>Add cursor/offset pagination to list routes</td>
+        </tr>
+        <tr>
+          <td><span class="status blue">Low</span></td>
+          <td>Lead assignedTo stored as string</td>
+          <td>No referential integrity with User model</td>
+          <td>Migrate to ObjectId ref + populate</td>
+        </tr>
+        <tr>
+          <td><span class="status blue">Low</span></td>
+          <td>Settings has no audit log</td>
+          <td>Can't trace pricing changes</td>
+          <td>Add AuditLog write in settings PUT handler</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── Priority Stack ── -->
+  <section class="section panel" id="priority">
+    <h2>Priority Stack</h2>
+    <table>
+      <thead>
+        <tr><th>Priority</th><th>Track</th><th>Why</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>P1 ✓</strong></td><td>MongoDB persistence — confirmed resolved (8Gi gp3-csi PVC)</td><td>—</td></tr>
+        <tr><td><strong>P1 ✓</strong></td><td>Full audit coverage — implemented (2026-03-17). Orders POST/PATCH + Invoices POST/PATCH now write AuditLog entries. Settings + Leads were already audited.</td><td>—</td></tr>
+        <tr><td><strong>P1 ✓</strong></td><td>Auto-create draft Invoice on <code>Order.status=approved</code> — implemented (2026-03-17). <code>PATCH /api/orders/:id</code> now: fetches order first, updates via <code>save()</code>, auto-creates draft Invoice if none exists for that order. Invoice number: <code>INV-{YYYY}-{last-6-of-timestamp}</code>. Idempotent. Failure is isolated — never fails the order update response.</td><td>—</td></tr>
+        <tr><td><strong>P1 ✓</strong></td><td>Invoice PDF via Green Invoice API — implemented (2026-03-17). <code>greenInvoiceService.ts</code> handles auth + document creation. <code>POST /api/invoices/:id/issue</code> issues draft → sets pdfUrl + greenInvoiceDocId + status=issued. "Issue & PDF" button in admin invoice tab. Invoice model extended with <code>pdfUrl</code> + <code>greenInvoiceDocId</code>. Bug fixed (verification pass 2026-03-17): <code>issuedAt</code> date captured before service call so PDF date = DB record timestamp. ⚠️ API shapes unverified — sandbox test required before live invoicing. VAT assumption: <code>totalAmount</code> treated as pre-VAT.</td><td>—</td></tr>
+        <tr><td><strong>P1 ✓</strong></td><td>JWT_SECRET injected into frontend-admin pod — confirmed (2026-03-17). Already present in <code>frontend-admin-deployment.yaml</code> lines 53–57. No fix needed.</td><td>—</td></tr>
+        <tr><td><strong>P1 ✓</strong></td><td>GOOGLE_CALLBACK_URL set for staging — fixed (2026-03-17). Added to <code>staging/values.yaml</code> backend env: <code>https://staging.crystolia.com/api/auth/google/callback</code>. Still requires: register this URL in Google Cloud Console before enabling Google OAuth.</td><td>—</td></tr>
+        <tr><td><strong>P1 ✓</strong></td><td>FRONTEND_URL production corrected — fixed (2026-03-17). Was <code>admin.crystolia.com</code> (wrong). Fixed to <code>https://crystolia.com</code> in <code>production/values.yaml</code>. CORS updated to include both origins.</td><td>—</td></tr>
+        <tr><td><strong>P1 ✓</strong></td><td>Dead Supabase send-lead routes + package fully removed (2026-03-17). Both <code>app/api/send-lead/route.ts</code> files deleted. <code>@supabase/supabase-js ^2.86.0</code> removed from both frontend <code>package.json</code> files. Zero source imports remain.</td><td>—</td></tr>
+        <tr><td><strong>🚦 STAGING BLOCKER</strong></td><td><strong>Bring up the cluster first, then <code>crystolia-backend-secret</code> is created automatically.</strong> Run: <code>bash scripts/startup-all.sh up</code> (crystolia-infra repo). The script handles: Terraform apply → kubeconfig → nodes → ArgoCD → ALBs → namespace wait → secret creation. Modes: <code>status</code> (read-only check), <code>dry-run</code> (plan only). Secret can also be pre-injected via env vars: <code>JWT_SECRET="..." bash scripts/startup-all.sh up</code>.</td><td>Backend won't start without cluster + MONGO_URI + JWT_SECRET</td></tr>
+        <tr><td><strong>P2</strong></td><td>Production environment (Terraform + ArgoCD)</td><td>Can't go live without it</td></tr>
+        <tr><td><strong>P2</strong></td><td>Activate WhatsApp lead notifications — (1) <code>aws secretsmanager create-secret --name crystolia/whatsapp --region us-east-1 --secret-string '{"instanceId":"...","token":"...","adminPhone":"972..."}'</code> (2) wait up to 1h or delete K8s secret to force ESO resync (3) confirm: <code>kubectl get externalsecret crystolia-whatsapp-secret -n crystolia</code> → SecretSynced (4) curl test: <code>curl -X POST https://staging.crystolia.com/api/leads -H "Content-Type: application/json" -d '{"name":"Test","phone":"0501234567","message":"test"}'</code> then check backend logs for <code>✅ UltraMsg response</code></td><td>All wiring done; one AWS CLI command away</td></tr>
+        <tr><td><strong>P2 ~</strong></td><td>Verify monitoring stack is operational — Grafana + Loki + Promtail deployed but dashboard/alert config not verified</td><td>Deployed ≠ working</td></tr>
+        <tr><td><strong>P3</strong></td><td>Add <code>GET /companies</code> admin endpoint</td><td>Enables standalone invoice creation + future tools</td></tr>
+        <tr><td><strong>P3</strong></td><td>Pagination + search for orders/invoices/leads</td><td>Scale readiness</td></tr>
+        <tr><td><strong>P3</strong></td><td>Lead → Customer automated conversion flow</td><td>Reduce manual admin steps</td></tr>
+        <tr><td><strong>P3</strong></td><td>Order/Invoice status change notifications (email/WhatsApp)</td><td>Customer experience</td></tr>
+        <tr><td><strong>P3</strong></td><td>Migrate Lead.assignedTo to ObjectId ref</td><td>Data integrity</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── Staging Readiness Checklist ── -->
+  <section class="section panel" id="staging-readiness">
+    <h2>Staging Readiness Checklist</h2>
+    <div class="small" style="margin-bottom:12px;">All code and infra wiring is complete as of 2026-03-17. Remaining steps are manual cluster/external-service actions only.</div>
+    <div class="grid grid-2">
+      <div>
+        <h3>🚦 Blocking — staging won't start</h3>
+        <div class="card-list">
+          <div class="task gap-critical">
+            <strong>Bring up the cluster + create <code>crystolia-backend-secret</code> automatically</strong>
+            <div class="small">Use the bring-up script (crystolia-infra repo) — it handles the full flow:<br><br>
+              <code># Full bring-up (Terraform → nodes → ArgoCD → ALBs → secret)<br>
+              bash scripts/startup-all.sh up</code><br><br>
+              <code># Pre-inject JWT_SECRET to avoid interactive prompt:<br>
+              JWT_SECRET="$(openssl rand -base64 64)" bash scripts/startup-all.sh up</code><br><br>
+              <code># Check status at any time (read-only):<br>
+              bash scripts/startup-all.sh status</code><br><br>
+              <code># Dry-run (terraform plan only, no changes):<br>
+              bash scripts/startup-all.sh dry-run</code><br><br>
+              The script creates <code>crystolia-backend-secret</code> in Phase 6, after waiting for the <code>crystolia</code> namespace to be Active. Skips creation if the secret already exists. Prints exact manual commands if the namespace is not ready.
+            </div>
+          </div>
+        </div>
+
+        <h3 style="margin-top:16px;">⚠️ Production-only risks</h3>
+        <div class="card-list">
+          <div class="task gap-medium">
+            <strong>Grafana admin placeholder password</strong>
+            <div class="small"><code>production/grafana-admin-secret.yaml</code> has hardcoded <code>ChangeMeInProduction123!</code>. Fix before prod: replace value or remove file and rely on ESO ExternalSecret (<code>crystolia/grafana-admin</code> AWS SM path already wired). Verify which K8s secret name the Grafana Helm chart actually mounts.</div>
+          </div>
+          <div class="task gap-medium">
+            <strong>GOOGLE_CALLBACK_URL not set for production</strong>
+            <div class="small">Staging has it set (<code>https://staging.crystolia.com/api/auth/google/callback</code>). Production <code>values.yaml</code> does not. Add before enabling Google login in prod + register in Google Cloud Console.</div>
+          </div>
+          <div class="task gap-medium">
+            <strong>Customer portal not in production ingress</strong>
+            <div class="small"><code>production/values.yaml</code> ingress only exposes <code>admin.crystolia.com</code>. Add <code>crystolia.com</code> host + TLS entry when deploying the customer portal to production.</div>
+          </div>
+          <div class="task gap-low">
+            <strong>Production <code>crystolia-backend-secret</code> must use strong JWT_SECRET</strong>
+            <div class="small">Never use dev value. Generate: <code>openssl rand -base64 64</code></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h3>✅ Optional — staging works without these</h3>
+        <div class="card-list">
+          <div class="task" style="border-right:3px solid var(--yellow);">
+            <strong>Google OAuth login</strong>
+            <div class="small">Email/password auth works without this. To enable Google login:<br>
+              1. Patch <code>crystolia-backend-secret</code> with <code>GOOGLE_CLIENT_ID</code> + <code>GOOGLE_CLIENT_SECRET</code><br>
+              2. Register <code>https://staging.crystolia.com/api/auth/google/callback</code> in Google Cloud Console
+            </div>
+          </div>
+          <div class="task" style="border-right:3px solid var(--yellow);">
+            <strong>WhatsApp lead notifications</strong>
+            <div class="small">Backend starts and leads work without this. To enable: create AWS SM secret <code>crystolia/whatsapp</code> with <code>{"instanceId":"...","token":"...","adminPhone":"972..."}</code>. ESO syncs within 1h.</div>
+          </div>
+          <div class="task" style="border-right:3px solid var(--yellow);">
+            <strong>Green Invoice PDF (sandbox)</strong>
+            <div class="small">All invoice flows work (create, update, list). Only "Issue &amp; PDF" button requires credentials. Fill <code>greenInvoice.apiId</code> + <code>greenInvoice.secret</code> in a <code>secrets.yaml</code> override and redeploy.</div>
+          </div>
+          <div class="task" style="border-right:3px solid var(--yellow);">
+            <strong>Verify Grafana/monitoring operational</strong>
+            <div class="small">Stack deployed but dashboard + alerting rules not verified. Access Grafana, confirm Prometheus scraping and Loki receiving logs from Promtail.</div>
+          </div>
+        </div>
+
+        <h3 style="margin-top:16px;">🗑️ Low-priority dead config (can wait)</h3>
+        <div class="card-list">
+          <div class="task gap-low">
+            <strong>Dead Helm config — no action needed now</strong>
+            <div class="small">These env vars are injected by Helm but never read by backend code: <code>TWILIO_ACCOUNT_SID</code>, <code>TWILIO_AUTH_TOKEN</code>, <code>TWILIO_PHONE_NUMBER</code>, <code>PAYMENT_PROVIDER</code>. <code>ADMIN_FRONTEND_URL</code> is declared in backend config but never used. <code>secrets.whatsapp</code> block in <code>production/values.yaml</code> uses wrong field names and is not consumed by <code>secret.yaml</code> template. Remove in a future cleanup pass — none of these affect running behavior.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Tech Debt / Open Decisions ── -->
+  <section class="section panel" id="techdebt">
+    <h2>Tech Debt, Bugs &amp; Open Decisions</h2>
+    <div class="grid grid-2">
+      <div>
+        <h3>Known Tech Debt</h3>
+        <div class="card-list">
+          <div class="task" style="border-right:3px solid var(--green);">
+            <strong>✓ JWT_SECRET injected into frontend-admin pod — confirmed (2026-03-17)</strong>
+            <div class="small">Secrets inventory audit confirmed <code>JWT_SECRET</code> is already injected into the frontend-admin pod via <code>secretKeyRef: crystolia-backend-secret / JWT_SECRET</code> in <code>helm/crystolia-chart/templates/frontend-admin-deployment.yaml</code> lines 53–57. No fix needed.</div>
+          </div>
+          <div class="task" style="border-right:3px solid var(--green);">
+            <strong>✓ GOOGLE_CALLBACK_URL set for staging — fixed (2026-03-17)</strong>
+            <div class="small"><code>GOOGLE_CALLBACK_URL</code> was never injected — backend always used localhost default in all deployed environments. Fixed: added <code>GOOGLE_CALLBACK_URL: "https://staging.crystolia.com/api/auth/google/callback"</code> to <code>crystolia-gitops/staging/values.yaml</code> backend env block. Also register this URL in Google Cloud Console → OAuth 2.0 credentials before testing Google login.</div>
+          </div>
+          <div class="task" style="border-right:3px solid var(--green);">
+            <strong>✓ CORS staging — confirmed no action needed (2026-03-17)</strong>
+            <div class="small">Both frontends use <code>baseURL: "/api"</code> (relative path). All API calls are same-origin via Next.js proxy — no direct browser-to-backend cross-origin requests. <code>CORS_ALLOW_ORIGINS</code> does not need <code>admin-staging.crystolia.com</code>.</div>
+          </div>
+          <div class="task" style="border-right:3px solid var(--green);">
+            <strong>✓ FRONTEND_URL production corrected — fixed (2026-03-17)</strong>
+            <div class="small"><code>FRONTEND_URL</code> in <code>production/values.yaml</code> was <code>admin.crystolia.com</code>. Backend uses it exclusively for Google OAuth redirects to customer routes (<code>/en/login</code>, <code>/en/dashboard</code>, <code>/en/onboarding</code>) — all customer portal paths. Fixed to <code>https://crystolia.com</code>. <code>CORS_ALLOW_ORIGINS</code> updated to include both <code>crystolia.com</code> and <code>admin.crystolia.com</code>.</div>
+          </div>
+          <div class="task" style="border-right:3px solid var(--green);">
+            <strong>✓ Dead Supabase send-lead routes + package fully removed (2026-03-17)</strong>
+            <div class="small">Both <code>app/api/send-lead/route.ts</code> files (frontend-client + frontend-admin) wrote directly to Supabase. No component called <code>/api/send-lead</code> anywhere — verified by full codebase grep. Canonical lead path is <code>POST /api/leads</code> via backend. Both route files deleted. <code>@supabase/supabase-js ^2.86.0</code> removed from both <code>package.json</code> files (10 packages removed from each, <code>package-lock.json</code> updated). Zero source imports remain. Remaining references: README env examples and <code>tsconfig.tsbuildinfo</code> build cache (non-code).</div>
+          </div>
+          <div class="task gap-low">
+            <strong>Remaining dead Helm config — low priority cleanup</strong>
+            <div class="small">The following are injected by Helm but never read by any backend code: <code>TWILIO_ACCOUNT_SID</code>, <code>TWILIO_AUTH_TOKEN</code>, <code>TWILIO_PHONE_NUMBER</code>, <code>PAYMENT_PROVIDER</code>, <code>ADMIN_FRONTEND_URL</code>. The <code>secrets.whatsapp</code> block in <code>production/values.yaml</code> uses old WhatsApp Cloud API field names (<code>accessToken</code>, <code>phoneNumberId</code>, <code>webhookVerifyToken</code>) — not consumed by <code>secret.yaml</code> template and not used by backend. Safe to leave or remove in a future cleanup.</div>
+          </div>
+          <div class="task" style="border-right:3px solid var(--green);">
+            <strong>✓ frontend-client auth cleanup — cookie-only (2026-03-17)</strong>
+            <div class="small">Removed: localStorage token storage, <code>Authorization: Bearer</code> request interceptor, URL-param OAuth token handling. Fixed: logout now calls <code>POST /api/auth/logout</code> to clear HttpOnly cookie server-side. Fixed: <code>OnboardingPage</code> raw fetch with Bearer replaced by <code>api</code> instance. User profile still cached in localStorage for display state only.</div>
+          </div>
+          <div class="task gap-medium">
+            <strong>No Companies API</strong>
+            <div class="small">Companies are only created implicitly via customer onboarding. No admin CRUD. Invoice create workaround in place.</div>
+          </div>
+          <div class="task gap-low">
+            <strong>Order model: items have no SKU/product ref</strong>
+            <div class="small">Items store productName as a string — no ref to a canonical product catalog entity.</div>
+          </div>
+          <div class="task gap-low">
+            <strong>Settings: no versioning or audit</strong>
+            <div class="small">Pricing changes are silent. No way to know who changed what price and when.</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h3>Open Architecture Decisions</h3>
+        <div class="card-list">
+          <div class="task" style="border-right:3px solid var(--green);">
+            <strong>✓ Invoice auto-generation trigger — Resolved (2026-03-17): auto-create on approval</strong>
+            <div class="small">Decision: yes, auto-create draft Invoice when Order status = <code>approved</code>. Implementation: add block to <code>PATCH /api/orders/:id</code> with idempotency check. See Priority Stack for exact plan.</div>
+          </div>
+          <div class="task" style="border-right:3px solid var(--green);">
+            <strong>✓ WhatsApp: UltraMsg, ESO-managed (2026-03-17)</strong>
+            <div class="small">Decision made: UltraMsg. ESO wired: <code>crystolia/whatsapp</code> AWS SM → <code>crystolia-whatsapp-secret</code> K8s secret → backend env. Activate by creating the AWS SM secret with real credentials.</div>
+          </div>
+          <div class="task">
+            <strong>Payment gateway</strong>
+            <div class="small">No decision made yet. Dead payment UI removed from frontend. Backend route never existed.</div>
+          </div>
+          <div class="task">
+            <strong>Lead conversion to Customer</strong>
+            <div class="small">Is it a manual register + link, or an automated flow triggered by Lead status = won?</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;">
+      <h3>Tech Debt &amp; Decisions — Live Field</h3>
+      <div class="small">עדכן כאן החלטות, bugs חדשים, ו-debt שמתגלה. נשמר מקומית.</div>
+      <textarea id="field-decisions" placeholder="למשל:&#10;- החלטנו: invoice auto-create כשOrder=approved&#10;- Bug: WhatsApp fails silently if UltraMsg key missing&#10;- Debt: migrate Lead.assignedTo to ObjectId ref by Q2"></textarea>
+    </div>
+  </section>
+
+  <!-- ── Sprint Control ── -->
+  <section class="section panel" id="sprint">
+    <h2>Current Sprint Control</h2>
+    <div class="small">מיני-backlog שמתעדכן מקומית. נשמר בדפדפן.</div>
+    <textarea id="field-sprint" placeholder="Sprint focus:&#10;1. Invoice PDF generation route&#10;2. Order→Invoice automation on approval&#10;3. Audit logging for invoice/order/settings&#10;4. MongoDB persistence (PVC)"></textarea>
+
+    <div style="margin-top:16px;">
+      <h3>Blockers</h3>
+      <div class="small">מה מעכב כרגע? dependency, decision, access?</div>
+      <textarea id="field-blockers" style="min-height:80px;" placeholder="- Need to decide: UltraMsg vs Meta Cloud API&#10;- No prod AWS account access yet"></textarea>
+    </div>
+  </section>
+
+  <!-- ── Live Notes ── -->
+  <section class="section panel" id="notes">
+    <h2>Live Project Notes</h2>
+    <div class="small">הערות עבודה כלליות, TODOs, insights. נשמר מקומית בדפדפן.</div>
+    <textarea id="field-notes" style="min-height:200px;" placeholder="למשל:&#10;- לעשות invoice PDF route עם puppeteer&#10;- להחליט אם Order approved יוצר Invoice אוטומטית&#10;- לאחד auth strategy ללקוח ולאדמין&#10;- לבדוק WhatsApp provider config בHelm"></textarea>
+  </section>
+
+  <div class="footer">
+    Crystolia Command Center — <span id="doc-version-footer">v2.0</span> — Living architecture document &nbsp;·&nbsp;
+    <span style="color:var(--accent);">Ctrl+S</span> to save locally
+  </div>
+
+</div><!-- /wrap -->
+
+<script>
+  const KEYS = {
+    notes:     'crystolia-cc-notes',
+    sprint:    'crystolia-cc-sprint',
+    blockers:  'crystolia-cc-blockers',
+    decisions: 'crystolia-cc-decisions',
+    updated:   'crystolia-cc-last-updated',
+  };
+
+  const FIELDS = ['notes', 'sprint', 'blockers', 'decisions'];
+
+  function loadAll() {
+    FIELDS.forEach(id => {
+      const val = localStorage.getItem(KEYS[id]);
+      if (val !== null) document.getElementById('field-' + id).value = val;
+    });
+    const ts = localStorage.getItem(KEYS.updated);
+    document.getElementById('last-updated').textContent = ts || 'לא נשמר עדיין';
+  }
+
+  function saveAll() {
+    const now = new Date().toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' });
+    FIELDS.forEach(id => {
+      localStorage.setItem(KEYS[id], document.getElementById('field-' + id).value);
+    });
+    localStorage.setItem(KEYS.updated, now);
+    document.getElementById('last-updated').textContent = now;
+  }
+
+  function resetAll() {
+    if (!confirm('למחוק את כל ההערות המקומיות?')) return;
+    FIELDS.forEach(id => {
+      localStorage.removeItem(KEYS[id]);
+      document.getElementById('field-' + id).value = '';
+    });
+    localStorage.removeItem(KEYS.updated);
+    document.getElementById('last-updated').textContent = 'לא נשמר עדיין';
+  }
+
+  // Auto-save on textarea change (debounced)
+  let saveTimer;
+  FIELDS.forEach(id => {
+    document.getElementById('field-' + id).addEventListener('input', () => {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(saveAll, 1500);
+    });
+  });
+
+  // Ctrl+S
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+      saveAll();
+    }
+  });
+
+  loadAll();
+</script>
+</body>
+</html>
