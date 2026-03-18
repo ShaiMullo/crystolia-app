@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import api from "@/app/lib/api";
@@ -13,8 +13,10 @@ interface CustomerDashboardProps {
 }
 
 interface OrderItem {
-    productType: string;
+    productName?: string;
+    productType?: string;
     quantity: number;
+    price?: number;
 }
 
 interface Order {
@@ -22,21 +24,28 @@ interface Order {
     status: string;
     items: OrderItem[];
     totalAmount: number;
+    notes?: string;
     createdAt: string;
-    invoiceId?: string;
-    invoiceUrl?: string;
-    deliveryNoteId?: string;
-    deliveryNoteUrl?: string;
-    finalPrice?: number;
-    paymentMethod?: string;
-    suggestedPrice?: number;
 }
 
 interface Invoice {
     _id: string;
     invoiceNumber: string;
-    amount: number;
+    totalAmount: number;
     issuedAt: string;
+}
+
+interface BoxPrice {
+    label: string;
+    sku: string;
+    pricePerUnit: number;
+    isActive: boolean;
+}
+
+interface BusinessSettings {
+    minimumOrderAmount: number;
+    currency: string;
+    boxPrices: BoxPrice[];
 }
 
 
@@ -59,7 +68,8 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
         city: "",
         profileImage: null as string | null,
     });
-    const [orderQuantities, setOrderQuantities] = useState({ "1L": 0, "5L": 0, "18L": 0 });
+    const [orderQuantities, setOrderQuantities] = useState<Record<string, number>>({});
+    const [settings, setSettings] = useState<BusinessSettings | null>(null);
     const isRTL = locale === "he";
 
     // Orders State
@@ -70,9 +80,6 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
     // Invoices State
     const [invoices, setInvoices] = useState<Invoice[]>([]);
 
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const [uploadingOrderId, setUploadingOrderId] = useState<string | null>(null);
-
     const fetchOrders = async () => {
         if (!user) return;
         try {
@@ -80,34 +87,6 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
             setOrders(response.data.data || []);
         } catch (error) {
             console.error("Failed to fetch orders:", error);
-        }
-    };
-
-    const handleUploadClick = (orderId: string) => {
-        setUploadingOrderId(orderId);
-        fileInputRef.current?.click();
-    };
-
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file || !uploadingOrderId) return;
-
-        const formData = new FormData();
-        formData.append('file', file);
-
-        const toastId = toast.loading(isRTL ? 'מעלה אישור תשלום...' : 'Uploading payment proof...');
-        try {
-            await api.post(`/orders/${uploadingOrderId}/payment-proof`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-            toast.success(isRTL ? 'אישור תשלום הועלה בהצלחה!' : 'Payment proof uploaded successfully!', { id: toastId });
-            fetchOrders();
-        } catch (error) {
-            console.error('Upload failed:', error);
-            toast.error(isRTL ? 'שגיאה בהעלאת הקובץ' : 'Failed to upload payment proof', { id: toastId });
-        } finally {
-            setUploadingOrderId(null);
-            if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
 
@@ -157,31 +136,43 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
             }
         };
 
+        const fetchSettings = async () => {
+            try {
+                const res = await api.get('/settings');
+                const data: BusinessSettings = res.data.data;
+                setSettings(data);
+                // Initialise a zero quantity for every active box price
+                const initial: Record<string, number> = {};
+                data.boxPrices.filter(b => b.isActive).forEach(b => { initial[b.sku] = 0; });
+                setOrderQuantities(initial);
+            } catch (err) {
+                console.error("Failed to fetch settings:", err);
+            }
+        };
+
         if (user) {
             fetchOrders();
             fetchInvoices();
             fetchProfile();
+            fetchSettings();
         }
     }, [user]);
 
     const handleSaveProfile = async () => {
         try {
             const payload = {
-                businessName: profile.companyName,
-                contactPerson: profile.contactPerson || user?.firstName || "Unknown",
+                companyName: profile.companyName,
+                vatNumber: profile.taxId,
                 phone: profile.phone,
-                address: {
-                    street: profile.address,
-                    city: profile.city,
-                    zipCode: "0000000",
-                },
+                address: profile.address,
+                city: profile.city,
+                email: profile.email,
             };
 
             if (hasProfile) {
-                // Update existing (would need profile ID - for now just POST again)
-                await api.post('/customers', payload);
+                await api.patch('/customers/update-profile', payload);
             } else {
-                await api.post('/customers', payload);
+                await api.post('/customers/complete-profile', payload);
             }
 
             setHasProfile(true);
@@ -194,18 +185,6 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
         }
     };
 
-    const handlePayment = async (orderId: string) => {
-        try {
-            const { data } = await api.post('/payments/checkout', { orderId });
-            if (data.redirectUrl) {
-                window.location.assign(data.redirectUrl);
-            }
-        } catch (error) {
-            console.error(error);
-            toast.error(t.paymentFailed);
-        }
-    };
-
     const handleSubmitOrder = async () => {
         if (!hasProfile) {
             toast.error("אנא מלא את פרטי הפרופיל שלך לפני ביצוע הזמנה");
@@ -214,13 +193,23 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
             return;
         }
 
-        const items: { productType: string; quantity: number }[] = [];
-        if (orderQuantities["1L"] > 0) items.push({ productType: "1L", quantity: orderQuantities["1L"] });
-        if (orderQuantities["5L"] > 0) items.push({ productType: "5L", quantity: orderQuantities["5L"] });
-        if (orderQuantities["18L"] > 0) items.push({ productType: "18L", quantity: orderQuantities["18L"] });
+        const activeBoxPrices = settings?.boxPrices.filter(b => b.isActive) ?? [];
+        const items: { productName: string; quantity: number; price: number }[] = [];
+        for (const bp of activeBoxPrices) {
+            const qty = orderQuantities[bp.sku] || 0;
+            if (qty > 0) items.push({ productName: bp.label, quantity: qty, price: bp.pricePerUnit });
+        }
 
         if (items.length === 0) {
             toast.error("אנא בחר לפחות מוצר אחד");
+            return;
+        }
+
+        const orderTotal = items.reduce((sum, item) => sum + item.quantity * item.price, 0);
+        const minAmount = settings?.minimumOrderAmount ?? 0;
+        const currencySymbol = settings?.currency === 'USD' ? '$' : settings?.currency === 'EUR' ? '€' : '₪';
+        if (minAmount > 0 && orderTotal < minAmount) {
+            toast.error(`סכום מינימום להזמנה: ${currencySymbol}${minAmount.toLocaleString()}. הסכום הנוכחי: ${currencySymbol}${orderTotal.toLocaleString()}`);
             return;
         }
 
@@ -229,7 +218,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
             toast.success("ההזמנה נשלחה בהצלחה! 🎉");
 
             // Reset form
-            setOrderQuantities({ "1L": 0, "5L": 0, "18L": 0 });
+            setOrderQuantities(prev => Object.fromEntries(Object.keys(prev).map(k => [k, 0])));
             setActiveTab("orders");
 
             // Refresh orders
@@ -249,18 +238,19 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
 
     const t = dashboardTranslations[locale as keyof typeof dashboardTranslations] || dashboardTranslations.he;
 
+    const activeBoxPrices = settings?.boxPrices.filter(b => b.isActive) ?? [];
+    const currencySymbol = settings?.currency === 'USD' ? '$' : settings?.currency === 'EUR' ? '€' : '₪';
+    const orderTotal = activeBoxPrices.reduce((sum, bp) => sum + bp.pricePerUnit * (orderQuantities[bp.sku] || 0), 0);
+    const minAmount = settings?.minimumOrderAmount ?? 0;
+
     const getStatusColor = (status: string) => {
         switch (status) {
-            case "pending":
-            case "pending_offer": return "bg-amber-50 text-amber-700 border border-amber-200";
-            case "approved":
-            case "sent_offer": return "bg-blue-50 text-blue-700 border border-blue-200";
-            case "paid": return "bg-emerald-50 text-emerald-700 border border-emerald-200";
-            case "pending_payment": return "bg-violet-50 text-violet-700 border border-violet-200";
-            case "shipped": return "bg-indigo-50 text-indigo-700 border border-indigo-200";
-            case "delivered": return "bg-gray-50 text-gray-700 border border-gray-200";
+            case "pending":   return "bg-amber-50 text-amber-700 border border-amber-200";
+            case "approved":  return "bg-blue-50 text-blue-700 border border-blue-200";
+            case "shipped":   return "bg-indigo-50 text-indigo-700 border border-indigo-200";
+            case "completed": return "bg-emerald-50 text-emerald-700 border border-emerald-200";
             case "cancelled": return "bg-red-50 text-red-700 border border-red-200";
-            default: return "bg-gray-50 text-gray-700 border border-gray-200";
+            default:          return "bg-gray-50 text-gray-700 border border-gray-200";
         }
     };
 
@@ -295,10 +285,10 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
         },
     ];
 
-    const updateQuantity = (size: "1L" | "5L" | "18L", delta: number) => {
+    const updateQuantity = (sku: string, delta: number) => {
         setOrderQuantities(prev => ({
             ...prev,
-            [size]: Math.max(0, prev[size] + delta)
+            [sku]: Math.max(0, (prev[sku] || 0) + delta)
         }));
     };
 
@@ -457,7 +447,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                             </div>
                             <div>
                                 <p className="text-sm text-gray-500 mb-1">{t.stats.pendingOrders}</p>
-                                <p className="text-3xl font-light text-gray-900">{orders.filter(o => ['pending', 'pending_offer', 'sent_offer', 'pending_payment'].includes(o.status)).length}</p>
+                                <p className="text-3xl font-light text-gray-900">{orders.filter(o => o.status === 'pending').length}</p>
                             </div>
                         </div>
                     </div>
@@ -496,24 +486,24 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                 </div>
 
                                 <div className="space-y-4 mb-10">
-                                    {[
-                                        { size: "1L", name: t.sunflowerOil1L, desc: "12 בקבוקים בארגז" },
-                                        { size: "5L", name: t.sunflowerOil5L, desc: "4 בקבוקים בארגז" },
-                                        { size: "18L", name: t.sunflowerOil18L, desc: "פח בודד" },
-                                    ].map((product) => (
-                                        <div key={product.size} className="group flex items-center justify-between p-6 bg-gradient-to-r from-gray-50 to-white rounded-2xl border border-gray-100 hover:border-[#F5C542]/30 hover:shadow-lg transition-all duration-300">
+                                    {activeBoxPrices.length === 0 ? (
+                                        <p className="text-center text-gray-400 py-8">אין מוצרים זמינים כרגע.</p>
+                                    ) : activeBoxPrices.map((product) => (
+                                        <div key={product.sku} className="group flex items-center justify-between p-6 bg-gradient-to-r from-gray-50 to-white rounded-2xl border border-gray-100 hover:border-[#F5C542]/30 hover:shadow-lg transition-all duration-300">
                                             <div className="flex items-center gap-5">
                                                 <div className="w-20 h-20 bg-gradient-to-br from-[#F5C542]/20 to-[#F5C542]/5 rounded-2xl flex items-center justify-center text-3xl group-hover:scale-110 transition-transform duration-500">
-                                                    🌻
+                                                    📦
                                                 </div>
                                                 <div>
-                                                    <p className="font-medium text-gray-900 text-lg">{product.name}</p>
-                                                    <p className="text-sm text-gray-500">{product.desc}</p>
+                                                    <p className="font-medium text-gray-900 text-lg">{product.label}</p>
+                                                    {product.pricePerUnit > 0 && (
+                                                        <p className="text-sm text-gray-500">{currencySymbol}{product.pricePerUnit.toLocaleString()} / {t.perUnit}</p>
+                                                    )}
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <button
-                                                    onClick={() => updateQuantity(product.size as "1L" | "5L" | "18L", -1)}
+                                                    onClick={() => updateQuantity(product.sku, -1)}
                                                     className="w-12 h-12 rounded-xl bg-white border border-gray-200 hover:border-[#F5C542] hover:bg-[#F5C542]/5 transition-all duration-300 flex items-center justify-center text-xl font-light text-gray-600 hover:text-[#F5C542]"
                                                 >
                                                     −
@@ -521,15 +511,15 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                                 <div className="w-24 text-center">
                                                     <input
                                                         type="number"
-                                                        value={orderQuantities[product.size as "1L" | "5L" | "18L"]}
-                                                        onChange={(e) => setOrderQuantities(prev => ({ ...prev, [product.size]: Math.max(0, parseInt(e.target.value) || 0) }))}
+                                                        value={orderQuantities[product.sku] || 0}
+                                                        onChange={(e) => setOrderQuantities(prev => ({ ...prev, [product.sku]: Math.max(0, parseInt(e.target.value) || 0) }))}
                                                         min={0}
                                                         className="w-full text-center text-xl font-light px-3 py-3 rounded-xl border border-gray-200 focus:border-[#F5C542] focus:ring-2 focus:ring-[#F5C542]/20 outline-none transition-all"
                                                     />
                                                     <p className="text-xs text-gray-400 mt-1">{t.perUnit}</p>
                                                 </div>
                                                 <button
-                                                    onClick={() => updateQuantity(product.size as "1L" | "5L" | "18L", 1)}
+                                                    onClick={() => updateQuantity(product.sku, 1)}
                                                     className="w-12 h-12 rounded-xl bg-white border border-gray-200 hover:border-[#F5C542] hover:bg-[#F5C542]/5 transition-all duration-300 flex items-center justify-center text-xl font-light text-gray-600 hover:text-[#F5C542]"
                                                 >
                                                     +
@@ -539,16 +529,31 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                     ))}
                                 </div>
 
-                                <div className="bg-gradient-to-r from-[#F5C542]/10 to-[#F5C542]/5 rounded-2xl p-5 mb-8 border border-[#F5C542]/20">
-                                    <p className="text-sm text-gray-700 flex items-center gap-3">
-                                        <span className="text-xl">💡</span>
-                                        {t.orderNote}
-                                    </p>
+                                {/* Order total + minimum order info */}
+                                <div className="bg-gradient-to-r from-[#F5C542]/10 to-[#F5C542]/5 rounded-2xl p-5 mb-4 border border-[#F5C542]/20">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <p className="text-sm text-gray-700 flex items-center gap-3">
+                                            <span className="text-xl">💡</span>
+                                            {t.orderNote}
+                                        </p>
+                                        {orderTotal > 0 && (
+                                            <p className="text-sm font-medium text-gray-900">
+                                                סה&quot;כ: {currencySymbol}{orderTotal.toLocaleString()}
+                                            </p>
+                                        )}
+                                    </div>
+                                    {minAmount > 0 && (
+                                        <p className={`text-xs mt-1 ${orderTotal > 0 && orderTotal < minAmount ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                                            מינימום הזמנה: {currencySymbol}{minAmount.toLocaleString()}
+                                            {orderTotal > 0 && orderTotal < minAmount && ` — חסר ${currencySymbol}${(minAmount - orderTotal).toLocaleString()}`}
+                                        </p>
+                                    )}
                                 </div>
 
                                 <button
                                     onClick={handleSubmitOrder}
-                                    className="w-full px-8 py-5 bg-gradient-to-r from-[#F5C542] to-[#d4a83a] text-white rounded-2xl font-light text-lg tracking-wide hover:shadow-xl hover:shadow-[#F5C542]/30 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+                                    disabled={activeBoxPrices.length === 0}
+                                    className="w-full px-8 py-5 bg-gradient-to-r from-[#F5C542] to-[#d4a83a] text-white rounded-2xl font-light text-lg tracking-wide hover:shadow-xl hover:shadow-[#F5C542]/30 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                                 >
                                     {t.submitOrder}
                                 </button>
@@ -577,81 +582,12 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                                     <div className="flex items-center gap-4">
                                                         <div className="text-left">
                                                             <p className="text-sm text-gray-500">{order.items.length} {t.items}</p>
-                                                            {order.suggestedPrice && (
-                                                                <p className="font-medium text-emerald-600">₪{order.suggestedPrice.toLocaleString()}</p>
-                                                            )}
-                                                            {(user?.role === 'admin' || user?.role === 'secretary') && !order.suggestedPrice && (
-                                                                <p className="font-medium text-gray-900">₪{order.totalAmount.toLocaleString()}</p>
-                                                            )}
+                                                            <p className="font-medium text-gray-900">₪{order.totalAmount.toLocaleString()}</p>
                                                         </div>
                                                         <span className={`px-4 py-2 rounded-xl text-xs font-medium ${getStatusColor(order.status)}`}>
                                                             {t.statuses[order.status as keyof typeof t.statuses] || order.status}
                                                         </span>
                                                         <div className="flex items-center gap-2">
-                                                            {/* Accept Offer Button for B2B flow */}
-                                                            {order.status === 'sent_offer' && order.suggestedPrice && (
-                                                                <button
-                                                                    onClick={async () => {
-                                                                        try {
-                                                                            await api.post(`/orders/${order._id}/accept`);
-                                                                            setOrders(orders.map(o =>
-                                                                                o._id === order._id ? { ...o, status: 'pending_payment' } : o
-                                                                            ));
-                                                                            toast.success(t.paymentSuccess);
-                                                                        } catch (error) {
-                                                                            console.error('Failed to accept offer:', error);
-                                                                            toast.error(t.paymentFailed);
-                                                                        }
-                                                                    }}
-                                                                    className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl transition-all shadow-lg shadow-emerald-200 text-sm"
-                                                                >
-                                                                    {(t as typeof dashboardTranslations.he).acceptOffer}
-                                                                </button>
-                                                            )}
-
-                                                            {/* Pay Now button for pending_payment status */}
-                                                            {/* Pay Now & Upload Proof buttons */}
-                                                            {(order.status === 'awaiting_payment' || order.status === 'pending_payment') && (
-                                                                <div className="flex gap-2">
-                                                                    <Link
-                                                                        href={`/${locale}/orders/${order._id}/pay`}
-                                                                        className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl transition-all shadow-lg shadow-emerald-200 text-sm whitespace-nowrap"
-                                                                    >
-                                                                        {t.payNow}
-                                                                    </Link>
-                                                                    <button
-                                                                        onClick={() => handleUploadClick(order._id)}
-                                                                        className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl transition-all shadow-lg shadow-blue-200 text-sm whitespace-nowrap"
-                                                                    >
-                                                                        {t.uploadProof}
-                                                                    </button>
-                                                                </div>
-                                                            )}
-
-                                                            {order.deliveryNoteUrl && (
-                                                                <a
-                                                                    href={order.deliveryNoteUrl}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="text-gray-500 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100"
-                                                                    title="Delivery Note"
-                                                                >
-                                                                    📦
-                                                                </a>
-                                                            )}
-
-                                                            {order.invoiceUrl && (
-                                                                <a
-                                                                    href={order.invoiceUrl}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="text-gray-500 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100"
-                                                                    title="Tax Invoice"
-                                                                >
-                                                                    📄
-                                                                </a>
-                                                            )}
-
                                                             <button
                                                                 onClick={() => setSelectedOrder(order)}
                                                                 className="text-[#F5C542] hover:text-[#d4a83a] px-4 py-2 rounded-xl hover:bg-[#F5C542]/5 transition-all"
@@ -695,7 +631,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-6">
-                                                        <p className="font-medium text-gray-900 text-lg">₪{invoice.amount.toLocaleString()}</p>
+                                                        <p className="font-medium text-gray-900 text-lg">₪{invoice.totalAmount.toLocaleString()}</p>
                                                         <button className="flex items-center gap-2 text-[#F5C542] hover:text-[#d4a83a] px-5 py-3 rounded-xl hover:bg-[#F5C542]/5 border border-[#F5C542]/30 transition-all">
                                                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -894,21 +830,8 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
 
                             <div className="flex items-center gap-4 mb-8">
                                 <span className={`px-4 py-2 rounded-xl text-sm font-medium ${getStatusColor(selectedOrder.status)}`}>
-                                    {t.statuses[selectedOrder.status as keyof typeof t.statuses]}
+                                    {t.statuses[selectedOrder.status as keyof typeof t.statuses] || selectedOrder.status}
                                 </span>
-                                {selectedOrder.invoiceUrl && (
-                                    <a
-                                        href={selectedOrder.invoiceUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex items-center gap-2 text-[#F5C542] hover:text-[#d4a83a] px-4 py-2 rounded-xl hover:bg-[#F5C542]/5 border border-[#F5C542]/30 transition-all text-sm font-medium"
-                                    >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                        </svg>
-                                        {t.downloadInvoice}
-                                    </a>
-                                )}
                             </div>
 
                             <div className="bg-gray-50 rounded-2xl p-6 mb-8">
@@ -921,12 +844,10 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                                     🌻
                                                 </div>
                                                 <div>
-                                                    <p className="font-medium text-gray-900">
-                                                        {item.productType === '1L' && t.sunflowerOil1L}
-                                                        {item.productType === '5L' && t.sunflowerOil5L}
-                                                        {item.productType === '18L' && t.sunflowerOil18L}
-                                                    </p>
-                                                    <p className="text-sm text-gray-500">{item.productType}</p>
+                                                    <p className="font-medium text-gray-900">{item.productName || item.productType}</p>
+                                                    {item.price != null && item.price > 0 && (
+                                                        <p className="text-sm text-gray-500">₪{item.price.toLocaleString()} / {t.perUnit}</p>
+                                                    )}
                                                 </div>
                                             </div>
                                             <p className="font-medium text-gray-900">x{item.quantity}</p>
@@ -940,40 +861,17 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                 <p className="text-2xl font-light text-[#F5C542]">₪{selectedOrder.totalAmount.toLocaleString()}</p>
                             </div>
                         </div>
-                        <div className="bg-gray-50 p-6 rounded-b-3xl flex gap-4">
+                        <div className="bg-gray-50 p-6 rounded-b-3xl">
                             <button
                                 onClick={() => setSelectedOrder(null)}
-                                className="flex-1 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+                                className="w-full py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
                             >
                                 {t.close}
                             </button>
-                            {(selectedOrder.status === 'approved' || selectedOrder.status === 'pending_payment' || selectedOrder.status === 'awaiting_payment') && (
-                                <div className="flex gap-2 flex-1">
-                                    <Link
-                                        href={`/${locale}/orders/${selectedOrder._id}/pay`}
-                                        className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-xl hover:shadow-lg hover:shadow-emerald-500/30 transition-all font-medium text-center"
-                                    >
-                                        {t.payNow}
-                                    </Link>
-                                    <button
-                                        onClick={() => handleUploadClick(selectedOrder._id)}
-                                        className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/30 transition-all font-medium"
-                                    >
-                                        {t.uploadProof}
-                                    </button>
-                                </div>
-                            )}
                         </div>
                     </div>
                 </div>
             )}
-            <input
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                onChange={handleFileChange}
-                accept="image/*,.pdf"
-            />
         </div>
     );
 }
