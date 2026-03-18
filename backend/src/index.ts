@@ -22,6 +22,7 @@ import auditRouter from './routes/audit.js';
 import ordersRouter from './routes/orders.js';
 import customersRouter from './routes/customers.js';
 import invoicesRouter from './routes/invoices.js';
+import settingsRouter from './routes/settings.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { seedAdmin } from './db/seedAdmin.js';
 import passport from './config/passport.js';
@@ -124,6 +125,7 @@ app.use('/api/users', usersRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/customers', customersRouter);
 app.use('/api/invoices', invoicesRouter);
+app.use('/api/settings', settingsRouter);
 
 app.use('/api/audit', auditRouter);
 
