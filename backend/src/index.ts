@@ -24,6 +24,7 @@ import customersRouter from './routes/customers.js';
 import invoicesRouter from './routes/invoices.js';
 import settingsRouter from './routes/settings.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { requestLogger } from './middleware/requestLogger.js';
 import { seedAdmin } from './db/seedAdmin.js';
 import passport from './config/passport.js';
 
@@ -66,20 +67,14 @@ app.use(cookieParser());
 import { csrfCheck } from './middleware/csrf.js';
 app.use(csrfCheck);
 
-// GLOBAL DEBUG LOGGER
-app.use((req, res, next) => {
-    console.log(`\n[REQUEST] ${req.method} ${req.url}`);
-    console.log(`[DEBUG] Origin: ${req.headers.origin}`);
-    console.log(`[DEBUG] Cookies:`, req.cookies);
-    // console.log(`[DEBUG] Headers:`, req.headers); 
-    next();
-});
+// Structured request logger — emits one JSON line per request for Loki.
+app.use(requestLogger);
 
 // JSON parser with limit
 app.use(express.json({ limit: '10mb' }));
 
 // Request timeout middleware
-app.use((req, res, next) => {
+app.use((_req, res, next) => {
     res.setTimeout(config.server.requestTimeout, () => {
         res.status(408).json({ error: 'Request timeout' });
     });

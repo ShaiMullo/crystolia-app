@@ -12,12 +12,18 @@ export interface AppError extends Error {
 }
 
 export function errorHandler(err: AppError, req: Request, res: Response, next: NextFunction) {
-    console.error('❌ Error:', {
-        message: err.message,
-        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
-        path: req.path,
+    const entry: Record<string, unknown> = {
+        ts: new Date().toISOString(),
+        level: 'error',
+        type: 'app_error',
         method: req.method,
-    });
+        path: req.path,
+        request_id: (req as any).requestId,
+        error_name: err.name,
+        message: err.message,
+        ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+    };
+    console.error(JSON.stringify(entry));
 
     const statusCode = err.statusCode || 500;
     let message = err.message || 'Internal Server Error';
