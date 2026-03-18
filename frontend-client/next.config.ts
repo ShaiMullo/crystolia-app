@@ -1,6 +1,4 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
+const nextConfig = {
   // Required for Docker deployment
   output: "standalone",
   // TODO: re-enable once ESLint issues are resolved. Added to unblock staging CI.

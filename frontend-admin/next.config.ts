@@ -1,7 +1,4 @@
-import type { NextConfig } from "next";
-
-/** @type {import('next').NextConfig} */
-const nextConfig: NextConfig = {
+const nextConfig = {
   output: "standalone",
   // TODO: re-enable once ESLint issues are resolved. Added to unblock staging CI.
   eslint: { ignoreDuringBuilds: true },
