@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
+import api from '@/app/lib/api';
 
 interface OnboardingPageProps {
     locale: string;
@@ -79,36 +80,18 @@ export default function OnboardingPage({ locale }: OnboardingPageProps) {
         setLoading(true);
 
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-            const token = localStorage.getItem('token');
-
-            const response = await fetch(`${API_URL}/customers/complete-profile`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    companyName: formData.businessName, // Map to backend expectation
-                    vatNumber: formData.businessId, // Map businessId to vatNumber if needed (backend expects vatNumber?)
-                    // Let's check backend/src/routes/customers.ts again to be sure about other fields
-                    // Backend expects: companyName, vatNumber, phone, address, city
-                    // Frontend has: businessName, businessId, address, city, phone
-                    ...formData,
-                    userId: user?._id
-                })
+            const { data } = await api.post('/customers/complete-profile', {
+                companyName: formData.businessName,
+                vatNumber: formData.businessId,
+                ...formData,
+                userId: user?._id
             });
 
-            if (response.ok) {
-                const data = await response.json();
-                // Update local user state to mark onboarding as complete
-                if (updateUser) {
-                    updateUser({ ...user, onboardingComplete: true, customer: data.customer });
-                }
-                router.push(`/${locale}/dashboard`);
-            } else {
-                console.error('Onboarding failed');
+            // Update local user state to mark onboarding as complete
+            if (updateUser) {
+                updateUser({ ...user, onboardingComplete: true, customer: data.customer });
             }
+            router.push(`/${locale}/dashboard`);
         } catch (error) {
             console.error('Onboarding error:', error);
         } finally {
