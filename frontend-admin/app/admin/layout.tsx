@@ -10,7 +10,7 @@ export default function AdminLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const { user, isLoading } = useAuth();
+    const { user, logout, isLoading } = useAuth();
 
     // DEBUG: Log mounting and state
     console.log("AdminLayout mounted", { user, isLoading });
@@ -35,13 +35,21 @@ export default function AdminLayout({
                                 <Link href="/admin" className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
                                     CRM
                                 </Link>
-                                <span className="text-gray-400 px-3 py-2 text-sm">Settings</span>
+                                <Link href="/admin/settings" className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
+                                    Settings
+                                </Link>
                             </nav>
                         </div>
                         <div className="flex items-center space-x-4">
                             <span className="text-sm text-gray-500">
                                 {user?.name || 'Administrator (Debug)'}
                             </span>
+                            <button
+                                onClick={logout}
+                                className="px-3 py-1 text-sm text-red-600 hover:text-red-800 font-medium"
+                            >
+                                Logout
+                            </button>
                         </div>
                     </div>
                 </div>

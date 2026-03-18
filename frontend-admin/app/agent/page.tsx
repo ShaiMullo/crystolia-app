@@ -4,25 +4,54 @@ import { useCallback, useEffect, useState } from "react";
 import api from "@/app/lib/api";
 import { toast, Toaster } from "react-hot-toast";
 import { useAuth } from "@/app/context/AuthContext";
-import { Lead } from "@/types";
+import { Lead, LeadStatus } from "@/types";
 import LeadEditModal from "@/components/leads/LeadEditModal";
+
+const STATUSES: { value: LeadStatus; label: string }[] = [
+    { value: "new",        label: "New" },
+    { value: "contacted",  label: "Contacted" },
+    { value: "qualified",  label: "Qualified" },
+    { value: "proposal",   label: "Proposal" },
+    { value: "won",        label: "Won" },
+    { value: "lost",       label: "Lost" },
+    { value: "converted",  label: "Converted" },
+    { value: "closed",     label: "Closed" },
+    { value: "archived",   label: "Archived" },
+    { value: "re-engaged", label: "Re-engaged" },
+];
+
+const STATUS_COLORS: Record<string, string> = {
+    new:        "bg-blue-100 text-blue-800",
+    contacted:  "bg-yellow-100 text-yellow-800",
+    qualified:  "bg-purple-100 text-purple-800",
+    proposal:   "bg-indigo-100 text-indigo-800",
+    won:        "bg-green-100 text-green-800",
+    lost:       "bg-red-100 text-red-800",
+    converted:  "bg-green-100 text-green-800",
+    closed:     "bg-gray-100 text-gray-800",
+    archived:   "bg-gray-100 text-gray-500",
+    "re-engaged": "bg-teal-100 text-teal-800",
+};
 
 export default function AgentDashboard() {
     const { user } = useAuth();
     const [leads, setLeads] = useState<Lead[]>([]);
     const [loading, setLoading] = useState(false);
+    // Track which leads are mid-status-save so the select shows a subtle disabled state
+    const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
 
-    // Modal State
+    // Filter state
+    const [search, setSearch] = useState("");
+    const [statusFilter, setStatusFilter] = useState<LeadStatus | "">("");
+
+    // Modal state (for notes / tags — not needed for quick status)
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentLead, setCurrentLead] = useState<Lead | null>(null);
 
     const fetchLeads = useCallback(async () => {
         setLoading(true);
         try {
-            // Backend now enforces agent filtering, but we can pass explicit param too
-            const response = await api.get("/leads", {
-
-            });
+            const response = await api.get("/leads");
             if (response.data.success || response.data.data) {
                 setLeads(response.data.data?.leads || response.data.data || []);
             }
@@ -35,22 +64,32 @@ export default function AgentDashboard() {
     }, []);
 
     useEffect(() => {
-        if (user) {
-            fetchLeads();
-        }
+        if (user) fetchLeads();
     }, [user, fetchLeads]);
 
-    const handleEditClick = (lead: Lead) => {
-        setCurrentLead(lead);
-        setIsModalOpen(true);
+    // ── Quick status change (no modal) ──────────────────────────────────
+    const handleQuickStatusChange = async (leadId: string, newStatus: LeadStatus) => {
+        // Optimistic update
+        setLeads(prev => prev.map(l => l._id === leadId ? { ...l, status: newStatus } : l));
+        setSavingIds(prev => new Set(prev).add(leadId));
+        try {
+            await api.patch(`/leads/${leadId}`, { status: newStatus });
+            toast.success("Status updated");
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to update status");
+            // Roll back by refetching
+            fetchLeads();
+        } finally {
+            setSavingIds(prev => { const next = new Set(prev); next.delete(leadId); return next; });
+        }
     };
 
+    // ── Full modal save (notes / tags) ───────────────────────────────────
     const handleSaveLead = async (leadId: string, data: Partial<Lead>) => {
         try {
-            await api.patch(`/leads/${leadId}`, data, {
-
-            });
-            toast.success("Lead updated successfully");
+            await api.patch(`/leads/${leadId}`, data);
+            toast.success("Lead updated");
             fetchLeads();
         } catch (error) {
             console.error(error);
@@ -58,17 +97,55 @@ export default function AgentDashboard() {
         }
     };
 
+    const formatDate = (dateStr?: string) => {
+        if (!dateStr) return "—";
+        return new Date(dateStr).toLocaleDateString();
+    };
+
+    const query = search.toLowerCase();
+    const filteredLeads = leads.filter(lead => {
+        const matchesSearch =
+            !query ||
+            lead.name.toLowerCase().includes(query) ||
+            lead.phone.includes(query) ||
+            (lead.email?.toLowerCase().includes(query) ?? false);
+        const matchesStatus = !statusFilter || lead.status === statusFilter;
+        return matchesSearch && matchesStatus;
+    });
+
     return (
         <div className="space-y-6">
             <Toaster />
+
             <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold text-gray-900">My Leads (Agent Consolidated View)</h1>
+                <h1 className="text-2xl font-bold text-gray-900">My Leads</h1>
                 <button
                     onClick={fetchLeads}
-                    className="text-sm text-blue-600 hover:text-blue-800"
+                    className="text-sm text-blue-600 hover:text-blue-800 border px-3 py-1 rounded"
                 >
                     Refresh
                 </button>
+            </div>
+
+            {/* Filter bar */}
+            <div className="flex flex-col sm:flex-row gap-3">
+                <input
+                    type="text"
+                    placeholder="Search by name, phone, or email..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="flex-grow border border-gray-300 rounded-md px-4 py-2 text-sm focus:ring-yellow-500 focus:border-yellow-500"
+                />
+                <select
+                    value={statusFilter}
+                    onChange={e => setStatusFilter(e.target.value as LeadStatus | "")}
+                    className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-yellow-500 focus:border-yellow-500"
+                >
+                    <option value="">All Statuses</option>
+                    {STATUSES.map(s => (
+                        <option key={s.value} value={s.value}>{s.label}</option>
+                    ))}
+                </select>
             </div>
 
             <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -76,6 +153,8 @@ export default function AgentDashboard() {
                     <div className="p-8 text-center text-gray-500">Loading assignments...</div>
                 ) : leads.length === 0 ? (
                     <div className="p-8 text-center text-gray-500">No leads assigned.</div>
+                ) : filteredLeads.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500">No leads match your filters.</div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
@@ -84,39 +163,84 @@ export default function AgentDashboard() {
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Contact</th>
+                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Contacts</th>
                                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {leads.map((lead) => (
-                                    <tr key={lead._id}>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                {filteredLeads.map((lead) => (
+                                    <tr key={lead._id} className="hover:bg-gray-50 transition-colors">
+
+                                        {/* Name + source + latest note preview */}
+                                        <td className="px-6 py-4">
                                             <div className="font-medium text-gray-900">{lead.name}</div>
-                                            <div className="text-sm text-gray-500">{lead.source}</div>
+                                            <div className="text-xs text-gray-400">{lead.source}</div>
+                                            {lead.notes?.length > 0 && (() => {
+                                                const latest = lead.notes[lead.notes.length - 1];
+                                                const preview = latest.text.length > 60
+                                                    ? latest.text.slice(0, 60) + "…"
+                                                    : latest.text;
+                                                return (
+                                                    <div className="text-xs text-gray-400 italic mt-0.5 max-w-xs truncate" title={latest.text}>
+                                                        {preview}
+                                                    </div>
+                                                );
+                                            })()}
                                         </td>
+
+                                        {/* Phone + email */}
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm text-gray-900">{lead.phone}</div>
-                                            <div className="text-sm text-gray-500">{lead.email}</div>
+                                            {lead.email && (
+                                                <div className="text-xs text-gray-400">{lead.email}</div>
+                                            )}
                                         </td>
+
+                                        {/* Inline status select */}
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                                ${lead.status === 'new' ? 'bg-blue-100 text-blue-800' :
-                                                    lead.status === 'contacted' ? 'bg-yellow-100 text-yellow-800' :
-                                                        lead.status === 'closed' ? 'bg-gray-100 text-gray-800' :
-                                                            'bg-green-100 text-green-800'}`}>
-                                                {lead.status.toUpperCase()}
+                                            <select
+                                                value={lead.status}
+                                                disabled={savingIds.has(lead._id)}
+                                                onChange={(e) => handleQuickStatusChange(lead._id, e.target.value as LeadStatus)}
+                                                className={`text-xs font-semibold rounded-full px-2 py-1 border-0 cursor-pointer focus:ring-2 focus:ring-yellow-400 disabled:opacity-60 ${STATUS_COLORS[lead.status] ?? "bg-gray-100 text-gray-700"}`}
+                                            >
+                                                {STATUSES.map(s => (
+                                                    <option key={s.value} value={s.value}>{s.label}</option>
+                                                ))}
+                                            </select>
+                                        </td>
+
+                                        {/* Last contact date */}
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            {formatDate(lead.lastContactAt)}
+                                        </td>
+
+                                        {/* Contact count */}
+                                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+                                            <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">
+                                                {lead.contactCount ?? 0}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {new Date(lead.createdAt).toLocaleDateString()}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+
+                                        {/* Actions: WhatsApp + Edit */}
+                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
+                                            {lead.phone && (
+                                                <a
+                                                    href={`https://wa.me/${lead.phone.replace(/\D/g, "")}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-green-600 hover:text-green-900"
+                                                    title={`WhatsApp ${lead.name}`}
+                                                >
+                                                    WhatsApp
+                                                </a>
+                                            )}
                                             <button
-                                                onClick={() => handleEditClick(lead)}
+                                                onClick={() => { setCurrentLead(lead); setIsModalOpen(true); }}
                                                 className="text-indigo-600 hover:text-indigo-900"
                                             >
-                                                Edit
+                                                Notes
                                             </button>
                                         </td>
                                     </tr>
@@ -127,13 +251,13 @@ export default function AgentDashboard() {
                 )}
             </div>
 
-            {/* Restricted Modal */}
+            {/* Modal restricted to notes + tags — no agent reassignment */}
             <LeadEditModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 lead={currentLead}
-                agents={[]} // Agents cannot reassign, so list is empty
-                canAssign={false} // Explicitly disable assignment
+                agents={[]}
+                canAssign={false}
                 onSave={handleSaveLead}
             />
         </div>
