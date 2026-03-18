@@ -101,4 +101,50 @@ router.post('/complete-profile', authorize('customer'), async (req: Request, res
     }
 });
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// PATCH /api/customers/update-profile (Customer Only)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+router.patch('/update-profile', authorize('customer'), async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const user = req.user as any;
+
+        if (!user.company) {
+            return next(new AppError('No company found. Complete your profile first.', 404));
+        }
+
+        const { companyName, vatNumber, address, city, phone, email } = req.body;
+
+        // Build update object from provided fields only
+        const updateFields: Record<string, string> = {};
+        if (companyName) updateFields.name = companyName;
+        if (vatNumber !== undefined) updateFields.vatNumber = vatNumber;
+        if (address !== undefined) updateFields.address = address;
+        if (city !== undefined) updateFields.city = city;
+        if (phone !== undefined) updateFields.phone = phone;
+        if (email !== undefined) updateFields.email = email;
+
+        // user.company is the ObjectId from the verified JWT user — customer can
+        // only ever update their own company, never another company's.
+        const updatedCompany = await Company.findByIdAndUpdate(
+            user.company,
+            updateFields,
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedCompany) {
+            return next(new AppError('Company not found', 404));
+        }
+
+        res.status(200).json({
+            success: true,
+            data: { company: updatedCompany }
+        });
+    } catch (error) {
+        if ((error as any).code === 11000) {
+            return next(new AppError('Company name or VAT number already in use', 400));
+        }
+        next(error);
+    }
+});
+
 export default router;
