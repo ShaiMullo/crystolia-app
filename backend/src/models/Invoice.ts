@@ -17,6 +17,8 @@ export interface IInvoice extends Document {
     issuedAt?: Date;
     dueDate?: Date;
     notes?: string;
+    pdfUrl?: string;           // Set when issued via Green Invoice
+    greenInvoiceDocId?: string; // Green Invoice document ID
     createdAt: Date;
     updatedAt: Date;
 }
@@ -64,6 +66,14 @@ const InvoiceSchema = new Schema<IInvoice>(
             type: Date,
         },
         notes: {
+            type: String,
+            trim: true,
+        },
+        pdfUrl: {
+            type: String,
+            trim: true,
+        },
+        greenInvoiceDocId: {
             type: String,
             trim: true,
         },

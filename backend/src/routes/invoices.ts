@@ -5,7 +5,10 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { protect, authorize } from '../middleware/auth.js';
 import Invoice from '../models/Invoice.js';
+import Company from '../models/Company.js';
 import { AppError } from '../utils/validation.js';
+import { logAudit } from '../services/auditService.js';
+import { issueInvoice } from '../services/greenInvoiceService.js';
 
 const router = Router();
 
@@ -73,6 +76,14 @@ router.post('/', authorize('admin', 'agent'), async (req: Request, res: Response
             issuedAt: new Date()
         });
 
+        await logAudit({
+            action: 'CREATE',
+            entity: 'Invoice',
+            entityId: newInvoice._id.toString(),
+            req,
+            details: { invoiceNumber, totalAmount, status: status || 'draft' },
+        });
+
         res.status(201).json({
             success: true,
             data: newInvoice
@@ -109,11 +120,89 @@ router.patch('/:id', authorize('admin', 'agent'), async (req: Request, res: Resp
             return next(new AppError('Invoice not found', 404));
         }
 
+        await logAudit({
+            action: 'UPDATE',
+            entity: 'Invoice',
+            entityId: req.params.id,
+            req,
+            details: req.body,
+        });
+
         res.status(200).json({
             success: true,
             data: invoice
         });
     } catch (error) {
+        next(error);
+    }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// POST /api/invoices/:id/issue (Admin/Agent Only)
+// Issues a draft invoice via Green Invoice → stores pdfUrl + greenInvoiceDocId
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+router.post('/:id/issue', authorize('admin', 'agent'), async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const invoice = await Invoice.findById(req.params.id);
+
+        if (!invoice) {
+            return next(new AppError('Invoice not found', 404));
+        }
+
+        if (invoice.status !== 'draft') {
+            return next(new AppError(`Invoice is already ${invoice.status} — only draft invoices can be issued`, 400));
+        }
+
+        // Load company for Green Invoice client data
+        const company = await Company.findById(invoice.company).lean();
+        if (!company) {
+            return next(new AppError('Company not found for this invoice', 404));
+        }
+
+        // Capture issue date before service call so the PDF and the record share the same timestamp
+        const issueDate = new Date();
+
+        const { pdfUrl, greenInvoiceDocId } = await issueInvoice({
+            invoiceNumber: invoice.invoiceNumber,
+            totalAmount: invoice.totalAmount,
+            issuedAt: issueDate,
+            dueDate: invoice.dueDate,
+            notes: invoice.notes,
+            client: {
+                name: company.name,
+                email: company.email || company.billingEmail,
+                phone: company.phone,
+                address: company.address || company.billingAddress,
+                city: company.city,
+                vatNumber: company.vatNumber,
+            },
+        });
+
+        invoice.pdfUrl = pdfUrl;
+        invoice.greenInvoiceDocId = greenInvoiceDocId;
+        invoice.status = 'issued';
+        invoice.issuedAt = issueDate;
+        await invoice.save();
+
+        await logAudit({
+            action: 'UPDATE',
+            entity: 'Invoice',
+            entityId: invoice._id.toString(),
+            req,
+            details: { issued: true, pdfUrl, greenInvoiceDocId },
+        });
+
+        res.status(200).json({
+            success: true,
+            data: invoice,
+            pdfUrl,
+        });
+    } catch (error: any) {
+        // Surface Green Invoice API errors clearly
+        if (error.response?.data) {
+            console.error('❌ Green Invoice API error:', error.response.data);
+            return next(new AppError(`Green Invoice error: ${error.response.data.description || error.message}`, 502));
+        }
         next(error);
     }
 });
