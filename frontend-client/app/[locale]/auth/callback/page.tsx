@@ -8,29 +8,12 @@ function AuthCallbackContent() {
     const searchParams = useSearchParams();
 
     useEffect(() => {
-        const token = searchParams.get("token");
         const userId = searchParams.get("userId");
         const role = searchParams.get("role") || "customer";
-        const firstName = searchParams.get("firstName") || "";
-        const lastName = searchParams.get("lastName") || "";
-        const profilePicture = searchParams.get("profilePicture") || "";
 
-        console.log("🔹 Auth Callback Page - Token received:", token);
-
-        if (token && userId) {
-            const user = {
-                _id: userId,
-                email: "",
-                role,
-                firstName,
-                lastName,
-                profilePicture: decodeURIComponent(profilePicture),
-            };
-
-            localStorage.setItem("token", token);
-            localStorage.setItem("user", JSON.stringify(user));
-
-            // Redirect based on role
+        // Auth is cookie-based — backend sets HttpOnly cookie before redirecting here.
+        // Redirect based on role param if present, otherwise go to dashboard.
+        if (userId) {
             if (role === "admin") {
                 router.push("/he/admin");
             } else if (role === "secretary") {
@@ -39,9 +22,7 @@ function AuthCallbackContent() {
                 router.push("/he/dashboard");
             }
         } else {
-            // No token, redirect to login
-            console.error("No token received in callback");
-            router.push("/he/auth?error=no_token");
+            router.push("/he/dashboard");
         }
     }, [searchParams, router]);
 

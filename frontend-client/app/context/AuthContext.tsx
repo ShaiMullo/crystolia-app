@@ -40,10 +40,9 @@ interface RegisterData {
 
 interface AuthContextType {
     user: User | null;
-    token: string | null;
     login: (data: LoginData) => Promise<void>;
     register: (data: RegisterData) => Promise<void>;
-    logout: () => void;
+    logout: () => Promise<void>;
     updateUser: (userData: Partial<User>) => void;
     isLoading: boolean;
 }
@@ -56,62 +55,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const storedUser = localStorage.getItem('user');
         return storedUser ? JSON.parse(storedUser) : null;
     });
-    const [token, setToken] = useState<string | null>(() => {
-        if (typeof window === 'undefined') return null;
-        return localStorage.getItem('token');
-    });
     const [isLoading] = useState(() => {
         if (typeof window === 'undefined') return true;
         return false;
     });
     const router = useRouter();
 
-    // Check for social login token in URL
-    React.useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const params = new URLSearchParams(window.location.search);
-            const tokenParam = params.get('token');
-            const userId = params.get('userId');
-
-            if (tokenParam && userId) {
-                const profilePic = params.get('profilePicture');
-                const userObj: User = {
-                    _id: userId,
-                    email: params.get('email') || '',
-                    role: params.get('role') || 'customer',
-                    firstName: params.get('firstName') || '',
-                    lastName: params.get('lastName') || '',
-                    profilePicture: profilePic ? decodeURIComponent(profilePic) : undefined
-                };
-
-                setToken(tokenParam);
-                setUser(userObj);
-                localStorage.setItem('token', tokenParam);
-                localStorage.setItem('user', JSON.stringify(userObj));
-
-                // Clean URL
-                window.history.replaceState({}, document.title, window.location.pathname);
-
-                // Redirect
-                if (userObj.role === 'admin') router.push('/he/admin');
-                else if (userObj.role === 'secretary') router.push('/he/secretary');
-                else router.push('/he/dashboard');
-            }
-        }
-    }, [router]);
-
     const login = async (credentials: LoginData) => {
         try {
             const response = await api.post('/auth/login', credentials);
-            const { token: access_token, user } = response.data;
+            const { user } = response.data;
 
-            // Normalize token key if backend returns 'token' instead of 'access_token'
-            const finalToken = access_token || response.data.token;
-
-            setToken(finalToken);
             setUser(user);
-
-            localStorage.setItem('token', finalToken);
             localStorage.setItem('user', JSON.stringify(user));
 
             // Get current locale from URL or default to 'he'
@@ -121,7 +76,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Redirect based on role
             if (user.role === 'admin') {
-                // Admin login not really supported here, but handle just in case
                 window.location.href = 'http://localhost:3001/admin';
             } else if (user.role === 'agent') {
                 window.location.href = 'http://localhost:3001/agent';
@@ -146,14 +100,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             };
 
             const response = await api.post('/auth/register', payload);
-            const { token: access_token, user } = response.data;
-            // Normalize token key
-            const finalToken = access_token || response.data.token;
+            const { user } = response.data;
 
-            setToken(finalToken);
             setUser(user);
-
-            localStorage.setItem('token', finalToken);
             localStorage.setItem('user', JSON.stringify(user));
 
             // Get current locale
@@ -169,11 +118,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
-    const logout = () => {
-        setToken(null);
+    const logout = async () => {
         setUser(null);
-        localStorage.removeItem('token');
         localStorage.removeItem('user');
+        try {
+            // Clear HttpOnly cookie on backend — cannot be done from JS directly
+            await api.post('/auth/logout');
+        } catch {
+            // Ignore — user is logged out client-side regardless
+        }
         router.push('/he');
     };
 
@@ -184,7 +137,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     return (
-        <AuthContext.Provider value={{ user, token, login, register, logout, updateUser, isLoading }}>
+        <AuthContext.Provider value={{ user, login, register, logout, updateUser, isLoading }}>
             {children}
         </AuthContext.Provider>
     );

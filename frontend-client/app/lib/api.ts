@@ -16,23 +16,7 @@ const api = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
-    withCredentials: true, // Send cookies with requests
+    withCredentials: true, // Auth via HttpOnly cookie (auth_token) — set by backend on login
 });
-
-// Add a request interceptor to attach the token
-api.interceptors.request.use(
-    (config) => {
-        if (typeof window !== 'undefined') {
-            const token = localStorage.getItem('token');
-            if (token) {
-                config.headers.Authorization = `Bearer ${token}`;
-            }
-        }
-        return config;
-    },
-    (error) => {
-        return Promise.reject(error);
-    }
-);
 
 export default api;
