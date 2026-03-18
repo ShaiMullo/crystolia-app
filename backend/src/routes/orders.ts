@@ -5,8 +5,11 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { protect, authorize } from '../middleware/auth.js';
 import Order from '../models/Order.js';
+import Invoice from '../models/Invoice.js';
 import User from '../models/User.js'; // Needed if we want to double-check user properties
+import Settings from '../models/Settings.js';
 import { AppError } from '../utils/validation.js';
+import { logAudit } from '../services/auditService.js';
 
 const router = Router();
 
@@ -33,6 +36,13 @@ router.post('/', authorize('customer'), async (req: Request, res: Response, next
             totalAmount += item.quantity * item.price;
         }
 
+        // Enforce minimum order amount
+        const businessSettings = await Settings.findOne({ key: 'business' }).lean();
+        const minAmount = businessSettings?.minimumOrderAmount ?? 0;
+        if (minAmount > 0 && totalAmount < minAmount) {
+            return next(new AppError(`Minimum order amount is ${minAmount}`, 400));
+        }
+
         // Ensure user has a company (should be guaranteed by model/registration, but good to check)
         // We need to cast req.user because Express.User types might not have 'company' explicit yet
         // but our auth middleware attaches the full Mongoose document.
@@ -49,6 +59,14 @@ router.post('/', authorize('customer'), async (req: Request, res: Response, next
             totalAmount,
             status: 'pending',
             notes
+        });
+
+        await logAudit({
+            action: 'CREATE',
+            entity: 'Order',
+            entityId: newOrder._id.toString(),
+            req,
+            details: { totalAmount, itemCount: items.length },
         });
 
         res.status(201).json({
@@ -112,14 +130,55 @@ router.patch('/:id', authorize('admin', 'agent'), async (req: Request, res: Resp
             return next(new AppError('Invalid status', 400));
         }
 
-        const order = await Order.findByIdAndUpdate(
-            req.params.id,
-            { status },
-            { new: true, runValidators: true }
-        );
+        // Fetch first — need company + totalAmount for auto-invoice
+        const order = await Order.findById(req.params.id);
 
         if (!order) {
             return next(new AppError('Order not found', 404));
+        }
+
+        order.status = status;
+        await order.save();
+
+        await logAudit({
+            action: 'UPDATE',
+            entity: 'Order',
+            entityId: order._id.toString(),
+            req,
+            details: { status },
+        });
+
+        // ━━━ Auto-create draft invoice on approval (idempotent) ━━━
+        if (status === 'approved') {
+            try {
+                const existing = await Invoice.findOne({ order: order._id });
+                if (!existing) {
+                    const invoiceNumber = `INV-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
+                    const newInvoice = await Invoice.create({
+                        company: order.company,
+                        order: order._id,
+                        invoiceNumber,
+                        totalAmount: order.totalAmount,
+                        status: 'draft',
+                    });
+
+                    await logAudit({
+                        action: 'CREATE',
+                        entity: 'Invoice',
+                        entityId: newInvoice._id.toString(),
+                        req,
+                        details: { invoiceNumber, totalAmount: order.totalAmount, status: 'draft', source: 'auto' },
+                    });
+
+                    console.log(`📋 Auto-created draft invoice ${invoiceNumber} for order ${order._id}`);
+                }
+            } catch (invoiceErr: any) {
+                // Duplicate invoice number (11000) means a concurrent request already created it — safe to ignore.
+                // Any other error is logged but must not fail the order update response.
+                if (invoiceErr.code !== 11000) {
+                    console.error('❌ Auto-invoice creation failed:', invoiceErr.message);
+                }
+            }
         }
 
         res.status(200).json({
