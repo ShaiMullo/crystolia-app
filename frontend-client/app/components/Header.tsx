@@ -28,6 +28,8 @@ interface Sunflower {
   delay: number;
 }
 
+let nextFlowerId = 0;
+
 export default function Header({ locale, dict }: HeaderProps) {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [sunflowers, setSunflowers] = useState<Sunflower[]>([]);
@@ -47,13 +49,11 @@ export default function Header({ locale, dict }: HeaderProps) {
   // Create falling sunflowers - accumulate on each click
   const createSunflowers = useCallback(() => {
     const newSunflowers: Sunflower[] = [];
-    const baseId = Date.now();
-
     for (let i = 0; i < 8; i++) {
       const duration = Math.random() * 2 + 2;
       const delay = Math.random() * 0.3;
       const flower: Sunflower = {
-        id: baseId + i,
+        id: nextFlowerId++,
         x: Math.random() * 100,
         size: Math.random() * 18 + 16,
         duration,
