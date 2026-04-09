@@ -26,7 +26,7 @@
       },
       {
         "title": "Multiple Sizes",
-        "description": "5L, 10L, and 20L containers - exactly what you need for your kitchen."
+        "description": "Sunflower and canola oil in 0.9L and 5L — exactly what you need."
       },
       {
         "title": "Competitive Pricing",
@@ -48,22 +48,32 @@
   },
   "products": {
     "title": "Our Products",
-    "subtitle": "Premium sunflower oil in multiple sizes for every need",
+    "subtitle": "Premium sunflower and canola oil — sized for every need",
+    "badge": "Premium Collection",
     "items": [
       {
-        "title": "5 Liter Bottle",
-        "description": "Perfect for small households and personal use. Premium quality in a convenient size.",
-        "whatsapp": "Order 5L bottle"
+        "title": "Sunflower Oil 0.9L",
+        "description": "Pure sunflower oil in a compact bottle, perfect for everyday cooking at home.",
+        "label": "Sunflower",
+        "whatsapp": "Details & Order"
       },
       {
-        "title": "10 Liter Bottle",
-        "description": "Ideal for families and regular cooking. Great value with excellent quality.",
-        "whatsapp": "Order 10L bottle"
+        "title": "Canola Oil 0.9L",
+        "description": "Refined canola oil with a delicate taste, ideal for light frying and baking.",
+        "label": "Canola",
+        "whatsapp": "Details & Order"
       },
       {
-        "title": "20 Liter Bottle",
-        "description": "Best for restaurants and large families. Maximum value and premium quality.",
-        "whatsapp": "Order 20L bottle"
+        "title": "Sunflower Oil 5L",
+        "description": "Family-size premium sunflower oil, maximum savings for regular consumption.",
+        "label": "Sunflower",
+        "whatsapp": "Details & Order"
+      },
+      {
+        "title": "Canola Oil 5L",
+        "description": "Large-format canola oil, suited for restaurants, catering, and large households.",
+        "label": "Canola",
+        "whatsapp": "Details & Order"
       }
     ]
   },

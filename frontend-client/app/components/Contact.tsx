@@ -63,7 +63,7 @@ export default function Contact({ locale, dict }: ContactProps) {
   };
 
   const handleWhatsApp = () => {
-    const phone = "972501234567"; // Replace with actual WhatsApp number
+    const phone = "972546970555";
     const message = encodeURIComponent(
       `${dict.contact.whatsapp}\n\n${dict.contact.form.name}: ${formData.name}\n${dict.contact.form.phone}: ${formData.phone}\n${dict.contact.form.message}: ${formData.message}`
     );

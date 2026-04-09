@@ -26,7 +26,7 @@ export const translations = {
         },
         {
           title: "מגוון גדלים",
-          description: "5 ליטר, 10 ליטר ו-20 ליטר - בדיוק מה שאתה צריך למטבח שלך.",
+          description: "שמן חמניות וקנולה ב-0.9 ליטר ו-5 ליטר — בדיוק מה שאתה צריך.",
         },
         {
           title: "מחיר תחרותי",
@@ -99,7 +99,7 @@ export const translations = {
         },
         {
           title: "Multiple Sizes",
-          description: "5L, 10L, and 20L containers - exactly what you need for your kitchen.",
+          description: "Sunflower and canola oil in 0.9L and 5L — exactly what you need.",
         },
         {
           title: "Competitive Pricing",
@@ -172,7 +172,7 @@ export const translations = {
         },
         {
           title: "Разные размеры",
-          description: "5 литров, 10 литров и 20 литров - именно то, что вам нужно для вашей кухни.",
+          description: "Подсолнечное и рапсовое масло в объёмах 0.9л и 5л — именно то, что вам нужно.",
         },
         {
           title: "Конкурентные цены",

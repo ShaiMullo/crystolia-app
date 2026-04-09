@@ -9,9 +9,11 @@ interface ProductsProps {
     products: {
       title: string;
       subtitle: string;
+      badge: string;
       items: Array<{
         title: string;
         description: string;
+        label: string;
         whatsapp: string;
       }>;
     };
@@ -22,24 +24,22 @@ export default function Products({ locale, dict }: ProductsProps) {
   const isRTL = locale === "he";
 
   const products = [
-    {
-      image: "/bottle-5l.png",
-      size: "5L",
-    },
-    {
-      image: "/bottle-10l.png",
-      size: "10L",
-    },
-    {
-      image: "/bottle-20l.png",
-      size: "20L",
-    },
+    { image: "/bottle-5l.png", size: "0.9L", type: "sunflower" as const },
+    { image: "/bottle-5l.png", size: "0.9L", type: "canola" as const },
+    { image: "/bottle-10l.png", size: "5L", type: "sunflower" as const },
+    { image: "/bottle-10l.png", size: "5L", type: "canola" as const },
   ];
 
-  const handleWhatsApp = (index: number) => {
-    const phone = "972501234567"; // Replace with actual WhatsApp number
-    const productData = dict.products.items[index];
-    const message = encodeURIComponent(productData.whatsapp);
+  const labelColors = {
+    sunflower: "from-[#F5C542] to-[#E6B800]",
+    canola: "from-[#6BBF59] to-[#4A9E3D]",
+  };
+
+  const handleWhatsApp = () => {
+    const phone = "972546970555";
+    const message = encodeURIComponent(
+      "שלום, אני מעוניין לקבל פרטים והצעת מחיר עבור שמן חמניות/קנולה. אשמח שתיצרו איתי קשר."
+    );
     window.open(`https://wa.me/${phone}?text=${message}`, "_blank");
   };
 
@@ -53,13 +53,14 @@ export default function Products({ locale, dict }: ProductsProps) {
       <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-white to-transparent" />
 
       <div
-        className={`relative z-10 max-w-7xl mx-auto px-6 lg:px-12 ${isRTL ? "rtl" : "ltr"
-          }`}
+        className={`relative z-10 max-w-6xl mx-auto px-6 lg:px-12 ${
+          isRTL ? "rtl" : "ltr"
+        }`}
       >
         {/* Section Header */}
         <div className="text-center mb-20">
           <span className="inline-block px-4 py-1.5 rounded-full bg-gradient-to-r from-[#F5C542]/20 to-[#B8860B]/20 text-[#B8860B] text-sm font-medium tracking-wider uppercase mb-4">
-            Premium Collection
+            {dict.products.badge}
           </span>
           <h2 className="text-5xl md:text-6xl font-light tracking-tight text-[#3D2914] mb-4">
             {dict.products.title}
@@ -69,45 +70,61 @@ export default function Products({ locale, dict }: ProductsProps) {
           </p>
         </div>
 
-        {/* Products Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
+        {/* Products Grid — 2x2 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 lg:gap-10">
           {products.map((product, index) => {
             const productData = dict.products.items[index];
             return (
               <div
-                key={product.size}
-                className="group relative bg-white rounded-3xl p-8 shadow-lg hover:shadow-2xl hover:shadow-[#F5C542]/15 transition-all duration-500 hover:-translate-y-3 border-2 border-[#F5C542]/10 hover:border-[#F5C542]/40"
+                key={`${product.type}-${product.size}`}
+                className="group relative bg-white rounded-3xl shadow-lg hover:shadow-2xl hover:shadow-[#F5C542]/15 transition-all duration-500 hover:-translate-y-2 border-2 border-[#F5C542]/10 hover:border-[#F5C542]/40 flex flex-col sm:flex-row overflow-hidden"
               >
-                {/* Product Image */}
-                <div className="relative h-64 mb-6 flex items-center justify-center">
+                {/* Image Side */}
+                <div className="relative w-full sm:w-2/5 bg-gradient-to-br from-[#FFFDF5] to-[#FFF8E7] flex items-center justify-center p-8 sm:p-6 min-h-[220px]">
+                  {/* Type Label */}
+                  <div
+                    className={`absolute top-4 ${
+                      isRTL ? "right-4" : "left-4"
+                    } px-3 py-1 bg-gradient-to-r ${
+                      labelColors[product.type]
+                    } text-white text-xs font-bold rounded-full shadow-md z-10`}
+                  >
+                    {productData.label}
+                  </div>
                   {/* Size Badge */}
-                  <div className="absolute top-0 right-0 px-3 py-1.5 bg-gradient-to-r from-[#F5C542] to-[#B8860B] text-white text-sm font-bold rounded-full shadow-md">
+                  <div
+                    className={`absolute top-4 ${
+                      isRTL ? "left-4" : "right-4"
+                    } px-3 py-1 bg-[#3D2914] text-white text-xs font-bold rounded-full shadow-md z-10`}
+                  >
                     {product.size}
                   </div>
-                  <div className="relative w-full h-full max-w-[200px] mx-auto">
+                  <div className="relative w-[120px] h-[180px]">
                     <Image
                       src={product.image}
                       alt={productData.title}
                       fill
                       className="object-contain transition-transform duration-500 group-hover:scale-110"
-                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      sizes="120px"
                     />
                   </div>
                 </div>
 
-                {/* Product Info */}
-                <div className="text-center space-y-4">
-                  <h3 className="text-2xl font-medium text-[#3D2914]">
-                    {productData.title}
-                  </h3>
-                  <p className="text-gray-600 font-light leading-relaxed min-h-[60px]">
-                    {productData.description}
-                  </p>
+                {/* Content Side */}
+                <div className="flex-1 p-8 flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-xl font-semibold text-[#3D2914] mb-3">
+                      {productData.title}
+                    </h3>
+                    <p className="text-gray-600 font-light leading-relaxed text-sm">
+                      {productData.description}
+                    </p>
+                  </div>
 
-                  {/* WhatsApp CTA Button */}
+                  {/* WhatsApp CTA */}
                   <button
-                    onClick={() => handleWhatsApp(index)}
-                    className="w-full mt-6 px-6 py-3.5 bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white rounded-full font-medium text-sm tracking-wide hover:from-[#25D366] hover:to-[#25D366] transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg shadow-[#25D366]/30 hover:shadow-xl hover:shadow-[#25D366]/40 flex items-center justify-center gap-2"
+                    onClick={handleWhatsApp}
+                    className="mt-6 w-full px-5 py-3 bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white rounded-full font-medium text-sm tracking-wide hover:from-[#25D366] hover:to-[#25D366] transition-all duration-300 hover:scale-[1.03] active:scale-95 shadow-lg shadow-[#25D366]/30 hover:shadow-xl hover:shadow-[#25D366]/40 flex items-center justify-center gap-2"
                   >
                     <svg
                       className="w-4 h-4"
@@ -119,9 +136,6 @@ export default function Products({ locale, dict }: ProductsProps) {
                     {productData.whatsapp}
                   </button>
                 </div>
-
-                {/* Hover Glow Effect */}
-                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-[#F5C542]/0 to-[#B8860B]/0 group-hover:from-[#F5C542]/5 group-hover:to-transparent transition-all duration-500 pointer-events-none" />
               </div>
             );
           })}
@@ -130,4 +144,3 @@ export default function Products({ locale, dict }: ProductsProps) {
     </section>
   );
 }
-

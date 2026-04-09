@@ -4,8 +4,8 @@ import React from 'react';
 import { FaWhatsapp } from 'react-icons/fa';
 
 const FloatingWhatsApp = () => {
-    const phoneNumber = '972501234567'; // Replace with actual business number
-    const message = encodeURIComponent('היי, הגעתי מהאתר ואני מעוניין בפרטים על רכישת שמן סיטונאית.');
+    const phoneNumber = '972546970555';
+    const message = encodeURIComponent('שלום, אני מעוניין לקבל פרטים והצעת מחיר עבור שמן חמניות/קנולה. אשמח שתיצרו איתי קשר.');
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${message}`;
 
     return (

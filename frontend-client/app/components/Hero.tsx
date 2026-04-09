@@ -21,8 +21,9 @@ export default function Hero({ locale, dict }: HeroProps) {
   const isRTL = locale === "he";
 
   const handleWhatsApp = () => {
+    const message = encodeURIComponent("שלום, אני מעוניין לקבל פרטים והצעת מחיר עבור שמן חמניות/קנולה. אשמח שתיצרו איתי קשר.");
     window.open(
-      "https://wa.me/972546970555?text=%D7%A9%D7%9C%D7%95%D7%9D%2C%20%D7%90%D7%A0%D7%99%20%D7%9E%D7%A2%D7%95%D7%A0%D7%99%D7%99%D7%9F%20%D7%9C%D7%A7%D7%91%D7%9C%20%D7%A4%D7%A8%D7%98%D7%99%D7%9D%20%D7%95%D7%94%D7%A6%D7%A2%D7%AA%20%D7%9E%D7%97%D7%99%D7%A8%20%D7%A2%D7%91%D7%95%D7%A8%20%D7%A9%D7%9E%D7%9F%20%D7%97%D7%9E%D7%A0%D7%99%D7%95%D7%AA%2F%D7%A7%D7%A0%D7%95%D7%9C%D7%94%20%D7%91%D7%9B%D7%9E%D7%95%D7%99%D7%95%D7%AA.%20%D7%90%D7%A9%D7%9E%D7%97%20%D7%A9%D7%99%D7%97%D7%96%D7%A8%D7%95%20%D7%90%D7%9C%D7%99%D7%99.",
+      `https://wa.me/972546970555?text=${message}`,
       "_blank"
     );
   };
@@ -43,10 +44,10 @@ export default function Hero({ locale, dict }: HeroProps) {
       {/* Background Image */}
       <div className="absolute inset-0">
         <Image
-          src="/sunflower-bg.jpg"
-          alt="Sunflower background"
+          src="/crystolia-bg.png"
+          alt="Crystolia — sunflower and canola fields"
           fill
-          className="object-cover"
+          className="object-cover object-[center_35%]"
           priority
           quality={90}
         />
