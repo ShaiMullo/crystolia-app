@@ -23,16 +23,49 @@ interface ContactProps {
   };
 }
 
+const API_URL = process.env.NEXT_PUBLIC_LEADS_API_URL || "";
+
 export default function Contact({ locale, dict }: ContactProps) {
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
     message: "",
   });
+  const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
   const isRTL = locale === "he";
 
-  const handleWhatsApp = (e?: FormEvent) => {
-    e?.preventDefault();
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setStatus("sending");
+
+    try {
+      const res = await fetch(`${API_URL}/lead`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name,
+          phone: formData.phone,
+          message: formData.message,
+          locale,
+          source: "landing-contact-form",
+        }),
+      });
+
+      if (res.ok) {
+        setStatus("success");
+        setFormData({ name: "", phone: "", message: "" });
+        setTimeout(() => setStatus("idle"), 6000);
+      } else {
+        setStatus("error");
+        setTimeout(() => setStatus("idle"), 6000);
+      }
+    } catch {
+      setStatus("error");
+      setTimeout(() => setStatus("idle"), 6000);
+    }
+  };
+
+  const handleWhatsApp = () => {
     const phone = "972546970555";
     const message = encodeURIComponent(
       `${dict.contact.whatsapp}\n\n${dict.contact.form.name}: ${formData.name}\n${dict.contact.form.phone}: ${formData.phone}\n${dict.contact.form.message}: ${formData.message}`
@@ -65,7 +98,7 @@ export default function Contact({ locale, dict }: ContactProps) {
 
         {/* Contact Form */}
         <div className="bg-gradient-to-br from-white to-gray-50/50 rounded-3xl p-8 md:p-12 shadow-xl border border-gray-100">
-          <form onSubmit={handleWhatsApp} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
             {/* Name Field */}
             <div>
               <label
@@ -83,7 +116,8 @@ export default function Contact({ locale, dict }: ContactProps) {
                   setFormData({ ...formData, name: e.target.value })
                 }
                 required
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:border-[#F5C542] focus:ring-2 focus:ring-[#F5C542]/20 outline-none transition-all duration-300 font-light"
+                disabled={status === "sending"}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:border-[#F5C542] focus:ring-2 focus:ring-[#F5C542]/20 outline-none transition-all duration-300 font-light disabled:opacity-50"
               />
             </div>
 
@@ -104,7 +138,8 @@ export default function Contact({ locale, dict }: ContactProps) {
                   setFormData({ ...formData, phone: e.target.value })
                 }
                 required
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:border-[#F5C542] focus:ring-2 focus:ring-[#F5C542]/20 outline-none transition-all duration-300 font-light"
+                disabled={status === "sending"}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:border-[#F5C542] focus:ring-2 focus:ring-[#F5C542]/20 outline-none transition-all duration-300 font-light disabled:opacity-50"
               />
             </div>
 
@@ -123,15 +158,38 @@ export default function Contact({ locale, dict }: ContactProps) {
                 onChange={(e) =>
                   setFormData({ ...formData, message: e.target.value })
                 }
-                required
                 rows={5}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:border-[#F5C542] focus:ring-2 focus:ring-[#F5C542]/20 outline-none transition-all duration-300 font-light resize-none"
+                disabled={status === "sending"}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:border-[#F5C542] focus:ring-2 focus:ring-[#F5C542]/20 outline-none transition-all duration-300 font-light resize-none disabled:opacity-50"
               />
             </div>
 
-            {/* WhatsApp Submit Button */}
+            {/* Status Messages */}
+            {status === "success" && (
+              <div className="p-4 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm font-light">
+                {dict.contact.form.success}
+              </div>
+            )}
+            {status === "error" && (
+              <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-light">
+                {dict.contact.form.error}
+              </div>
+            )}
+
+            {/* Submit Button */}
             <button
               type="submit"
+              disabled={status === "sending"}
+              className="w-full px-8 py-4 bg-[#F5C542] text-white rounded-full font-light text-base tracking-wide hover:bg-[#F5C542]/90 transition-all duration-300 hover:scale-[1.02] active:scale-98 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {status === "sending" ? dict.contact.form.sending : dict.contact.form.submit}
+            </button>
+          </form>
+
+          {/* WhatsApp Fallback */}
+          <div className="mt-8 pt-8 border-t border-gray-200">
+            <button
+              onClick={handleWhatsApp}
               className="w-full px-8 py-4 bg-[#25D366] text-white rounded-full font-light text-base tracking-wide hover:bg-[#25D366]/90 transition-all duration-300 hover:scale-[1.02] active:scale-98 shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -139,7 +197,7 @@ export default function Contact({ locale, dict }: ContactProps) {
               </svg>
               {dict.contact.whatsapp}
             </button>
-          </form>
+          </div>
         </div>
       </div>
     </section>
