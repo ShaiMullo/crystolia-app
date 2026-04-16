@@ -1,0 +1,9 @@
+{
+  "name": "crystolia-leads-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "zip": "zip -j function.zip index.mjs"
+  }
+}
