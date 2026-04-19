@@ -141,7 +141,7 @@ export const config: Config = {
     },
 
     // Production Security
-    corsOrigins: getEnvOrDefault('CORS_ALLOW_ORIGINS', 'http://localhost:3001').split(','),
+    corsOrigins: getEnvOrDefault('CORS_ALLOW_ORIGINS', 'http://localhost:3000,http://localhost:3001').split(',').map(s => s.trim()),
     cookieDomain: process.env.COOKIE_DOMAIN, // Undefined by default (host only)
     secureCookie: process.env.NODE_ENV === 'production', // True in prod, false in dev
 };

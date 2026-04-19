@@ -54,7 +54,7 @@ backend:
   env:
     # MONGO_URI injected via K8s Secret (crystolia-backend-secret)
     FRONTEND_URL: "https://crystolia.com"
-    CORS_ALLOW_ORIGINS: "https://crystolia.com"
+    CORS_ALLOW_ORIGINS: "https://crystolia.com,https://www.crystolia.com"
     # JWT_SECRET injected via K8s Secret (crystolia-backend-secret)
     # GOOGLE_CLIENT_ID injected via K8s Secret
     # GOOGLE_CLIENT_SECRET injected via K8s Secret

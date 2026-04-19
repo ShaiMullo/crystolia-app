@@ -58,6 +58,16 @@ spec:
                   key: MONGO_URI
             - name: FRONTEND_URL
               value: "{{ .Values.backend.env.FRONTEND_URL }}"
+            - name: CORS_ALLOW_ORIGINS
+              value: "{{ .Values.backend.env.CORS_ALLOW_ORIGINS }}"
+            {{- if .Values.backend.env.COOKIE_DOMAIN }}
+            - name: COOKIE_DOMAIN
+              value: "{{ .Values.backend.env.COOKIE_DOMAIN }}"
+            {{- end }}
+            {{- if .Values.backend.env.GOOGLE_CALLBACK_URL }}
+            - name: GOOGLE_CALLBACK_URL
+              value: "{{ .Values.backend.env.GOOGLE_CALLBACK_URL }}"
+            {{- end }}
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:

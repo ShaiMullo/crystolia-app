@@ -39,14 +39,13 @@ export default function Contact({ locale, dict }: ContactProps) {
     setStatus("sending");
 
     try {
-      const res = await fetch(`${API_URL}/lead`, {
+      const res = await fetch(`${API_URL}/api/leads`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: formData.name,
           phone: formData.phone,
           message: formData.message,
-          locale,
           source: "landing-contact-form",
         }),
       });
