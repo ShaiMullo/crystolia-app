@@ -31,6 +31,7 @@ let nextFlowerId = 0;
 export default function Header({ locale, dict }: HeaderProps) {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [sunflowers, setSunflowers] = useState<Sunflower[]>([]);
+  const isRTL = locale === "he";
 
   useEffect(() => {
     const handleScroll = () => {
@@ -40,8 +41,6 @@ export default function Header({ locale, dict }: HeaderProps) {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-
-  const isRTL = locale === "he";
 
   const createSunflowers = useCallback(() => {
     const newSunflowers: Sunflower[] = [];
@@ -86,6 +85,7 @@ export default function Header({ locale, dict }: HeaderProps) {
       </div>
 
       <header
+        dir={isRTL ? "rtl" : "ltr"}
         className="fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-out"
         style={{
           background: scrollProgress > 0
@@ -116,9 +116,7 @@ export default function Header({ locale, dict }: HeaderProps) {
           </button>
 
           {/* Navigation Links - Desktop */}
-          <div
-            className={`hidden md:flex items-center gap-10 ${isRTL ? "flex-row-reverse" : ""}`}
-          >
+          <div className="hidden md:flex items-center gap-10">
             {(["home", "products", "features", "about", "contact"] as const).map((key) => (
               <a
                 key={key}

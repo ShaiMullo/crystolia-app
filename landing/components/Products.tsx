@@ -10,6 +10,7 @@ interface ProductsProps {
       title: string;
       subtitle: string;
       badge: string;
+      whatsappMessage: string;
       items: Array<{
         title: string;
         description: string;
@@ -37,9 +38,7 @@ export default function Products({ locale, dict }: ProductsProps) {
 
   const handleWhatsApp = () => {
     const phone = "972546970555";
-    const message = encodeURIComponent(
-      "שלום, אני מעוניין לקבל פרטים והצעת מחיר עבור שמן חמניות/קנולה. אשמח שתיצרו איתי קשר."
-    );
+    const message = encodeURIComponent(dict.products.whatsappMessage);
     window.open(`https://wa.me/${phone}?text=${message}`, "_blank");
   };
 
@@ -53,9 +52,8 @@ export default function Products({ locale, dict }: ProductsProps) {
       <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-white to-transparent" />
 
       <div
-        className={`relative z-10 max-w-6xl mx-auto px-6 lg:px-12 ${
-          isRTL ? "rtl" : "ltr"
-        }`}
+        dir={isRTL ? "rtl" : "ltr"}
+        className="relative z-10 max-w-6xl mx-auto px-6 lg:px-12"
       >
         {/* Section Header */}
         <div className="text-center mb-20">

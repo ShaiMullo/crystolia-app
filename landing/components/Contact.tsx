@@ -11,14 +11,18 @@ interface ContactProps {
       subtitle: string;
       form: {
         name: string;
+        namePlaceholder: string;
         phone: string;
+        phonePlaceholder: string;
         message: string;
+        messagePlaceholder: string;
         submit: string;
         sending: string;
         success: string;
         error: string;
       };
       whatsapp: string;
+      whatsappIntro: string;
     };
   };
 }
@@ -66,9 +70,11 @@ export default function Contact({ locale, dict }: ContactProps) {
 
   const handleWhatsApp = () => {
     const phone = "972546970555";
-    const message = encodeURIComponent(
-      `${dict.contact.whatsapp}\n\n${dict.contact.form.name}: ${formData.name}\n${dict.contact.form.phone}: ${formData.phone}\n${dict.contact.form.message}: ${formData.message}`
-    );
+    const lines = [dict.contact.whatsappIntro, ""];
+    if (formData.name) lines.push(`${dict.contact.form.name}: ${formData.name}`);
+    if (formData.phone) lines.push(`${dict.contact.form.phone}: ${formData.phone}`);
+    if (formData.message) lines.push(`${dict.contact.form.message}: ${formData.message}`);
+    const message = encodeURIComponent(lines.join("\n"));
     window.open(`https://wa.me/${phone}?text=${message}`, "_blank");
   };
 
@@ -83,7 +89,8 @@ export default function Contact({ locale, dict }: ContactProps) {
       </div>
 
       <div
-        className={`relative z-10 max-w-4xl mx-auto px-6 lg:px-12 ${isRTL ? "rtl" : "ltr"}`}
+        dir={isRTL ? "rtl" : "ltr"}
+        className="relative z-10 max-w-4xl mx-auto px-6 lg:px-12"
       >
         {/* Section Header */}
         <div className="text-center mb-16">
@@ -116,6 +123,8 @@ export default function Contact({ locale, dict }: ContactProps) {
                 }
                 required
                 disabled={status === "sending"}
+                placeholder={dict.contact.form.namePlaceholder}
+                autoComplete="name"
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:border-[#F5C542] focus:ring-2 focus:ring-[#F5C542]/20 outline-none transition-all duration-300 font-light disabled:opacity-50"
               />
             </div>
@@ -138,6 +147,10 @@ export default function Contact({ locale, dict }: ContactProps) {
                 }
                 required
                 disabled={status === "sending"}
+                dir="ltr"
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder={dict.contact.form.phonePlaceholder}
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:border-[#F5C542] focus:ring-2 focus:ring-[#F5C542]/20 outline-none transition-all duration-300 font-light disabled:opacity-50"
               />
             </div>
@@ -159,6 +172,7 @@ export default function Contact({ locale, dict }: ContactProps) {
                 }
                 rows={5}
                 disabled={status === "sending"}
+                placeholder={dict.contact.form.messagePlaceholder}
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:border-[#F5C542] focus:ring-2 focus:ring-[#F5C542]/20 outline-none transition-all duration-300 font-light resize-none disabled:opacity-50"
               />
             </div>

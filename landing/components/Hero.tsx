@@ -11,6 +11,7 @@ interface HeroProps {
       subtitle: string;
       description: string;
       whatsapp: string;
+      whatsappMessage: string;
       contactNow: string;
       leaveDetails: string;
     };
@@ -21,7 +22,7 @@ export default function Hero({ locale, dict }: HeroProps) {
   const isRTL = locale === "he";
 
   const handleWhatsApp = () => {
-    const message = encodeURIComponent("שלום, אני מעוניין לקבל פרטים והצעת מחיר עבור שמן חמניות/קנולה. אשמח שתיצרו איתי קשר.");
+    const message = encodeURIComponent(dict.hero.whatsappMessage);
     window.open(
       `https://wa.me/972546970555?text=${message}`,
       "_blank"
@@ -84,11 +85,7 @@ export default function Hero({ locale, dict }: HeroProps) {
         </p>
 
         {/* CTA Buttons */}
-        <div
-          className={`flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-5 ${
-            isRTL ? "sm:flex-row-reverse" : ""
-          } animate-fade-in-delay-2`}
-        >
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-5 animate-fade-in-delay-2">
           {/* Primary: WhatsApp */}
           <button
             onClick={handleWhatsApp}

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { getDictionary } from "@/i18n/getDictionary";
 import { Locale, i18n } from "@/i18n/config";
 
@@ -15,6 +16,19 @@ export function generateStaticParams() {
 
 interface PageProps {
   params: Promise<{ locale: string }>;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { locale: rawLocale } = await params;
+  const locale: Locale = i18n.locales.includes(rawLocale as Locale)
+    ? (rawLocale as Locale)
+    : (i18n.defaultLocale as Locale);
+  const dict = getDictionary(locale);
+
+  return {
+    title: `${dict.footer.brand} — ${dict.hero.title}`,
+    description: dict.hero.description,
+  };
 }
 
 export default async function LandingPage({ params }: PageProps) {

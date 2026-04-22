@@ -8,6 +8,7 @@ interface AboutProps {
   dict: {
     about: {
       title: string;
+      imageCaption: string;
       content: string[];
     };
   };
@@ -22,15 +23,12 @@ export default function About({ locale, dict }: AboutProps) {
       className="relative py-32 bg-gradient-to-b from-white to-gray-50/30"
     >
       <div
-        className={`max-w-7xl mx-auto px-6 lg:px-12 ${isRTL ? "rtl" : "ltr"}`}
+        dir={isRTL ? "rtl" : "ltr"}
+        className="max-w-7xl mx-auto px-6 lg:px-12"
       >
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           {/* Text Content */}
-          <div
-            className={`space-y-8 ${
-              isRTL ? "lg:text-right" : "lg:text-left"
-            }`}
-          >
+          <div className="space-y-8 lg:text-start">
             <h2 className="text-5xl md:text-6xl font-extralight tracking-tight text-gray-900">
               {dict.about.title}
             </h2>
@@ -64,7 +62,7 @@ export default function About({ locale, dict }: AboutProps) {
                     />
                   </div>
                   <p className="text-sm font-light text-gray-500">
-                    Premium Quality
+                    {dict.about.imageCaption}
                   </p>
                 </div>
               </div>
