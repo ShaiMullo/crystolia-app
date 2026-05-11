@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from '../ui/Modal';
 import { Lead } from '@/types';
+import { useAdminI18n } from '@/i18n/I18nProvider';
 
 interface ConvertResultCompany {
     _id: string;
@@ -45,6 +46,7 @@ interface ConvertLeadModalProps {
 }
 
 export default function ConvertLeadModal({ isOpen, onClose, lead, onSubmit, onSuccess }: ConvertLeadModalProps) {
+    const { t } = useAdminI18n();
     const [companyName, setCompanyName] = useState('');
     const [vatNumber, setVatNumber] = useState('');
     const [address, setAddress] = useState('');
@@ -105,7 +107,7 @@ export default function ConvertLeadModal({ isOpen, onClose, lead, onSubmit, onSu
             onSuccess();
         } catch (err: unknown) {
             const e = err as { response?: { data?: { message?: string } }; message?: string };
-            setError(e.response?.data?.message || e.message || 'Conversion failed');
+            setError(e.response?.data?.message || e.message || t('convert.errorFallback'));
         } finally {
             setLoading(false);
         }
@@ -131,32 +133,32 @@ export default function ConvertLeadModal({ isOpen, onClose, lead, onSubmit, onSu
     // ── Success view ──────────────────────────────────────────────────────
     if (result) {
         return (
-            <Modal isOpen={isOpen} onClose={handleDoneClick} title="Lead converted">
+            <Modal isOpen={isOpen} onClose={handleDoneClick} title={t('convert.successTitle')}>
                 <div className="space-y-4">
                     {result.idempotent ? (
                         <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded p-3">
-                            This lead was already converted — nothing was changed.
+                            {t('convert.alreadyConverted')}
                         </p>
                     ) : (
                         <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded p-3">
-                            Lead converted successfully.
+                            {t('convert.successMessage')}
                         </p>
                     )}
 
                     {result.company && (
                         <div className="bg-gray-50 rounded p-3 text-sm space-y-1">
-                            <p className="text-xs uppercase tracking-wide text-gray-400">Company</p>
+                            <p className="text-xs uppercase tracking-wide text-gray-400">{t('convert.companyHeading')}</p>
                             <p className="font-medium text-gray-900">{result.company.name}</p>
                             <p className="font-mono text-xs text-gray-500">{result.company._id}</p>
                             {result.company.vatNumber && (
-                                <p className="text-xs text-gray-500">VAT: {result.company.vatNumber}</p>
+                                <p className="text-xs text-gray-500">{t('convert.vat')} {result.company.vatNumber}</p>
                             )}
                         </div>
                     )}
 
                     {result.user && (
                         <div className="bg-gray-50 rounded p-3 text-sm space-y-1">
-                            <p className="text-xs uppercase tracking-wide text-gray-400">Customer user</p>
+                            <p className="text-xs uppercase tracking-wide text-gray-400">{t('convert.customerUserHeading')}</p>
                             <p className="font-medium text-gray-900">{result.user.email}</p>
                             <p className="font-mono text-xs text-gray-500">{result.user._id}</p>
                         </div>
@@ -165,10 +167,10 @@ export default function ConvertLeadModal({ isOpen, onClose, lead, onSubmit, onSu
                     {result.tempPassword && (
                         <div className="border border-yellow-300 bg-yellow-50 rounded p-3 space-y-2">
                             <p className="text-xs uppercase tracking-wide text-yellow-700 font-semibold">
-                                Temporary password — shown once
+                                {t('convert.tempPasswordHeading')}
                             </p>
                             <p className="text-xs text-yellow-800">
-                                Hand this to the customer over a secure channel. It will not be displayed again after you close this dialog.
+                                {t('convert.tempPasswordHelp')}
                             </p>
                             <div className="flex items-center gap-2">
                                 <input
@@ -183,7 +185,7 @@ export default function ConvertLeadModal({ isOpen, onClose, lead, onSubmit, onSu
                                     onClick={handleCopyTempPassword}
                                     className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-medium rounded"
                                 >
-                                    {copied ? 'Copied!' : 'Copy'}
+                                    {copied ? t('common.copied') : t('common.copy')}
                                 </button>
                             </div>
                         </div>
@@ -195,7 +197,7 @@ export default function ConvertLeadModal({ isOpen, onClose, lead, onSubmit, onSu
                             onClick={handleDoneClick}
                             className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded"
                         >
-                            Done
+                            {t('common.done')}
                         </button>
                     </div>
                 </div>
@@ -205,7 +207,7 @@ export default function ConvertLeadModal({ isOpen, onClose, lead, onSubmit, onSu
 
     // ── Form view ─────────────────────────────────────────────────────────
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Convert lead: ${lead.name}`}>
+        <Modal isOpen={isOpen} onClose={onClose} title={t('convert.title', { name: lead.name })}>
             <form onSubmit={handleSubmit} className="space-y-4">
                 {error && (
                     <div className="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-700">
@@ -215,7 +217,7 @@ export default function ConvertLeadModal({ isOpen, onClose, lead, onSubmit, onSu
 
                 <div>
                     <label className="block text-sm font-medium text-gray-700">
-                        Company name <span className="text-red-500">*</span>
+                        {t('convert.fields.companyName')} <span className="text-red-500">*</span>
                     </label>
                     <input
                         type="text"
@@ -228,7 +230,7 @@ export default function ConvertLeadModal({ isOpen, onClose, lead, onSubmit, onSu
 
                 <div className="grid grid-cols-2 gap-3">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">VAT number</label>
+                        <label className="block text-sm font-medium text-gray-700">{t('convert.fields.vatNumber')}</label>
                         <input
                             type="text"
                             value={vatNumber}
@@ -237,7 +239,7 @@ export default function ConvertLeadModal({ isOpen, onClose, lead, onSubmit, onSu
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">City</label>
+                        <label className="block text-sm font-medium text-gray-700">{t('convert.fields.city')}</label>
                         <input
                             type="text"
                             value={city}
@@ -248,7 +250,7 @@ export default function ConvertLeadModal({ isOpen, onClose, lead, onSubmit, onSu
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Address</label>
+                    <label className="block text-sm font-medium text-gray-700">{t('convert.fields.address')}</label>
                     <input
                         type="text"
                         value={address}
@@ -259,7 +261,7 @@ export default function ConvertLeadModal({ isOpen, onClose, lead, onSubmit, onSu
 
                 <div className="grid grid-cols-2 gap-3">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Phone</label>
+                        <label className="block text-sm font-medium text-gray-700">{t('convert.fields.phone')}</label>
                         <input
                             type="text"
                             value={phone}
@@ -268,7 +270,7 @@ export default function ConvertLeadModal({ isOpen, onClose, lead, onSubmit, onSu
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Email</label>
+                        <label className="block text-sm font-medium text-gray-700">{t('convert.fields.email')}</label>
                         <input
                             type="email"
                             value={email}
@@ -280,11 +282,11 @@ export default function ConvertLeadModal({ isOpen, onClose, lead, onSubmit, onSu
 
                 <div className="border-t border-gray-100 pt-4">
                     <p className="text-xs uppercase tracking-wide text-gray-400 mb-2">
-                        Customer login (only if email is provided)
+                        {t('convert.customerLoginSection')}
                     </p>
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Contact name</label>
+                            <label className="block text-sm font-medium text-gray-700">{t('convert.fields.contactName')}</label>
                             <input
                                 type="text"
                                 value={userName}
@@ -294,14 +296,14 @@ export default function ConvertLeadModal({ isOpen, onClose, lead, onSubmit, onSu
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">
-                                Password <span className="text-gray-400">(optional)</span>
+                                {t('convert.fields.password')} <span className="text-gray-400">{t('common.optional')}</span>
                             </label>
                             <input
                                 type="text"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 autoComplete="new-password"
-                                placeholder="Leave blank to auto-generate"
+                                placeholder={t('convert.fields.passwordPlaceholder')}
                                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 sm:text-sm"
                             />
                         </div>
@@ -309,13 +311,13 @@ export default function ConvertLeadModal({ isOpen, onClose, lead, onSubmit, onSu
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Internal note</label>
+                    <label className="block text-sm font-medium text-gray-700">{t('convert.fields.internalNote')}</label>
                     <textarea
                         value={note}
                         onChange={(e) => setNote(e.target.value)}
                         rows={2}
                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 sm:text-sm"
-                        placeholder="Optional note recorded on the lead timeline."
+                        placeholder={t('convert.fields.internalNotePlaceholder')}
                     />
                 </div>
 
@@ -326,14 +328,14 @@ export default function ConvertLeadModal({ isOpen, onClose, lead, onSubmit, onSu
                         disabled={loading}
                         className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none disabled:opacity-50"
                     >
-                        Cancel
+                        {t('common.cancel')}
                     </button>
                     <button
                         type="submit"
                         disabled={!canSubmit}
                         className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none disabled:opacity-50"
                     >
-                        {loading ? 'Converting…' : 'Convert to customer'}
+                        {loading ? t('convert.submitting') : t('convert.submit')}
                     </button>
                 </div>
             </form>

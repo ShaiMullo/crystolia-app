@@ -6,18 +6,19 @@ import { toast, Toaster } from "react-hot-toast";
 import { useAuth } from "@/app/context/AuthContext";
 import { Lead, LeadStatus } from "@/types";
 import LeadEditModal from "@/components/leads/LeadEditModal";
+import { useAdminI18n } from "@/i18n/I18nProvider";
 
-const STATUSES: { value: LeadStatus; label: string }[] = [
-    { value: "new",        label: "New" },
-    { value: "contacted",  label: "Contacted" },
-    { value: "qualified",  label: "Qualified" },
-    { value: "proposal",   label: "Proposal" },
-    { value: "won",        label: "Won" },
-    { value: "lost",       label: "Lost" },
-    { value: "converted",  label: "Converted" },
-    { value: "closed",     label: "Closed" },
-    { value: "archived",   label: "Archived" },
-    { value: "re-engaged", label: "Re-engaged" },
+const STATUS_VALUES: LeadStatus[] = [
+    "new",
+    "contacted",
+    "qualified",
+    "proposal",
+    "won",
+    "lost",
+    "converted",
+    "closed",
+    "archived",
+    "re-engaged",
 ];
 
 const STATUS_COLORS: Record<string, string> = {
@@ -35,6 +36,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function AgentDashboard() {
     const { user } = useAuth();
+    const { t } = useAdminI18n();
     const [leads, setLeads] = useState<Lead[]>([]);
     const [loading, setLoading] = useState(false);
     // Track which leads are mid-status-save so the select shows a subtle disabled state
@@ -57,11 +59,11 @@ export default function AgentDashboard() {
             }
         } catch (error) {
             console.error("Failed to fetch leads:", error);
-            toast.error("Failed to load leads");
+            toast.error(t("agent.toasts.loadFailed"));
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [t]);
 
     useEffect(() => {
         if (user) fetchLeads();
@@ -74,10 +76,10 @@ export default function AgentDashboard() {
         setSavingIds(prev => new Set(prev).add(leadId));
         try {
             await api.patch(`/leads/${leadId}`, { status: newStatus });
-            toast.success("Status updated");
+            toast.success(t("agent.toasts.statusUpdated"));
         } catch (error) {
             console.error(error);
-            toast.error("Failed to update status");
+            toast.error(t("agent.toasts.statusFailed"));
             // Roll back by refetching
             fetchLeads();
         } finally {
@@ -89,11 +91,11 @@ export default function AgentDashboard() {
     const handleSaveLead = async (leadId: string, data: Partial<Lead>) => {
         try {
             await api.patch(`/leads/${leadId}`, data);
-            toast.success("Lead updated");
+            toast.success(t("agent.toasts.leadUpdated"));
             fetchLeads();
         } catch (error) {
             console.error(error);
-            toast.error("Failed to update lead");
+            toast.error(t("agent.toasts.leadFailed"));
         }
     };
 
@@ -118,12 +120,12 @@ export default function AgentDashboard() {
             <Toaster />
 
             <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold text-gray-900">My Leads</h1>
+                <h1 className="text-2xl font-bold text-gray-900">{t('agent.myLeads')}</h1>
                 <button
                     onClick={fetchLeads}
                     className="text-sm text-blue-600 hover:text-blue-800 border px-3 py-1 rounded"
                 >
-                    Refresh
+                    {t('common.refresh')}
                 </button>
             </div>
 
@@ -131,7 +133,7 @@ export default function AgentDashboard() {
             <div className="flex flex-col sm:flex-row gap-3">
                 <input
                     type="text"
-                    placeholder="Search by name, phone, or email..."
+                    placeholder={t('agent.searchPlaceholder')}
                     value={search}
                     onChange={e => setSearch(e.target.value)}
                     className="flex-grow border border-gray-300 rounded-md px-4 py-2 text-sm focus:ring-yellow-500 focus:border-yellow-500"
@@ -141,31 +143,31 @@ export default function AgentDashboard() {
                     onChange={e => setStatusFilter(e.target.value as LeadStatus | "")}
                     className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-yellow-500 focus:border-yellow-500"
                 >
-                    <option value="">All Statuses</option>
-                    {STATUSES.map(s => (
-                        <option key={s.value} value={s.value}>{s.label}</option>
+                    <option value="">{t('leads.filters.allStatuses')}</option>
+                    {STATUS_VALUES.map(s => (
+                        <option key={s} value={s}>{t(`status.${s}`)}</option>
                     ))}
                 </select>
             </div>
 
             <div className="bg-white rounded-lg shadow overflow-hidden">
                 {loading ? (
-                    <div className="p-8 text-center text-gray-500">Loading assignments...</div>
+                    <div className="p-8 text-center text-gray-500">{t('agent.loading')}</div>
                 ) : leads.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500">No leads assigned.</div>
+                    <div className="p-8 text-center text-gray-500">{t('agent.emptyAssigned')}</div>
                 ) : filteredLeads.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500">No leads match your filters.</div>
+                    <div className="p-8 text-center text-gray-500">{t('agent.emptyFiltered')}</div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Contact</th>
-                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Contacts</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('agent.table.name')}</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('agent.table.contact')}</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('agent.table.status')}</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('agent.table.lastContact')}</th>
+                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">{t('agent.table.contacts')}</th>
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{t('common.actions')}</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
@@ -205,8 +207,8 @@ export default function AgentDashboard() {
                                                 onChange={(e) => handleQuickStatusChange(lead._id, e.target.value as LeadStatus)}
                                                 className={`text-xs font-semibold rounded-full px-2 py-1 border-0 cursor-pointer focus:ring-2 focus:ring-yellow-400 disabled:opacity-60 ${STATUS_COLORS[lead.status] ?? "bg-gray-100 text-gray-700"}`}
                                             >
-                                                {STATUSES.map(s => (
-                                                    <option key={s.value} value={s.value}>{s.label}</option>
+                                                {STATUS_VALUES.map(s => (
+                                                    <option key={s} value={s}>{t(`status.${s}`)}</option>
                                                 ))}
                                             </select>
                                         </td>
@@ -231,16 +233,16 @@ export default function AgentDashboard() {
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="text-green-600 hover:text-green-900"
-                                                    title={`WhatsApp ${lead.name}`}
+                                                    title={`${t('agent.actions.whatsapp')} ${lead.name}`}
                                                 >
-                                                    WhatsApp
+                                                    {t('agent.actions.whatsapp')}
                                                 </a>
                                             )}
                                             <button
                                                 onClick={() => { setCurrentLead(lead); setIsModalOpen(true); }}
                                                 className="text-indigo-600 hover:text-indigo-900"
                                             >
-                                                Notes
+                                                {t('agent.actions.notes')}
                                             </button>
                                         </td>
                                     </tr>

@@ -56,11 +56,41 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 
 ## Environment Variables
 
-Create a `.env.local` file:
+Copy `.env.example` to `.env.local` (gitignored) and adjust for your machine:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+NEXT_PUBLIC_API_URL=http://localhost:4000/api
+BACKEND_URL=http://localhost:4000
+JWT_SECRET=dev-secret-for-local-testing   # must match backend/.env
+```
+
+`BACKEND_URL` is the rewrite target used by `next.config.ts` to proxy
+`/api/*` to the backend. In Docker compose it is set to `http://backend:4000`;
+for `npm run dev` it defaults to `http://localhost:4000`.
+
+`JWT_SECRET` is consumed by `middleware.ts` (Edge) to verify the auth cookie
+before allowing access to `/admin/*` and `/agent/*`. It MUST match the
+backend `JWT_SECRET` or every authenticated route redirects back to `/login`.
+
+## Local dev (with local backend)
+
+```bash
+# 1. Backend (in another terminal)
+cd ../backend && npm run dev      # http://localhost:4000
+
+# 2. Frontend admin
+npm install
+cp .env.example .env.local        # only the first time
+npm run dev                       # http://localhost:3000
+```
+
+If the rewrite target changes (e.g. you edit `.env.local`), restart `next dev`
+and clear the Next cache:
+
+```bash
+pkill -f "next dev"
+rm -rf .next
+npm run dev
 ```
 
 ## Components

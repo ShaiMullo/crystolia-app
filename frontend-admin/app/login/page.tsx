@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
 import api from "@/app/lib/api";
+import { useAdminI18n } from "@/i18n/I18nProvider";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 export default function LoginPage() {
     const [email, setEmail] = useState("");
@@ -12,6 +14,7 @@ export default function LoginPage() {
     const [error, setError] = useState<string | null>(null);
 
     const { login, user, isLoading } = useAuth();
+    const { t } = useAdminI18n();
     const router = useRouter();
 
     useEffect(() => {
@@ -42,7 +45,7 @@ export default function LoginPage() {
             console.error('Login failed:', err);
             setLoading(false);
             setError(
-                err.response?.data?.message || 'Invalid credentials'
+                err.response?.data?.message || t('login.invalidCredentials')
             );
         }
     };
@@ -52,15 +55,18 @@ export default function LoginPage() {
             {/* Left Side - Branding */}
             <div className="hidden lg:flex lg:w-1/2 bg-[#F5C542] items-center justify-center relative overflow-hidden">
                 <div className="z-10 text-center text-white p-12">
-                    <h1 className="text-4xl font-bold mb-4">Crystolia Admin</h1>
-                    <p className="text-xl opacity-90">Internal Management Portal</p>
+                    <h1 className="text-4xl font-bold mb-4">{t('login.brandTitle')}</h1>
+                    <p className="text-xl opacity-90">{t('login.brandSubtitle')}</p>
                 </div>
             </div>
 
             {/* Right Side - Form */}
             <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
                 <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">Admin Login</h2>
+                    <div className="flex justify-end mb-4">
+                        <LanguageSwitcher />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">{t('login.heading')}</h2>
 
                     {error && (
                         <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-lg text-sm">
@@ -70,7 +76,7 @@ export default function LoginPage() {
 
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">{t('login.email')}</label>
                             <input
                                 type="email"
                                 value={email}
@@ -80,7 +86,7 @@ export default function LoginPage() {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">{t('login.password')}</label>
                             <input
                                 type="password"
                                 value={password}
@@ -95,7 +101,7 @@ export default function LoginPage() {
                             disabled={loading}
                             className="w-full py-3 bg-[#F5C542] text-white rounded-lg font-semibold hover:bg-[#d4a83a] transition-colors disabled:opacity-50"
                         >
-                            {loading ? "Logging in..." : "Login"}
+                            {loading ? t('login.submitting') : t('login.submit')}
                         </button>
                     </form>
                 </div>

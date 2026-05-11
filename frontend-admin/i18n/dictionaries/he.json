@@ -1,0 +1,412 @@
+{
+  "common": {
+    "loading": "טוען…",
+    "loadingData": "טוען נתונים…",
+    "save": "שמור",
+    "saving": "שומר…",
+    "cancel": "ביטול",
+    "close": "סגור",
+    "refresh": "רענן",
+    "actions": "פעולות",
+    "edit": "ערוך",
+    "view": "צפה",
+    "delete": "מחק",
+    "remove": "הסר",
+    "create": "צור",
+    "creating": "יוצר…",
+    "update": "עדכן",
+    "add": "הוסף",
+    "done": "סיום",
+    "retry": "נסה שוב",
+    "previous": "הקודם",
+    "next": "הבא",
+    "pageOf": "עמוד {page} מתוך {total}",
+    "noResults": "לא נמצאו תוצאות.",
+    "yes": "כן",
+    "no": "לא",
+    "optional": "(לא חובה)",
+    "required": "שדה חובה",
+    "copy": "העתק",
+    "copied": "הועתק!",
+    "all": "הכל",
+    "search": "חיפוש",
+    "back": "חזרה"
+  },
+  "language": {
+    "label": "שפה",
+    "he": "עברית",
+    "en": "אנגלית",
+    "ru": "רוסית"
+  },
+  "login": {
+    "brandTitle": "Crystolia אדמין",
+    "brandSubtitle": "פורטל ניהול פנימי",
+    "heading": "כניסת מנהלים",
+    "email": "אימייל",
+    "password": "סיסמה",
+    "submit": "התחבר",
+    "submitting": "מתחבר…",
+    "invalidCredentials": "אימייל או סיסמה שגויים"
+  },
+  "nav": {
+    "brand": "Crystolia",
+    "brandAdminSuffix": "אדמין",
+    "brandAgentSuffix": "סוכן",
+    "dashboard": "לוח בקרה",
+    "crm": "CRM",
+    "settings": "הגדרות",
+    "logout": "התנתק",
+    "administratorFallback": "מנהל"
+  },
+  "dashboard": {
+    "tabs": {
+      "leads": "לידים",
+      "users": "משתמשים",
+      "orders": "הזמנות",
+      "invoices": "חשבוניות",
+      "audit": "יומן ביקורת"
+    },
+    "headings": {
+      "leads": "כל הלידים",
+      "users": "משתמשי המערכת",
+      "orders": "הזמנות לקוחות",
+      "invoices": "חשבוניות",
+      "audit": "יומן ביקורת מערכת"
+    },
+    "buttons": {
+      "createUser": "+ צור משתמש",
+      "createInvoice": "+ צור חשבונית"
+    }
+  },
+  "leads": {
+    "table": {
+      "name": "שם",
+      "status": "סטטוס",
+      "count": "מספר פניות",
+      "assignedTo": "משויך ל",
+      "lastContact": "מועד יצירת קשר אחרון",
+      "actions": "פעולות"
+    },
+    "filters": {
+      "searchPlaceholder": "חיפוש לפי שם או טלפון…",
+      "allStatuses": "כל הסטטוסים",
+      "allAgents": "כל הסוכנים"
+    },
+    "empty": "לא נמצאו לידים.",
+    "toasts": {
+      "loadFailed": "טעינת הלידים נכשלה",
+      "updated": "הליד עודכן בהצלחה",
+      "updateFailed": "עדכון הליד נכשל"
+    },
+    "modal": {
+      "editTitle": "עריכת ליד: {name}",
+      "status": "סטטוס",
+      "assignAgent": "שייך סוכן",
+      "unassigned": "— לא משויך —",
+      "tagsLabel": "תגיות (מופרדות בפסיק)",
+      "tagsPlaceholder": "VIP, דחוף, הפנייה",
+      "addNote": "הוסף הערה",
+      "addNotePlaceholder": "הוסף הערה חדשה…",
+      "saveChanges": "שמור שינויים"
+    }
+  },
+  "leadDetail": {
+    "backToDashboard": "← חזרה ללוח הבקרה",
+    "noEmail": "ללא אימייל",
+    "info": {
+      "title": "פרטי הליד",
+      "source": "מקור",
+      "tags": "תגיות",
+      "contactCount": "מספר פניות",
+      "lastContact": "מועד יצירת קשר אחרון",
+      "owner": "אחראי",
+      "unassigned": "לא משויך",
+      "created": "נוצר"
+    },
+    "convertCard": {
+      "title": "המרה",
+      "description": "צור חברה (ובאופן אופציונלי גם משתמש לקוח) מהליד הזה.",
+      "button": "המר ללקוח"
+    },
+    "convertedCard": {
+      "title": "הומר",
+      "badge": "לקוח",
+      "convertedAt": "הומר בתאריך:",
+      "companyId": "מזהה חברה:",
+      "userId": "מזהה משתמש:",
+      "noUserCreated": "לא נוצר משתמש לקוח."
+    },
+    "changeStatus": {
+      "title": "שינוי סטטוס",
+      "button": "עדכן סטטוס"
+    },
+    "assign": {
+      "title": "שייך אחראי",
+      "placeholder": "מזהה אחראי או שם",
+      "button": "שייך"
+    },
+    "timeline": {
+      "title": "ציר זמן",
+      "empty": "אין אירועים בציר הזמן עדיין."
+    },
+    "notes": {
+      "title": "הערות",
+      "placeholder": "הוסף הערה…",
+      "addBtn": "הוסף",
+      "empty": "אין הערות עדיין."
+    },
+    "messages": {
+      "title": "הודעות"
+    },
+    "toasts": {
+      "loadFailed": "טעינת הליד נכשלה",
+      "statusUpdated": "הסטטוס עודכן ל-{status}",
+      "statusFailed": "עדכון הסטטוס נכשל",
+      "noteAdded": "הערה נוספה",
+      "noteFailed": "הוספת הערה נכשלה",
+      "ownerAssigned": "האחראי שויך",
+      "ownerFailed": "שיוך האחראי נכשל",
+      "alreadyConverted": "הליד כבר הומר",
+      "converted": "הליד הומר ללקוח"
+    },
+    "states": {
+      "loading": "טוען…",
+      "notFound": "ליד לא נמצא"
+    }
+  },
+  "convert": {
+    "title": "המר ליד: {name}",
+    "successTitle": "הליד הומר",
+    "alreadyConverted": "הליד הזה כבר הומר — לא בוצעו שינויים.",
+    "successMessage": "הליד הומר בהצלחה.",
+    "companyHeading": "חברה",
+    "vat": "ע.מ:",
+    "customerUserHeading": "משתמש לקוח",
+    "tempPasswordHeading": "סיסמה זמנית — מוצגת פעם אחת",
+    "tempPasswordHelp": "מסור את הסיסמה ללקוח בערוץ מאובטח. היא לא תוצג שוב לאחר סגירת החלון.",
+    "fields": {
+      "companyName": "שם החברה",
+      "vatNumber": "מספר ע.מ",
+      "city": "עיר",
+      "address": "כתובת",
+      "phone": "טלפון",
+      "email": "אימייל",
+      "contactName": "שם איש קשר",
+      "password": "סיסמה",
+      "passwordPlaceholder": "השאר ריק ליצירה אוטומטית",
+      "internalNote": "הערה פנימית",
+      "internalNotePlaceholder": "הערה אופציונלית שתישמר בציר הזמן של הליד."
+    },
+    "customerLoginSection": "כניסת לקוח (רק אם סופק אימייל)",
+    "submit": "המר ללקוח",
+    "submitting": "ממיר…",
+    "errorFallback": "ההמרה נכשלה"
+  },
+  "users": {
+    "table": {
+      "name": "שם",
+      "email": "אימייל",
+      "role": "תפקיד",
+      "status": "סטטוס",
+      "actions": "פעולות"
+    },
+    "active": "פעיל",
+    "inactive": "לא פעיל",
+    "deactivate": "השבת",
+    "activate": "הפעל",
+    "confirmToggle": "האם להשבית את המשתמש?",
+    "confirmActivate": "האם להפעיל את המשתמש?",
+    "toasts": {
+      "deactivated": "המשתמש הושבת",
+      "activated": "המשתמש הופעל",
+      "actionFailed": "הפעולה נכשלה",
+      "created": "המשתמש נוצר בהצלחה",
+      "updated": "המשתמש עודכן בהצלחה",
+      "saveFailed": "שמירת המשתמש נכשלה"
+    },
+    "modal": {
+      "createTitle": "יצירת משתמש חדש",
+      "editTitle": "עריכת משתמש: {label}",
+      "fullName": "שם מלא",
+      "emailAddress": "כתובת אימייל",
+      "passwordCreate": "סיסמה",
+      "passwordEdit": "סיסמה חדשה (השאר ריק לשמירה)",
+      "role": "תפקיד",
+      "submitCreate": "צור משתמש",
+      "submitUpdate": "עדכן משתמש",
+      "submitting": "מבצע…"
+    }
+  },
+  "orders": {
+    "table": {
+      "orderId": "מזהה הזמנה",
+      "company": "חברה",
+      "items": "פריטים",
+      "amount": "סכום",
+      "status": "סטטוס",
+      "created": "נוצר",
+      "actions": "פעולות"
+    },
+    "empty": "לא נמצאו הזמנות.",
+    "itemsSuffix": "פריטים",
+    "itemSuffix": "פריט",
+    "toasts": {
+      "loadFailed": "טעינת ההזמנות נכשלה",
+      "updated": "סטטוס ההזמנה עודכן",
+      "updateFailed": "עדכון סטטוס ההזמנה נכשל"
+    },
+    "detail": {
+      "titlePrefix": "הזמנה",
+      "company": "חברה",
+      "date": "תאריך",
+      "status": "סטטוס",
+      "total": "סה\"כ",
+      "items": "פריטים",
+      "product": "מוצר",
+      "qty": "כמות",
+      "unitPrice": "מחיר ליחידה",
+      "subtotal": "סה\"כ ביניים",
+      "notes": "הערות"
+    }
+  },
+  "invoices": {
+    "table": {
+      "invoiceNumber": "מס׳ חשבונית",
+      "company": "חברה",
+      "amount": "סכום",
+      "status": "סטטוס",
+      "issued": "הופקה",
+      "due": "תאריך פירעון",
+      "actions": "פעולות"
+    },
+    "empty": "לא נמצאו חשבוניות.",
+    "issueAndPdf": "הפק ו-PDF",
+    "issuing": "מפיק…",
+    "pdf": "PDF",
+    "toasts": {
+      "loadFailed": "טעינת החשבוניות נכשלה",
+      "updated": "סטטוס החשבונית עודכן",
+      "updateFailed": "עדכון סטטוס החשבונית נכשל",
+      "issued": "החשבונית הופקה בהצלחה",
+      "issueFailed": "הפקת החשבונית נכשלה",
+      "created": "החשבונית נוצרה",
+      "createFailed": "יצירת החשבונית נכשלה",
+      "invoiceNumberRequired": "מספר חשבונית הוא שדה חובה",
+      "amountRequired": "נדרש סכום כולל תקין",
+      "orderRequired": "יש לבחור הזמנה כדי לקשר חברה"
+    },
+    "create": {
+      "title": "יצירת חשבונית",
+      "linkedOrder": "הזמנה מקושרת",
+      "linkedOrderHelp": "נדרשת לבחירת חברה",
+      "selectOrder": "— בחר הזמנה —",
+      "companyLinked": "החברה מקושרת ✓",
+      "invoiceNumber": "מספר חשבונית",
+      "invoiceNumberPlaceholder": "לדוגמה: INV-2024-001",
+      "totalAmount": "סכום כולל (₪)",
+      "status": "סטטוס",
+      "dueDate": "תאריך פירעון",
+      "notes": "הערות",
+      "submit": "צור חשבונית",
+      "submitting": "יוצר…"
+    }
+  },
+  "audit": {
+    "table": {
+      "date": "תאריך",
+      "user": "משתמש",
+      "action": "פעולה",
+      "entity": "ישות",
+      "details": "פרטים"
+    },
+    "system": "מערכת",
+    "empty": "לא נמצאו רשומות ביקורת."
+  },
+  "settings": {
+    "pageTitle": "הגדרות עסק",
+    "pageSubtitle": "הגדרת תמחור, כללי הזמנה וקטלוג מוצרים.",
+    "saveBtn": "שמור הגדרות",
+    "saving": "שומר…",
+    "loadFailed": "טעינת ההגדרות נכשלה. אנא רענן.",
+    "loading": "טוען הגדרות…",
+    "section1": {
+      "title": "הגדרות הזמנה",
+      "minOrderLabel": "סכום הזמנה מינימלי",
+      "minOrderHelp": "הזמנות מתחת לסכום זה יידחו.",
+      "currency": "מטבע",
+      "minNegative": "סכום מינימלי אינו יכול להיות שלילי"
+    },
+    "section2": {
+      "title": "מחירי קופסאות",
+      "subtitle": "הגדרת הקטלוג שמוצג ללקוחות בעת ביצוע הזמנה.",
+      "addRow": "+ הוסף שורה",
+      "empty": "טרם הוגדרו מחירי קופסאות. לחץ \"+ הוסף שורה\" להוספה.",
+      "labelCol": "תווית",
+      "skuCol": "מק\"ט",
+      "priceCol": "מחיר ליחידה",
+      "activeCol": "פעיל",
+      "removeCol": "הסר",
+      "labelPlaceholder": "לדוגמה: קופסה קטנה",
+      "skuPlaceholder": "לדוגמה: BOX-S"
+    },
+    "toasts": {
+      "saved": "ההגדרות נשמרו",
+      "saveFailed": "שמירת ההגדרות נכשלה"
+    }
+  },
+  "agent": {
+    "myLeads": "הלידים שלי",
+    "searchPlaceholder": "חיפוש לפי שם, טלפון או אימייל…",
+    "loading": "טוען משימות…",
+    "emptyAssigned": "לא הוקצו לידים.",
+    "emptyFiltered": "אין לידים שתואמים לסינון.",
+    "table": {
+      "name": "שם",
+      "contact": "פרטי קשר",
+      "status": "סטטוס",
+      "lastContact": "מועד יצירת קשר אחרון",
+      "contacts": "פניות"
+    },
+    "actions": {
+      "whatsapp": "WhatsApp",
+      "notes": "הערות"
+    },
+    "toasts": {
+      "statusUpdated": "הסטטוס עודכן",
+      "statusFailed": "עדכון הסטטוס נכשל",
+      "leadUpdated": "הליד עודכן",
+      "leadFailed": "עדכון הליד נכשל",
+      "loadFailed": "טעינת הלידים נכשלה"
+    }
+  },
+  "status": {
+    "new": "חדש",
+    "contacted": "נוצר קשר",
+    "qualified": "מוכשר",
+    "proposal": "הצעת מחיר",
+    "won": "נסגר בהצלחה",
+    "lost": "אבוד",
+    "converted": "הומר",
+    "closed": "סגור",
+    "archived": "בארכיון",
+    "re-engaged": "התחדש"
+  },
+  "orderStatus": {
+    "pending": "ממתין",
+    "approved": "אושר",
+    "shipped": "נשלח",
+    "completed": "הושלם",
+    "cancelled": "בוטל"
+  },
+  "invoiceStatus": {
+    "draft": "טיוטה",
+    "issued": "הופקה",
+    "paid": "שולם",
+    "cancelled": "בוטל"
+  },
+  "role": {
+    "admin": "מנהל",
+    "agent": "סוכן",
+    "customer": "לקוח"
+  }
+}

@@ -7,6 +7,7 @@ import { useAuth } from '@/app/context/AuthContext';
 import api from '@/app/lib/api';
 import { Lead, LeadStatus, TimelineEvent, LeadNote } from '@/types';
 import ConvertLeadModal, { ConvertSubmitPayload, ConvertSubmitResult } from '@/components/leads/ConvertLeadModal';
+import { useAdminI18n } from '@/i18n/I18nProvider';
 
 // ═══════════════════════════════════════════════════════
 // 📄  CRM Lead Detail Page
@@ -34,6 +35,7 @@ export default function LeadDetailPage() {
     const params = useParams();
     const router = useRouter();
     const { user } = useAuth();
+    const { t } = useAdminI18n();
 
     const [lead, setLead] = useState<Lead | null>(null);
     const [loading, setLoading] = useState(true);
@@ -56,12 +58,12 @@ export default function LeadDetailPage() {
             setNewStatus(data.status);
             setAssignOwner(data.ownerId || '');
         } catch (err) {
-            toast.error('Failed to load lead');
+            toast.error(t('leadDetail.toasts.loadFailed'));
             console.error(err);
         } finally {
             setLoading(false);
         }
-    }, [leadId]);
+    }, [leadId, t]);
 
     useEffect(() => {
         if (user) fetchLead();
@@ -74,10 +76,10 @@ export default function LeadDetailPage() {
             await api.patch(`/crm/leads/${leadId}/status`, { status: newStatus }, {
 
             });
-            toast.success(`Status updated to ${newStatus}`);
+            toast.success(t('leadDetail.toasts.statusUpdated', { status: t(`status.${newStatus}`) }));
             fetchLead();
         } catch (err) {
-            toast.error('Failed to update status');
+            toast.error(t('leadDetail.toasts.statusFailed'));
         }
     };
 
@@ -88,11 +90,11 @@ export default function LeadDetailPage() {
             await api.post(`/crm/leads/${leadId}/notes`, { text: noteText }, {
 
             });
-            toast.success('Note added');
+            toast.success(t('leadDetail.toasts.noteAdded'));
             setNoteText('');
             fetchLead();
         } catch (err) {
-            toast.error('Failed to add note');
+            toast.error(t('leadDetail.toasts.noteFailed'));
         }
     };
 
@@ -103,10 +105,10 @@ export default function LeadDetailPage() {
             await api.patch(`/crm/leads/${leadId}/assign`, { ownerId: assignOwner }, {
 
             });
-            toast.success('Owner assigned');
+            toast.success(t('leadDetail.toasts.ownerAssigned'));
             fetchLead();
         } catch (err) {
-            toast.error('Failed to assign owner');
+            toast.error(t('leadDetail.toasts.ownerFailed'));
         }
     };
 
@@ -115,9 +117,9 @@ export default function LeadDetailPage() {
         const res = await api.post(`/crm/leads/${leadId}/convert`, payload);
         const data = res.data;
         if (data.idempotent) {
-            toast('Lead was already converted', { icon: 'ℹ️' });
+            toast(t('leadDetail.toasts.alreadyConverted'), { icon: 'ℹ️' });
         } else {
-            toast.success('Lead converted to customer');
+            toast.success(t('leadDetail.toasts.converted'));
         }
         return {
             success: !!data.success,
@@ -126,16 +128,16 @@ export default function LeadDetailPage() {
             user: data.user || null,
             tempPassword: data.tempPassword,
         };
-    }, [leadId]);
+    }, [leadId, t]);
 
     const isConverted = !!lead && (lead.status === 'converted' || !!lead.convertedToCompanyId);
 
     if (loading) {
-        return <div className="flex items-center justify-center h-screen"><p className="text-gray-500">Loading…</p></div>;
+        return <div className="flex items-center justify-center h-screen"><p className="text-gray-500">{t('leadDetail.states.loading')}</p></div>;
     }
 
     if (!lead) {
-        return <div className="flex items-center justify-center h-screen"><p className="text-red-500">Lead not found</p></div>;
+        return <div className="flex items-center justify-center h-screen"><p className="text-red-500">{t('leadDetail.states.notFound')}</p></div>;
     }
 
     return (
@@ -146,13 +148,13 @@ export default function LeadDetailPage() {
             <div className="flex items-center justify-between mb-6">
                 <div>
                     <button onClick={() => router.push('/admin')} className="text-sm text-indigo-600 hover:underline mb-2 block">
-                        ← Back to Dashboard
+                        {t('leadDetail.backToDashboard')}
                     </button>
                     <h1 className="text-2xl font-bold text-gray-900">{lead.name}</h1>
-                    <p className="text-sm text-gray-500">{lead.phone} · {lead.email || 'No email'}</p>
+                    <p className="text-sm text-gray-500">{lead.phone} · {lead.email || t('leadDetail.noEmail')}</p>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-sm font-semibold ${STATUS_COLORS[lead.status]}`}>
-                    {lead.status}
+                    {t(`status.${lead.status}`)}
                 </span>
             </div>
 
@@ -161,14 +163,14 @@ export default function LeadDetailPage() {
                 <div className="lg:col-span-1 space-y-6">
                     {/* Info Card */}
                     <div className="bg-white rounded-lg shadow p-5 space-y-3">
-                        <h2 className="text-lg font-semibold text-gray-800">Lead Info</h2>
+                        <h2 className="text-lg font-semibold text-gray-800">{t('leadDetail.info.title')}</h2>
                         <div className="text-sm space-y-2 text-gray-600">
-                            <p><strong>Source:</strong> {lead.source || '-'}</p>
-                            <p><strong>Tags:</strong> {lead.tags?.length ? lead.tags.join(', ') : '-'}</p>
-                            <p><strong>Contact Count:</strong> {lead.contactCount || 1}</p>
-                            <p><strong>Last Contact:</strong> {lead.lastContactAt ? new Date(lead.lastContactAt).toLocaleString() : '-'}</p>
-                            <p><strong>Owner:</strong> {lead.ownerId || 'Unassigned'}</p>
-                            <p><strong>Created:</strong> {new Date(lead.createdAt).toLocaleString()}</p>
+                            <p><strong>{t('leadDetail.info.source')}:</strong> {lead.source || '—'}</p>
+                            <p><strong>{t('leadDetail.info.tags')}:</strong> {lead.tags?.length ? lead.tags.join(', ') : '—'}</p>
+                            <p><strong>{t('leadDetail.info.contactCount')}:</strong> {lead.contactCount || 1}</p>
+                            <p><strong>{t('leadDetail.info.lastContact')}:</strong> {lead.lastContactAt ? new Date(lead.lastContactAt).toLocaleString() : '—'}</p>
+                            <p><strong>{t('leadDetail.info.owner')}:</strong> {lead.ownerId || t('leadDetail.info.unassigned')}</p>
+                            <p><strong>{t('leadDetail.info.created')}:</strong> {new Date(lead.createdAt).toLocaleString()}</p>
                         </div>
                     </div>
 
@@ -176,78 +178,78 @@ export default function LeadDetailPage() {
                     {isConverted ? (
                         <div className="bg-emerald-50 border border-emerald-200 rounded-lg shadow-sm p-5 space-y-3">
                             <div className="flex items-center justify-between">
-                                <h2 className="text-lg font-semibold text-emerald-800">Converted</h2>
+                                <h2 className="text-lg font-semibold text-emerald-800">{t('leadDetail.convertedCard.title')}</h2>
                                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                                    customer
+                                    {t('leadDetail.convertedCard.badge')}
                                 </span>
                             </div>
                             <div className="text-sm text-emerald-900 space-y-1.5">
                                 {lead.convertedAt && (
                                     <p>
-                                        <strong className="text-emerald-700">Converted at:</strong>{' '}
+                                        <strong className="text-emerald-700">{t('leadDetail.convertedCard.convertedAt')}</strong>{' '}
                                         {new Date(lead.convertedAt).toLocaleString()}
                                     </p>
                                 )}
                                 {lead.convertedToCompanyId && (
                                     <p className="break-all">
-                                        <strong className="text-emerald-700">Company ID:</strong>{' '}
+                                        <strong className="text-emerald-700">{t('leadDetail.convertedCard.companyId')}</strong>{' '}
                                         <span className="font-mono text-xs">{lead.convertedToCompanyId}</span>
                                     </p>
                                 )}
                                 {lead.convertedToUserId ? (
                                     <p className="break-all">
-                                        <strong className="text-emerald-700">User ID:</strong>{' '}
+                                        <strong className="text-emerald-700">{t('leadDetail.convertedCard.userId')}</strong>{' '}
                                         <span className="font-mono text-xs">{lead.convertedToUserId}</span>
                                     </p>
                                 ) : (
-                                    <p className="text-xs text-emerald-700/80">No customer user was created.</p>
+                                    <p className="text-xs text-emerald-700/80">{t('leadDetail.convertedCard.noUserCreated')}</p>
                                 )}
                             </div>
                         </div>
                     ) : (
                         <div className="bg-white rounded-lg shadow p-5 space-y-3">
-                            <h2 className="text-lg font-semibold text-gray-800">Convert</h2>
+                            <h2 className="text-lg font-semibold text-gray-800">{t('leadDetail.convertCard.title')}</h2>
                             <p className="text-xs text-gray-500">
-                                Create a Company (and optionally a customer login) from this lead.
+                                {t('leadDetail.convertCard.description')}
                             </p>
                             <button
                                 onClick={() => setIsConvertOpen(true)}
                                 className="w-full bg-emerald-600 text-white rounded py-2 text-sm font-medium hover:bg-emerald-700"
                             >
-                                Convert to Customer
+                                {t('leadDetail.convertCard.button')}
                             </button>
                         </div>
                     )}
 
                     {/* Change Status */}
                     <div className="bg-white rounded-lg shadow p-5 space-y-3">
-                        <h2 className="text-lg font-semibold text-gray-800">Change Status</h2>
+                        <h2 className="text-lg font-semibold text-gray-800">{t('leadDetail.changeStatus.title')}</h2>
                         <select
                             value={newStatus}
                             onChange={(e) => setNewStatus(e.target.value as LeadStatus)}
                             className="w-full border rounded px-3 py-2 text-sm"
                         >
                             {STATUS_OPTIONS.map((s) => (
-                                <option key={s} value={s}>{s}</option>
+                                <option key={s} value={s}>{t(`status.${s}`)}</option>
                             ))}
                         </select>
                         <button onClick={handleStatusChange} className="w-full bg-indigo-600 text-white rounded py-2 text-sm hover:bg-indigo-700">
-                            Update Status
+                            {t('leadDetail.changeStatus.button')}
                         </button>
                     </div>
 
                     {/* Assign Owner */}
                     <div className="bg-white rounded-lg shadow p-5 space-y-3">
-                        <h2 className="text-lg font-semibold text-gray-800">Assign Owner</h2>
+                        <h2 className="text-lg font-semibold text-gray-800">{t('leadDetail.assign.title')}</h2>
                         <input
                             type="text"
                             value={assignOwner}
                             onChange={(e) => setAssignOwner(e.target.value)}
-                            placeholder="Owner ID or name"
+                            placeholder={t('leadDetail.assign.placeholder')}
                             className="w-full border rounded px-3 py-2 text-sm"
                         />
                         <button onClick={handleAssign} className="w-full bg-yellow-600 text-white rounded py-2 text-sm hover:bg-yellow-700">
-                            Assign
+                            {t('leadDetail.assign.button')}
                         </button>
                     </div>
                 </div>
@@ -256,7 +258,7 @@ export default function LeadDetailPage() {
                 <div className="lg:col-span-2 space-y-6">
                     {/* Timeline */}
                     <div className="bg-white rounded-lg shadow p-5">
-                        <h2 className="text-lg font-semibold text-gray-800 mb-4">Timeline</h2>
+                        <h2 className="text-lg font-semibold text-gray-800 mb-4">{t('leadDetail.timeline.title')}</h2>
                         {lead.timeline && lead.timeline.length > 0 ? (
                             <div className="space-y-3 max-h-96 overflow-y-auto">
                                 {[...lead.timeline].reverse().map((event: TimelineEvent, i: number) => (
@@ -274,13 +276,13 @@ export default function LeadDetailPage() {
                                 ))}
                             </div>
                         ) : (
-                            <p className="text-gray-400 text-sm">No timeline events yet.</p>
+                            <p className="text-gray-400 text-sm">{t('leadDetail.timeline.empty')}</p>
                         )}
                     </div>
 
                     {/* Notes */}
                     <div className="bg-white rounded-lg shadow p-5">
-                        <h2 className="text-lg font-semibold text-gray-800 mb-4">Notes</h2>
+                        <h2 className="text-lg font-semibold text-gray-800 mb-4">{t('leadDetail.notes.title')}</h2>
 
                         {/* Add note */}
                         <div className="flex space-x-2 mb-4">
@@ -288,12 +290,12 @@ export default function LeadDetailPage() {
                                 type="text"
                                 value={noteText}
                                 onChange={(e) => setNoteText(e.target.value)}
-                                placeholder="Add a note..."
+                                placeholder={t('leadDetail.notes.placeholder')}
                                 className="flex-1 border rounded px-3 py-2 text-sm"
                                 onKeyDown={(e) => e.key === 'Enter' && handleAddNote()}
                             />
                             <button onClick={handleAddNote} className="bg-green-600 text-white rounded px-4 py-2 text-sm hover:bg-green-700">
-                                Add
+                                {t('leadDetail.notes.addBtn')}
                             </button>
                         </div>
 
@@ -307,7 +309,7 @@ export default function LeadDetailPage() {
                                 ))}
                             </div>
                         ) : (
-                            <p className="text-gray-400 text-sm">No notes yet.</p>
+                            <p className="text-gray-400 text-sm">{t('leadDetail.notes.empty')}</p>
                         )}
                     </div>
 
@@ -323,7 +325,7 @@ export default function LeadDetailPage() {
                     {/* Messages */}
                     {lead.messages && lead.messages.length > 0 && (
                         <div className="bg-white rounded-lg shadow p-5">
-                            <h2 className="text-lg font-semibold text-gray-800 mb-4">Messages</h2>
+                            <h2 className="text-lg font-semibold text-gray-800 mb-4">{t('leadDetail.messages.title')}</h2>
                             <div className="space-y-3 max-h-64 overflow-y-auto">
                                 {[...lead.messages].reverse().map((msg, i) => (
                                     <div key={i} className="bg-blue-50 rounded p-3">

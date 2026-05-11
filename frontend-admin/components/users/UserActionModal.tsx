@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
 import { User } from '@/types';
+import { useAdminI18n } from '@/i18n/I18nProvider';
 
 interface UserPayload {
     name: string;
@@ -20,6 +21,7 @@ interface UserActionModalProps {
 }
 
 export default function UserActionModal({ isOpen, onClose, mode, user, onSave }: UserActionModalProps) {
+    const { t } = useAdminI18n();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -63,10 +65,18 @@ export default function UserActionModal({ isOpen, onClose, mode, user, onSave }:
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={mode === 'create' ? 'Create New User' : `Edit User: ${user?.name || user?.email}`}>
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={
+                mode === 'create'
+                    ? t('users.modal.createTitle')
+                    : t('users.modal.editTitle', { label: user?.name || user?.email || '' })
+            }
+        >
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Full Name</label>
+                    <label className="block text-sm font-medium text-gray-700">{t('users.modal.fullName')}</label>
                     <input
                         type="text"
                         value={name}
@@ -77,7 +87,7 @@ export default function UserActionModal({ isOpen, onClose, mode, user, onSave }:
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Email Address</label>
+                    <label className="block text-sm font-medium text-gray-700">{t('users.modal.emailAddress')}</label>
                     <input
                         type="email"
                         value={email}
@@ -90,7 +100,7 @@ export default function UserActionModal({ isOpen, onClose, mode, user, onSave }:
 
                 <div>
                     <label className="block text-sm font-medium text-gray-700">
-                        {mode === 'create' ? 'Password' : 'New Password (Leave blank to keep)'}
+                        {mode === 'create' ? t('users.modal.passwordCreate') : t('users.modal.passwordEdit')}
                     </label>
                     <input
                         type="password"
@@ -102,14 +112,14 @@ export default function UserActionModal({ isOpen, onClose, mode, user, onSave }:
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Role</label>
+                    <label className="block text-sm font-medium text-gray-700">{t('users.modal.role')}</label>
                     <select
                         value={role}
                         onChange={(e) => setRole(e.target.value as 'admin' | 'agent')}
                         className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 sm:text-sm rounded-md"
                     >
-                        <option value="agent">Agent</option>
-                        <option value="admin">Admin</option>
+                        <option value="agent">{t('role.agent')}</option>
+                        <option value="admin">{t('role.admin')}</option>
                     </select>
                 </div>
 
@@ -119,14 +129,14 @@ export default function UserActionModal({ isOpen, onClose, mode, user, onSave }:
                         onClick={onClose}
                         className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none"
                     >
-                        Cancel
+                        {t('common.cancel')}
                     </button>
                     <button
                         type="submit"
                         disabled={loading}
                         className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none disabled:opacity-50"
                     >
-                        {loading ? 'Processing...' : (mode === 'create' ? 'Create User' : 'Update User')}
+                        {loading ? t('users.modal.submitting') : (mode === 'create' ? t('users.modal.submitCreate') : t('users.modal.submitUpdate'))}
                     </button>
                 </div>
             </form>

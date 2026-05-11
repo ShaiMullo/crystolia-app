@@ -1,0 +1,412 @@
+{
+  "common": {
+    "loading": "Загрузка…",
+    "loadingData": "Загрузка данных…",
+    "save": "Сохранить",
+    "saving": "Сохранение…",
+    "cancel": "Отмена",
+    "close": "Закрыть",
+    "refresh": "Обновить",
+    "actions": "Действия",
+    "edit": "Изменить",
+    "view": "Просмотр",
+    "delete": "Удалить",
+    "remove": "Убрать",
+    "create": "Создать",
+    "creating": "Создание…",
+    "update": "Обновить",
+    "add": "Добавить",
+    "done": "Готово",
+    "retry": "Повторить",
+    "previous": "Предыдущая",
+    "next": "Следующая",
+    "pageOf": "Страница {page} из {total}",
+    "noResults": "Результатов не найдено.",
+    "yes": "Да",
+    "no": "Нет",
+    "optional": "(необязательно)",
+    "required": "Обязательно",
+    "copy": "Копировать",
+    "copied": "Скопировано!",
+    "all": "Все",
+    "search": "Поиск",
+    "back": "Назад"
+  },
+  "language": {
+    "label": "Язык",
+    "he": "Иврит",
+    "en": "Английский",
+    "ru": "Русский"
+  },
+  "login": {
+    "brandTitle": "Crystolia Admin",
+    "brandSubtitle": "Внутренний портал управления",
+    "heading": "Вход для администраторов",
+    "email": "Эл. почта",
+    "password": "Пароль",
+    "submit": "Войти",
+    "submitting": "Вход…",
+    "invalidCredentials": "Неверные учётные данные"
+  },
+  "nav": {
+    "brand": "Crystolia",
+    "brandAdminSuffix": "Admin",
+    "brandAgentSuffix": "Agent",
+    "dashboard": "Дашборд",
+    "crm": "CRM",
+    "settings": "Настройки",
+    "logout": "Выйти",
+    "administratorFallback": "Администратор"
+  },
+  "dashboard": {
+    "tabs": {
+      "leads": "Лиды",
+      "users": "Пользователи",
+      "orders": "Заказы",
+      "invoices": "Счета",
+      "audit": "Журнал аудита"
+    },
+    "headings": {
+      "leads": "Все лиды",
+      "users": "Пользователи системы",
+      "orders": "Заказы клиентов",
+      "invoices": "Счета",
+      "audit": "Системный журнал аудита"
+    },
+    "buttons": {
+      "createUser": "+ Создать пользователя",
+      "createInvoice": "+ Создать счёт"
+    }
+  },
+  "leads": {
+    "table": {
+      "name": "Имя",
+      "status": "Статус",
+      "count": "Контактов",
+      "assignedTo": "Ответственный",
+      "lastContact": "Последний контакт",
+      "actions": "Действия"
+    },
+    "filters": {
+      "searchPlaceholder": "Поиск по имени или телефону…",
+      "allStatuses": "Все статусы",
+      "allAgents": "Все агенты"
+    },
+    "empty": "Лиды не найдены.",
+    "toasts": {
+      "loadFailed": "Не удалось загрузить лиды",
+      "updated": "Лид успешно обновлён",
+      "updateFailed": "Не удалось обновить лид"
+    },
+    "modal": {
+      "editTitle": "Редактирование лида: {name}",
+      "status": "Статус",
+      "assignAgent": "Назначить агента",
+      "unassigned": "— Не назначен —",
+      "tagsLabel": "Теги (через запятую)",
+      "tagsPlaceholder": "vip, срочно, рекомендация",
+      "addNote": "Добавить заметку",
+      "addNotePlaceholder": "Добавьте новую заметку…",
+      "saveChanges": "Сохранить изменения"
+    }
+  },
+  "leadDetail": {
+    "backToDashboard": "← Назад к дашборду",
+    "noEmail": "Без эл. почты",
+    "info": {
+      "title": "Информация о лиде",
+      "source": "Источник",
+      "tags": "Теги",
+      "contactCount": "Контактов",
+      "lastContact": "Последний контакт",
+      "owner": "Ответственный",
+      "unassigned": "Не назначен",
+      "created": "Создан"
+    },
+    "convertCard": {
+      "title": "Конвертация",
+      "description": "Создайте компанию (и при необходимости — учётную запись клиента) из этого лида.",
+      "button": "Конвертировать в клиента"
+    },
+    "convertedCard": {
+      "title": "Конвертирован",
+      "badge": "клиент",
+      "convertedAt": "Конвертирован:",
+      "companyId": "ID компании:",
+      "userId": "ID пользователя:",
+      "noUserCreated": "Учётная запись клиента не была создана."
+    },
+    "changeStatus": {
+      "title": "Изменить статус",
+      "button": "Обновить статус"
+    },
+    "assign": {
+      "title": "Назначить ответственного",
+      "placeholder": "ID или имя ответственного",
+      "button": "Назначить"
+    },
+    "timeline": {
+      "title": "История",
+      "empty": "Событий пока нет."
+    },
+    "notes": {
+      "title": "Заметки",
+      "placeholder": "Добавьте заметку…",
+      "addBtn": "Добавить",
+      "empty": "Заметок пока нет."
+    },
+    "messages": {
+      "title": "Сообщения"
+    },
+    "toasts": {
+      "loadFailed": "Не удалось загрузить лид",
+      "statusUpdated": "Статус обновлён: {status}",
+      "statusFailed": "Не удалось обновить статус",
+      "noteAdded": "Заметка добавлена",
+      "noteFailed": "Не удалось добавить заметку",
+      "ownerAssigned": "Ответственный назначен",
+      "ownerFailed": "Не удалось назначить ответственного",
+      "alreadyConverted": "Лид уже был конвертирован",
+      "converted": "Лид конвертирован в клиента"
+    },
+    "states": {
+      "loading": "Загрузка…",
+      "notFound": "Лид не найден"
+    }
+  },
+  "convert": {
+    "title": "Конвертация лида: {name}",
+    "successTitle": "Лид конвертирован",
+    "alreadyConverted": "Этот лид уже был конвертирован — изменения не выполнены.",
+    "successMessage": "Лид успешно конвертирован.",
+    "companyHeading": "Компания",
+    "vat": "VAT:",
+    "customerUserHeading": "Учётная запись клиента",
+    "tempPasswordHeading": "Временный пароль — показывается один раз",
+    "tempPasswordHelp": "Передайте пароль клиенту по защищённому каналу. После закрытия диалога он не будет показан снова.",
+    "fields": {
+      "companyName": "Название компании",
+      "vatNumber": "Номер VAT",
+      "city": "Город",
+      "address": "Адрес",
+      "phone": "Телефон",
+      "email": "Эл. почта",
+      "contactName": "Контактное лицо",
+      "password": "Пароль",
+      "passwordPlaceholder": "Оставьте пустым для автогенерации",
+      "internalNote": "Внутренняя заметка",
+      "internalNotePlaceholder": "Необязательная заметка, фиксируется в истории лида."
+    },
+    "customerLoginSection": "Учётная запись клиента (только при указанной эл. почте)",
+    "submit": "Конвертировать в клиента",
+    "submitting": "Конвертация…",
+    "errorFallback": "Конвертация не выполнена"
+  },
+  "users": {
+    "table": {
+      "name": "Имя",
+      "email": "Эл. почта",
+      "role": "Роль",
+      "status": "Статус",
+      "actions": "Действия"
+    },
+    "active": "Активен",
+    "inactive": "Неактивен",
+    "deactivate": "Деактивировать",
+    "activate": "Активировать",
+    "confirmToggle": "Деактивировать этого пользователя?",
+    "confirmActivate": "Активировать этого пользователя?",
+    "toasts": {
+      "deactivated": "Пользователь деактивирован",
+      "activated": "Пользователь активирован",
+      "actionFailed": "Действие не выполнено",
+      "created": "Пользователь успешно создан",
+      "updated": "Пользователь успешно обновлён",
+      "saveFailed": "Не удалось сохранить пользователя"
+    },
+    "modal": {
+      "createTitle": "Создание нового пользователя",
+      "editTitle": "Редактирование: {label}",
+      "fullName": "Полное имя",
+      "emailAddress": "Адрес эл. почты",
+      "passwordCreate": "Пароль",
+      "passwordEdit": "Новый пароль (оставьте пустым, чтобы не менять)",
+      "role": "Роль",
+      "submitCreate": "Создать пользователя",
+      "submitUpdate": "Обновить пользователя",
+      "submitting": "Обработка…"
+    }
+  },
+  "orders": {
+    "table": {
+      "orderId": "ID заказа",
+      "company": "Компания",
+      "items": "Позиции",
+      "amount": "Сумма",
+      "status": "Статус",
+      "created": "Создан",
+      "actions": "Действия"
+    },
+    "empty": "Заказы не найдены.",
+    "itemsSuffix": "поз.",
+    "itemSuffix": "поз.",
+    "toasts": {
+      "loadFailed": "Не удалось загрузить заказы",
+      "updated": "Статус заказа обновлён",
+      "updateFailed": "Не удалось обновить статус заказа"
+    },
+    "detail": {
+      "titlePrefix": "Заказ",
+      "company": "Компания",
+      "date": "Дата",
+      "status": "Статус",
+      "total": "Итого",
+      "items": "Позиции",
+      "product": "Товар",
+      "qty": "Кол-во",
+      "unitPrice": "Цена за ед.",
+      "subtotal": "Подытог",
+      "notes": "Заметки"
+    }
+  },
+  "invoices": {
+    "table": {
+      "invoiceNumber": "№ счёта",
+      "company": "Компания",
+      "amount": "Сумма",
+      "status": "Статус",
+      "issued": "Выставлен",
+      "due": "Срок оплаты",
+      "actions": "Действия"
+    },
+    "empty": "Счета не найдены.",
+    "issueAndPdf": "Выставить и PDF",
+    "issuing": "Выставление…",
+    "pdf": "PDF",
+    "toasts": {
+      "loadFailed": "Не удалось загрузить счета",
+      "updated": "Статус счёта обновлён",
+      "updateFailed": "Не удалось обновить статус счёта",
+      "issued": "Счёт успешно выставлен",
+      "issueFailed": "Не удалось выставить счёт",
+      "created": "Счёт создан",
+      "createFailed": "Не удалось создать счёт",
+      "invoiceNumberRequired": "Требуется номер счёта",
+      "amountRequired": "Требуется корректная сумма",
+      "orderRequired": "Выберите заказ для привязки компании"
+    },
+    "create": {
+      "title": "Создание счёта",
+      "linkedOrder": "Связанный заказ",
+      "linkedOrderHelp": "(нужен для выбора компании)",
+      "selectOrder": "— выберите заказ —",
+      "companyLinked": "Компания привязана ✓",
+      "invoiceNumber": "Номер счёта",
+      "invoiceNumberPlaceholder": "например, INV-2024-001",
+      "totalAmount": "Итоговая сумма (₪)",
+      "status": "Статус",
+      "dueDate": "Срок оплаты",
+      "notes": "Заметки",
+      "submit": "Создать счёт",
+      "submitting": "Создание…"
+    }
+  },
+  "audit": {
+    "table": {
+      "date": "Дата",
+      "user": "Пользователь",
+      "action": "Действие",
+      "entity": "Сущность",
+      "details": "Детали"
+    },
+    "system": "Система",
+    "empty": "Записей аудита не найдено."
+  },
+  "settings": {
+    "pageTitle": "Настройки бизнеса",
+    "pageSubtitle": "Настройте цены, правила заказов и каталог товаров.",
+    "saveBtn": "Сохранить настройки",
+    "saving": "Сохранение…",
+    "loadFailed": "Не удалось загрузить настройки. Обновите страницу.",
+    "loading": "Загрузка настроек…",
+    "section1": {
+      "title": "Настройки заказов",
+      "minOrderLabel": "Минимальная сумма заказа",
+      "minOrderHelp": "Заказы ниже этой суммы будут отклонены.",
+      "currency": "Валюта",
+      "minNegative": "Минимальная сумма не может быть отрицательной"
+    },
+    "section2": {
+      "title": "Цены коробок",
+      "subtitle": "Каталог товаров, отображаемый клиентам при оформлении заказа.",
+      "addRow": "+ Добавить строку",
+      "empty": "Цены коробок ещё не заданы. Нажмите «+ Добавить строку».",
+      "labelCol": "Название",
+      "skuCol": "SKU",
+      "priceCol": "Цена за ед.",
+      "activeCol": "Активен",
+      "removeCol": "Убрать",
+      "labelPlaceholder": "например, малая коробка",
+      "skuPlaceholder": "например, BOX-S"
+    },
+    "toasts": {
+      "saved": "Настройки сохранены",
+      "saveFailed": "Не удалось сохранить настройки"
+    }
+  },
+  "agent": {
+    "myLeads": "Мои лиды",
+    "searchPlaceholder": "Поиск по имени, телефону или эл. почте…",
+    "loading": "Загрузка задач…",
+    "emptyAssigned": "Лиды не назначены.",
+    "emptyFiltered": "Нет лидов по фильтрам.",
+    "table": {
+      "name": "Имя",
+      "contact": "Контакты",
+      "status": "Статус",
+      "lastContact": "Последний контакт",
+      "contacts": "Контактов"
+    },
+    "actions": {
+      "whatsapp": "WhatsApp",
+      "notes": "Заметки"
+    },
+    "toasts": {
+      "statusUpdated": "Статус обновлён",
+      "statusFailed": "Не удалось обновить статус",
+      "leadUpdated": "Лид обновлён",
+      "leadFailed": "Не удалось обновить лид",
+      "loadFailed": "Не удалось загрузить лиды"
+    }
+  },
+  "status": {
+    "new": "Новый",
+    "contacted": "Связались",
+    "qualified": "Квалифицирован",
+    "proposal": "Предложение",
+    "won": "Закрыт успешно",
+    "lost": "Потерян",
+    "converted": "Конвертирован",
+    "closed": "Закрыт",
+    "archived": "В архиве",
+    "re-engaged": "Возобновлён"
+  },
+  "orderStatus": {
+    "pending": "Ожидает",
+    "approved": "Одобрен",
+    "shipped": "Отправлен",
+    "completed": "Завершён",
+    "cancelled": "Отменён"
+  },
+  "invoiceStatus": {
+    "draft": "Черновик",
+    "issued": "Выставлен",
+    "paid": "Оплачен",
+    "cancelled": "Отменён"
+  },
+  "role": {
+    "admin": "Администратор",
+    "agent": "Агент",
+    "customer": "Клиент"
+  }
+}

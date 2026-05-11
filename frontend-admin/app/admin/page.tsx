@@ -9,10 +9,12 @@ import LeadEditModal from "@/components/leads/LeadEditModal";
 import UserActionModal from "@/components/users/UserActionModal";
 import Modal from "@/components/ui/Modal";
 import Link from 'next/link';
+import { useAdminI18n } from "@/i18n/I18nProvider";
 
 
 export default function AdminDashboard() {
     const { user } = useAuth();
+    const { t } = useAdminI18n();
     const [activeTab, setActiveTab] = useState<'leads' | 'users' | 'audit' | 'orders' | 'invoices'>('leads');
 
     // Data
@@ -88,11 +90,11 @@ export default function AdminDashboard() {
             }
         } catch (error) {
             console.error(error);
-            toast.error("Failed to load leads");
+            toast.error(t("leads.toasts.loadFailed"));
         } finally {
             setLoading(false);
         }
-    }, [page, limit, statusFilter, agentFilter, searchQuery]);
+    }, [page, limit, statusFilter, agentFilter, searchQuery, t]);
 
     const fetchUsers = useCallback(async () => {
         setLoading(true);
@@ -141,7 +143,7 @@ export default function AdminDashboard() {
             }
         } catch (error) {
             console.error(error);
-            toast.error('Failed to load orders');
+            toast.error(t('orders.toasts.loadFailed'));
         } finally {
             setLoading(false);
         }
@@ -156,7 +158,7 @@ export default function AdminDashboard() {
             }
         } catch (error) {
             console.error(error);
-            toast.error('Failed to load invoices');
+            toast.error(t('invoices.toasts.loadFailed'));
         } finally {
             setLoading(false);
         }
@@ -192,10 +194,10 @@ export default function AdminDashboard() {
             await api.patch(`/leads/${leadId}`, data, {
 
             });
-            toast.success("Lead updated successfully");
+            toast.success(t("leads.toasts.updated"));
             fetchLeads();
         } catch (error) {
-            toast.error("Failed to update lead");
+            toast.error(t("leads.toasts.updateFailed"));
             console.error(error);
         }
     };
@@ -219,31 +221,32 @@ export default function AdminDashboard() {
                 await api.post("/users", data, {
 
                 });
-                toast.success("User created successfully");
+                toast.success(t("users.toasts.created"));
             } else {
                 if (!currentUser) return;
                 await api.patch(`/users/${currentUser._id}`, data, {
 
                 });
-                toast.success("User updated successfully");
+                toast.success(t("users.toasts.updated"));
             }
             fetchUsers();
         } catch (error) {
-            toast.error("Failed to save user");
+            toast.error(t("users.toasts.saveFailed"));
             console.error(error);
         }
     };
 
     const handleToggleActive = async (u: User) => {
-        if (!confirm(`Are you sure you want to ${u.isActive ? 'deactivate' : 'activate'} this user?`)) return;
+        const confirmMsg = u.isActive ? t("users.confirmToggle") : t("users.confirmActivate");
+        if (!confirm(confirmMsg)) return;
         try {
             await api.patch(`/users/${u._id}`, { isActive: !u.isActive }, {
 
             });
-            toast.success(`User ${u.isActive ? 'deactivated' : 'activated'}`);
+            toast.success(u.isActive ? t("users.toasts.deactivated") : t("users.toasts.activated"));
             fetchUsers();
         } catch {
-            toast.error("Action failed");
+            toast.error(t("users.toasts.actionFailed"));
         }
     };
 
@@ -253,10 +256,10 @@ export default function AdminDashboard() {
         setSavingOrderIds(prev => new Set(prev).add(orderId));
         try {
             await api.patch(`/orders/${orderId}`, { status: newStatus });
-            toast.success('Order status updated');
+            toast.success(t('orders.toasts.updated'));
         } catch (error) {
             console.error(error);
-            toast.error('Failed to update order status');
+            toast.error(t('orders.toasts.updateFailed'));
             fetchOrders();
         } finally {
             setSavingOrderIds(prev => { const next = new Set(prev); next.delete(orderId); return next; });
@@ -269,10 +272,10 @@ export default function AdminDashboard() {
         setSavingInvoiceIds(prev => new Set(prev).add(invoiceId));
         try {
             await api.patch(`/invoices/${invoiceId}`, { status: newStatus });
-            toast.success('Invoice status updated');
+            toast.success(t('invoices.toasts.updated'));
         } catch (error) {
             console.error(error);
-            toast.error('Failed to update invoice status');
+            toast.error(t('invoices.toasts.updateFailed'));
             fetchInvoices();
         } finally {
             setSavingInvoiceIds(prev => { const next = new Set(prev); next.delete(invoiceId); return next; });
@@ -283,14 +286,14 @@ export default function AdminDashboard() {
         setIssuingInvoiceIds(prev => new Set(prev).add(invoiceId));
         try {
             const response = await api.post(`/invoices/${invoiceId}/issue`);
-            toast.success('Invoice issued successfully');
+            toast.success(t('invoices.toasts.issued'));
             fetchInvoices();
             const pdfUrl = response.data?.pdfUrl;
             if (pdfUrl) {
                 window.open(pdfUrl, '_blank', 'noopener,noreferrer');
             }
         } catch (error: any) {
-            toast.error(error.response?.data?.message || 'Failed to issue invoice');
+            toast.error(error.response?.data?.message || t('invoices.toasts.issueFailed'));
         } finally {
             setIssuingInvoiceIds(prev => { const next = new Set(prev); next.delete(invoiceId); return next; });
         }
@@ -298,18 +301,18 @@ export default function AdminDashboard() {
 
     const handleCreateInvoice = async () => {
         if (!invoiceForm.invoiceNumber.trim()) {
-            toast.error('Invoice number is required');
+            toast.error(t('invoices.toasts.invoiceNumberRequired'));
             return;
         }
         const amount = parseFloat(invoiceForm.totalAmount);
         if (isNaN(amount) || amount < 0) {
-            toast.error('Valid total amount is required');
+            toast.error(t('invoices.toasts.amountRequired'));
             return;
         }
         // company must come from selected order or be provided explicitly
         const companyId = invoiceForm.companyId;
         if (!companyId) {
-            toast.error('Please select an order to link a company');
+            toast.error(t('invoices.toasts.orderRequired'));
             return;
         }
         setInvoiceFormSaving(true);
@@ -323,13 +326,13 @@ export default function AdminDashboard() {
                 ...(invoiceForm.dueDate && { dueDate: invoiceForm.dueDate }),
                 ...(invoiceForm.notes.trim() && { notes: invoiceForm.notes.trim() }),
             });
-            toast.success('Invoice created');
+            toast.success(t('invoices.toasts.created'));
             setIsCreateInvoiceOpen(false);
             setInvoiceForm({ orderId: '', companyId: '', invoiceNumber: '', totalAmount: '', dueDate: '', notes: '', status: 'draft' });
             fetchInvoices();
         } catch (err: unknown) {
             const e = err as { response?: { data?: { message?: string } } };
-            toast.error(e.response?.data?.message || 'Failed to create invoice');
+            toast.error(e.response?.data?.message || t('invoices.toasts.createFailed'));
         } finally {
             setInvoiceFormSaving(false);
         }
@@ -383,9 +386,9 @@ export default function AdminDashboard() {
                             className={`${activeTab === tab
                                 ? 'border-yellow-500 text-yellow-600'
                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm capitalize`}
+                                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
                         >
-                            {tab === 'leads' ? 'Leads' : tab === 'users' ? 'Users' : tab === 'orders' ? 'Orders' : tab === 'invoices' ? 'Invoices' : 'Audit Logs'}
+                            {t(`dashboard.tabs.${tab}`)}
                         </button>
                     ))}
                 </nav>
@@ -394,8 +397,8 @@ export default function AdminDashboard() {
             {/* Content */}
             <div className="bg-white shadow rounded-lg p-6">
                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-bold text-gray-900 capitalize">
-                        {activeTab === 'leads' ? 'All Leads' : activeTab === 'users' ? 'System Users' : activeTab === 'orders' ? 'Customer Orders' : activeTab === 'invoices' ? 'Invoices' : 'System Audit Logs'}
+                    <h2 className="text-xl font-bold text-gray-900">
+                        {t(`dashboard.headings.${activeTab}`)}
                     </h2>
 
                     <div className="flex space-x-2">
@@ -404,7 +407,7 @@ export default function AdminDashboard() {
                                 onClick={handleCreateUser}
                                 className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded text-sm font-medium"
                             >
-                                + Create User
+                                {t('dashboard.buttons.createUser')}
                             </button>
                         )}
                         {activeTab === 'invoices' && (
@@ -412,7 +415,7 @@ export default function AdminDashboard() {
                                 onClick={() => setIsCreateInvoiceOpen(true)}
                                 className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded text-sm font-medium"
                             >
-                                + Create Invoice
+                                {t('dashboard.buttons.createInvoice')}
                             </button>
                         )}
                         <button
@@ -425,7 +428,7 @@ export default function AdminDashboard() {
                             }}
                             className="text-sm text-blue-600 hover:text-blue-800 border px-3 py-1 rounded"
                         >
-                            Refresh
+                            {t('common.refresh')}
                         </button>
                     </div>
                 </div>
@@ -438,12 +441,12 @@ export default function AdminDashboard() {
                             onChange={(e) => setOrderStatusFilter(e.target.value as OrderStatus | '')}
                             className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-yellow-500 focus:border-yellow-500"
                         >
-                            <option value="">All Statuses</option>
-                            <option value="pending">Pending</option>
-                            <option value="approved">Approved</option>
-                            <option value="shipped">Shipped</option>
-                            <option value="completed">Completed</option>
-                            <option value="cancelled">Cancelled</option>
+                            <option value="">{t('leads.filters.allStatuses')}</option>
+                            <option value="pending">{t('orderStatus.pending')}</option>
+                            <option value="approved">{t('orderStatus.approved')}</option>
+                            <option value="shipped">{t('orderStatus.shipped')}</option>
+                            <option value="completed">{t('orderStatus.completed')}</option>
+                            <option value="cancelled">{t('orderStatus.cancelled')}</option>
                         </select>
                     </div>
                 )}
@@ -456,11 +459,11 @@ export default function AdminDashboard() {
                             onChange={(e) => setInvoiceStatusFilter(e.target.value as InvoiceStatus | '')}
                             className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-yellow-500 focus:border-yellow-500"
                         >
-                            <option value="">All Statuses</option>
-                            <option value="draft">Draft</option>
-                            <option value="issued">Issued</option>
-                            <option value="paid">Paid</option>
-                            <option value="cancelled">Cancelled</option>
+                            <option value="">{t('leads.filters.allStatuses')}</option>
+                            <option value="draft">{t('invoiceStatus.draft')}</option>
+                            <option value="issued">{t('invoiceStatus.issued')}</option>
+                            <option value="paid">{t('invoiceStatus.paid')}</option>
+                            <option value="cancelled">{t('invoiceStatus.cancelled')}</option>
                         </select>
                     </div>
                 )}
@@ -471,7 +474,7 @@ export default function AdminDashboard() {
                         <div className="relative flex-grow max-w-md">
                             <input
                                 type="text"
-                                placeholder="Search by name or phone..."
+                                placeholder={t('leads.filters.searchPlaceholder')}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full border border-gray-300 rounded-md px-4 py-2 text-sm focus:ring-yellow-500 focus:border-yellow-500"
@@ -482,24 +485,24 @@ export default function AdminDashboard() {
                             onChange={(e) => setStatusFilter(e.target.value)}
                             className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-yellow-500 focus:border-yellow-500"
                         >
-                            <option value="">All Statuses</option>
-                            <option value="new">New</option>
-                            <option value="contacted">Contacted</option>
-                            <option value="qualified">Qualified</option>
-                            <option value="proposal">Proposal</option>
-                            <option value="won">Won</option>
-                            <option value="lost">Lost</option>
-                            <option value="converted">Converted</option>
-                            <option value="closed">Closed</option>
-                            <option value="archived">Archived</option>
-                            <option value="re-engaged">Re-engaged</option>
+                            <option value="">{t('leads.filters.allStatuses')}</option>
+                            <option value="new">{t('status.new')}</option>
+                            <option value="contacted">{t('status.contacted')}</option>
+                            <option value="qualified">{t('status.qualified')}</option>
+                            <option value="proposal">{t('status.proposal')}</option>
+                            <option value="won">{t('status.won')}</option>
+                            <option value="lost">{t('status.lost')}</option>
+                            <option value="converted">{t('status.converted')}</option>
+                            <option value="closed">{t('status.closed')}</option>
+                            <option value="archived">{t('status.archived')}</option>
+                            <option value="re-engaged">{t('status.re-engaged')}</option>
                         </select>
                         <select
                             value={agentFilter}
                             onChange={(e) => setAgentFilter(e.target.value)}
                             className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-yellow-500 focus:border-yellow-500"
                         >
-                            <option value="">All Agents</option>
+                            <option value="">{t('leads.filters.allAgents')}</option>
                             {users.filter(u => u.role === 'agent').map(agent => (
                                 <option key={agent._id} value={agent._id}>
                                     {agent.name || agent.email}
@@ -510,7 +513,7 @@ export default function AdminDashboard() {
                 )}
 
                 {loading ? (
-                    <div className="text-center py-8 text-gray-500">Loading data...</div>
+                    <div className="text-center py-8 text-gray-500">{t('common.loadingData')}</div>
                 ) : (
                     <>
                         {/* LEADS TABLE */}
@@ -520,12 +523,12 @@ export default function AdminDashboard() {
                                     <table className="min-w-full divide-y divide-gray-200">
                                         <thead className="bg-gray-50">
                                             <tr>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Count</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assigned To</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Contact</th>
-                                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('leads.table.name')}</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('leads.table.status')}</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('leads.table.count')}</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('leads.table.assignedTo')}</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('leads.table.lastContact')}</th>
+                                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('leads.table.actions')}</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-200">
@@ -548,7 +551,7 @@ export default function AdminDashboard() {
                                                                                         lead.status === 're-engaged' ? 'bg-teal-100 text-teal-800' :
                                                                                             lead.status === 'closed' ? 'bg-gray-100 text-gray-800' :
                                                                                                 'bg-green-100 text-green-800'}`}>
-                                                                {lead.status}
+                                                                {t(`status.${lead.status}`)}
                                                             </span>
                                                         </td>
                                                         <td className="px-6 py-4 text-sm text-gray-500">
@@ -565,19 +568,19 @@ export default function AdminDashboard() {
                                                                 href={`/admin/leads/${lead._id}`}
                                                                 className="text-blue-600 hover:text-blue-900"
                                                             >
-                                                                View
+                                                                {t('common.view')}
                                                             </Link>
                                                             <button
                                                                 onClick={() => handleEditLead(lead)}
                                                                 className="text-indigo-600 hover:text-indigo-900"
                                                             >
-                                                                Edit
+                                                                {t('common.edit')}
                                                             </button>
                                                         </td>
                                                     </tr>
                                                 );
                                             })}
-                                            {leads.length === 0 && <tr><td colSpan={6} className="px-6 py-4 text-center text-gray-500">No leads found.</td></tr>}
+                                            {leads.length === 0 && <tr><td colSpan={6} className="px-6 py-4 text-center text-gray-500">{t('leads.empty')}</td></tr>}
                                         </tbody>
                                     </table>
                                 </div>
@@ -590,20 +593,20 @@ export default function AdminDashboard() {
                                             disabled={page === 1}
                                             className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:text-gray-50 disabled:opacity-50"
                                         >
-                                            Previous
+                                            {t('common.previous')}
                                         </button>
                                         <button
                                             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                                             disabled={page === totalPages}
                                             className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:text-gray-50 disabled:opacity-50"
                                         >
-                                            Next
+                                            {t('common.next')}
                                         </button>
                                     </div>
                                     <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                                         <div>
                                             <p className="text-sm text-gray-700">
-                                                Page <span className="font-medium">{page}</span> of <span className="font-medium">{totalPages}</span>
+                                                {t('common.pageOf', { page, total: totalPages })}
                                             </p>
                                         </div>
                                         <div>
@@ -613,14 +616,14 @@ export default function AdminDashboard() {
                                                     disabled={page === 1}
                                                     className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
                                                 >
-                                                    <span>Previous</span>
+                                                    <span>{t('common.previous')}</span>
                                                 </button>
                                                 <button
                                                     onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                                                     disabled={page === totalPages}
                                                     className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
                                                 >
-                                                    <span>Next</span>
+                                                    <span>{t('common.next')}</span>
                                                 </button>
                                             </nav>
                                         </div>
@@ -635,32 +638,32 @@ export default function AdminDashboard() {
                                 <table className="min-w-full divide-y divide-gray-200">
                                     <thead className="bg-gray-50">
                                         <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('users.table.name')}</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('users.table.email')}</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('users.table.role')}</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('users.table.status')}</th>
+                                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('users.table.actions')}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200">
                                         {users.map((u) => (
                                             <tr key={u._id}>
-                                                <td className="px-6 py-4">{u.name || 'N/A'}</td>
+                                                <td className="px-6 py-4">{u.name || '—'}</td>
                                                 <td className="px-6 py-4">{u.email}</td>
                                                 <td className="px-6 py-4">
                                                     <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                                                        {u.role}
+                                                        {t(`role.${u.role}`)}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${u.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                                        {u.isActive ? 'Active' : 'Inactive'}
+                                                        {u.isActive ? t('users.active') : t('users.inactive')}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-right text-sm font-medium space-x-3">
-                                                    <button onClick={() => handleEditUser(u)} className="text-indigo-600 hover:text-indigo-900">Edit</button>
+                                                    <button onClick={() => handleEditUser(u)} className="text-indigo-600 hover:text-indigo-900">{t('common.edit')}</button>
                                                     <button onClick={() => handleToggleActive(u)} className={`${u.isActive ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'}`}>
-                                                        {u.isActive ? 'Deactivate' : 'Activate'}
+                                                        {u.isActive ? t('users.deactivate') : t('users.activate')}
                                                     </button>
                                                 </td>
                                             </tr>
@@ -680,13 +683,13 @@ export default function AdminDashboard() {
                                     <table className="min-w-full divide-y divide-gray-200">
                                         <thead className="bg-gray-50">
                                             <tr>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order ID</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Company</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
-                                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('orders.table.orderId')}</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('orders.table.company')}</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('orders.table.items')}</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('orders.table.amount')}</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('orders.table.status')}</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('orders.table.created')}</th>
+                                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('orders.table.actions')}</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-200">
@@ -699,7 +702,7 @@ export default function AdminDashboard() {
                                                         {getOrderCompanyName(order)}
                                                     </td>
                                                     <td className="px-6 py-4 text-sm text-gray-500">
-                                                        {order.items.length} item{order.items.length !== 1 ? 's' : ''}
+                                                        {order.items.length} {order.items.length !== 1 ? t('orders.itemsSuffix') : t('orders.itemSuffix')}
                                                     </td>
                                                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
                                                         ₪{order.totalAmount.toLocaleString()}
@@ -711,11 +714,11 @@ export default function AdminDashboard() {
                                                             onChange={(e) => handleOrderStatusChange(order._id, e.target.value as OrderStatus)}
                                                             className={`text-xs font-semibold rounded-full px-2 py-1 border-0 cursor-pointer focus:ring-2 focus:ring-yellow-400 disabled:opacity-60 ${ORDER_STATUS_COLORS[order.status] ?? 'bg-gray-100 text-gray-700'}`}
                                                         >
-                                                            <option value="pending">Pending</option>
-                                                            <option value="approved">Approved</option>
-                                                            <option value="shipped">Shipped</option>
-                                                            <option value="completed">Completed</option>
-                                                            <option value="cancelled">Cancelled</option>
+                                                            <option value="pending">{t('orderStatus.pending')}</option>
+                                                            <option value="approved">{t('orderStatus.approved')}</option>
+                                                            <option value="shipped">{t('orderStatus.shipped')}</option>
+                                                            <option value="completed">{t('orderStatus.completed')}</option>
+                                                            <option value="cancelled">{t('orderStatus.cancelled')}</option>
                                                         </select>
                                                     </td>
                                                     <td className="px-6 py-4 text-sm text-gray-500">
@@ -726,13 +729,13 @@ export default function AdminDashboard() {
                                                             onClick={() => setSelectedOrder(order)}
                                                             className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
                                                         >
-                                                            View
+                                                            {t('common.view')}
                                                         </button>
                                                     </td>
                                                 </tr>
                                             ))}
                                             {filtered.length === 0 && (
-                                                <tr><td colSpan={7} className="px-6 py-4 text-center text-gray-500">No orders found.</td></tr>
+                                                <tr><td colSpan={7} className="px-6 py-4 text-center text-gray-500">{t('orders.empty')}</td></tr>
                                             )}
                                         </tbody>
                                     </table>
@@ -750,13 +753,13 @@ export default function AdminDashboard() {
                                     <table className="min-w-full divide-y divide-gray-200">
                                         <thead className="bg-gray-50">
                                             <tr>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Invoice #</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Company</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Issued</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Due</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('invoices.table.invoiceNumber')}</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('invoices.table.company')}</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('invoices.table.amount')}</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('invoices.table.status')}</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('invoices.table.issued')}</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('invoices.table.due')}</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('invoices.table.actions')}</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-200">
@@ -778,10 +781,10 @@ export default function AdminDashboard() {
                                                             onChange={(e) => handleInvoiceStatusChange(inv._id, e.target.value as InvoiceStatus)}
                                                             className={`text-xs font-semibold rounded-full px-2 py-1 border-0 cursor-pointer focus:ring-2 focus:ring-yellow-400 disabled:opacity-60 ${INVOICE_STATUS_COLORS[inv.status] ?? 'bg-gray-100 text-gray-700'}`}
                                                         >
-                                                            <option value="draft">Draft</option>
-                                                            <option value="issued">Issued</option>
-                                                            <option value="paid">Paid</option>
-                                                            <option value="cancelled">Cancelled</option>
+                                                            <option value="draft">{t('invoiceStatus.draft')}</option>
+                                                            <option value="issued">{t('invoiceStatus.issued')}</option>
+                                                            <option value="paid">{t('invoiceStatus.paid')}</option>
+                                                            <option value="cancelled">{t('invoiceStatus.cancelled')}</option>
                                                         </select>
                                                     </td>
                                                     <td className="px-6 py-4 text-sm text-gray-500">
@@ -797,7 +800,7 @@ export default function AdminDashboard() {
                                                                 disabled={issuingInvoiceIds.has(inv._id)}
                                                                 className="inline-flex items-center px-3 py-1 rounded text-xs font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                                                             >
-                                                                {issuingInvoiceIds.has(inv._id) ? 'Issuing…' : 'Issue & PDF'}
+                                                                {issuingInvoiceIds.has(inv._id) ? t('invoices.issuing') : t('invoices.issueAndPdf')}
                                                             </button>
                                                         )}
                                                         {inv.pdfUrl && (
@@ -807,14 +810,14 @@ export default function AdminDashboard() {
                                                                 rel="noopener noreferrer"
                                                                 className="inline-flex items-center px-3 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 ml-1"
                                                             >
-                                                                PDF
+                                                                {t('invoices.pdf')}
                                                             </a>
                                                         )}
                                                     </td>
                                                 </tr>
                                             ))}
                                             {filtered.length === 0 && (
-                                                <tr><td colSpan={7} className="px-6 py-4 text-center text-gray-500">No invoices found.</td></tr>
+                                                <tr><td colSpan={7} className="px-6 py-4 text-center text-gray-500">{t('invoices.empty')}</td></tr>
                                             )}
                                         </tbody>
                                     </table>
@@ -829,11 +832,11 @@ export default function AdminDashboard() {
                                     <table className="min-w-full divide-y divide-gray-200">
                                         <thead className="bg-gray-50">
                                             <tr>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Entity</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Details</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('audit.table.date')}</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('audit.table.user')}</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('audit.table.action')}</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('audit.table.entity')}</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('audit.table.details')}</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-200">
@@ -843,7 +846,7 @@ export default function AdminDashboard() {
                                                         {new Date(log.createdAt).toLocaleString()}
                                                     </td>
                                                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                                                        {log.performedBy?.email || 'System'}
+                                                        {log.performedBy?.email || t('audit.system')}
                                                     </td>
                                                     <td className="px-6 py-4 text-sm text-gray-500 font-mono">
                                                         {log.action}
@@ -856,7 +859,7 @@ export default function AdminDashboard() {
                                                     </td>
                                                 </tr>
                                             ))}
-                                            {auditLogs.length === 0 && <tr><td colSpan={5} className="px-6 py-4 text-center text-gray-500">No audit logs found.</td></tr>}
+                                            {auditLogs.length === 0 && <tr><td colSpan={5} className="px-6 py-4 text-center text-gray-500">{t('audit.empty')}</td></tr>}
                                         </tbody>
                                     </table>
                                 </div>
@@ -869,20 +872,20 @@ export default function AdminDashboard() {
                                             disabled={page === 1}
                                             className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:text-gray-50 disabled:opacity-50"
                                         >
-                                            Previous
+                                            {t('common.previous')}
                                         </button>
                                         <button
                                             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                                             disabled={page === totalPages}
                                             className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:text-gray-50 disabled:opacity-50"
                                         >
-                                            Next
+                                            {t('common.next')}
                                         </button>
                                     </div>
                                     <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                                         <div>
                                             <p className="text-sm text-gray-700">
-                                                Page <span className="font-medium">{page}</span> of <span className="font-medium">{totalPages}</span>
+                                                {t('common.pageOf', { page, total: totalPages })}
                                             </p>
                                         </div>
                                         <div>
@@ -892,14 +895,14 @@ export default function AdminDashboard() {
                                                     disabled={page === 1}
                                                     className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
                                                 >
-                                                    <span>Previous</span>
+                                                    <span>{t('common.previous')}</span>
                                                 </button>
                                                 <button
                                                     onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                                                     disabled={page === totalPages}
                                                     className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
                                                 >
-                                                    <span>Next</span>
+                                                    <span>{t('common.next')}</span>
                                                 </button>
                                             </nav>
                                         </div>
@@ -932,12 +935,12 @@ export default function AdminDashboard() {
             <Modal
                 isOpen={isCreateInvoiceOpen}
                 onClose={() => setIsCreateInvoiceOpen(false)}
-                title="Create Invoice"
+                title={t('invoices.create.title')}
             >
                 <div className="mt-3 space-y-4">
                     {/* Order picker — supplies company ID automatically */}
                     <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Linked Order <span className="text-gray-400">(required to set company)</span></label>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">{t('invoices.create.linkedOrder')} <span className="text-gray-400">{t('invoices.create.linkedOrderHelp')}</span></label>
                         <select
                             value={invoiceForm.orderId}
                             onChange={(e) => {
@@ -948,7 +951,7 @@ export default function AdminDashboard() {
                             }}
                             className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-yellow-500 focus:border-yellow-500"
                         >
-                            <option value="">— select order —</option>
+                            <option value="">{t('invoices.create.selectOrder')}</option>
                             {orderOptions.map(o => (
                                 <option key={o._id} value={o._id}>
                                     #{o._id.slice(-6).toUpperCase()} · {getOrderCompanyName(o)} · ₪{o.totalAmount.toLocaleString()}
@@ -956,16 +959,16 @@ export default function AdminDashboard() {
                             ))}
                         </select>
                         {invoiceForm.companyId && (
-                            <p className="text-xs text-green-600 mt-0.5">Company linked ✓</p>
+                            <p className="text-xs text-green-600 mt-0.5">{t('invoices.create.companyLinked')}</p>
                         )}
                     </div>
 
                     {/* Invoice number */}
                     <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Invoice Number <span className="text-red-400">*</span></label>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">{t('invoices.create.invoiceNumber')} <span className="text-red-400">*</span></label>
                         <input
                             type="text"
-                            placeholder="e.g. INV-2024-001"
+                            placeholder={t('invoices.create.invoiceNumberPlaceholder')}
                             value={invoiceForm.invoiceNumber}
                             onChange={(e) => setInvoiceForm(f => ({ ...f, invoiceNumber: e.target.value }))}
                             className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-yellow-500 focus:border-yellow-500"
@@ -975,7 +978,7 @@ export default function AdminDashboard() {
                     {/* Amount + Status row */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">Total Amount (₪) <span className="text-red-400">*</span></label>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">{t('invoices.create.totalAmount')} <span className="text-red-400">*</span></label>
                             <input
                                 type="number"
                                 min="0"
@@ -986,23 +989,23 @@ export default function AdminDashboard() {
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">{t('invoices.create.status')}</label>
                             <select
                                 value={invoiceForm.status}
                                 onChange={(e) => setInvoiceForm(f => ({ ...f, status: e.target.value as InvoiceStatus }))}
                                 className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-yellow-500 focus:border-yellow-500"
                             >
-                                <option value="draft">Draft</option>
-                                <option value="issued">Issued</option>
-                                <option value="paid">Paid</option>
-                                <option value="cancelled">Cancelled</option>
+                                <option value="draft">{t('invoiceStatus.draft')}</option>
+                                <option value="issued">{t('invoiceStatus.issued')}</option>
+                                <option value="paid">{t('invoiceStatus.paid')}</option>
+                                <option value="cancelled">{t('invoiceStatus.cancelled')}</option>
                             </select>
                         </div>
                     </div>
 
                     {/* Due date */}
                     <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Due Date <span className="text-gray-400">(optional)</span></label>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">{t('invoices.create.dueDate')} <span className="text-gray-400">{t('common.optional')}</span></label>
                         <input
                             type="date"
                             value={invoiceForm.dueDate}
@@ -1013,7 +1016,7 @@ export default function AdminDashboard() {
 
                     {/* Notes */}
                     <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Notes <span className="text-gray-400">(optional)</span></label>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">{t('invoices.create.notes')} <span className="text-gray-400">{t('common.optional')}</span></label>
                         <textarea
                             rows={2}
                             value={invoiceForm.notes}
@@ -1028,14 +1031,14 @@ export default function AdminDashboard() {
                             onClick={() => setIsCreateInvoiceOpen(false)}
                             className="flex-1 px-4 py-2 border border-gray-300 rounded text-sm font-medium text-gray-700 hover:bg-gray-50"
                         >
-                            Cancel
+                            {t('common.cancel')}
                         </button>
                         <button
                             onClick={handleCreateInvoice}
                             disabled={invoiceFormSaving}
                             className="flex-1 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-white rounded text-sm font-medium"
                         >
-                            {invoiceFormSaving ? 'Creating…' : 'Create Invoice'}
+                            {invoiceFormSaving ? t('invoices.create.submitting') : t('invoices.create.submit')}
                         </button>
                     </div>
                 </div>
@@ -1046,41 +1049,41 @@ export default function AdminDashboard() {
                 <Modal
                     isOpen={!!selectedOrder}
                     onClose={() => setSelectedOrder(null)}
-                    title={`Order #${selectedOrder._id.slice(-6).toUpperCase()}`}
+                    title={`${t('orders.detail.titlePrefix')} #${selectedOrder._id.slice(-6).toUpperCase()}`}
                 >
                     {/* Meta row */}
                     <div className="mt-3 space-y-3">
                         <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                             <div>
-                                <p className="text-xs text-gray-400 uppercase tracking-wide">Company</p>
+                                <p className="text-xs text-gray-400 uppercase tracking-wide">{t('orders.detail.company')}</p>
                                 <p className="font-medium text-gray-900">{getOrderCompanyName(selectedOrder)}</p>
                             </div>
                             <div>
-                                <p className="text-xs text-gray-400 uppercase tracking-wide">Date</p>
+                                <p className="text-xs text-gray-400 uppercase tracking-wide">{t('orders.detail.date')}</p>
                                 <p className="font-medium text-gray-900">{new Date(selectedOrder.createdAt).toLocaleDateString()}</p>
                             </div>
                             <div>
-                                <p className="text-xs text-gray-400 uppercase tracking-wide">Status</p>
+                                <p className="text-xs text-gray-400 uppercase tracking-wide">{t('orders.detail.status')}</p>
                                 <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${ORDER_STATUS_COLORS[selectedOrder.status] ?? 'bg-gray-100 text-gray-700'}`}>
-                                    {selectedOrder.status}
+                                    {t(`orderStatus.${selectedOrder.status}`)}
                                 </span>
                             </div>
                             <div>
-                                <p className="text-xs text-gray-400 uppercase tracking-wide">Total</p>
+                                <p className="text-xs text-gray-400 uppercase tracking-wide">{t('orders.detail.total')}</p>
                                 <p className="font-medium text-gray-900">₪{selectedOrder.totalAmount.toLocaleString()}</p>
                             </div>
                         </div>
 
                         {/* Items */}
                         <div className="mt-4">
-                            <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Items</p>
+                            <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">{t('orders.detail.items')}</p>
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr className="border-b border-gray-100">
-                                        <th className="py-1 text-left font-medium text-gray-500">Product</th>
-                                        <th className="py-1 text-center font-medium text-gray-500">Qty</th>
-                                        <th className="py-1 text-right font-medium text-gray-500">Unit Price</th>
-                                        <th className="py-1 text-right font-medium text-gray-500">Subtotal</th>
+                                        <th className="py-1 text-left font-medium text-gray-500">{t('orders.detail.product')}</th>
+                                        <th className="py-1 text-center font-medium text-gray-500">{t('orders.detail.qty')}</th>
+                                        <th className="py-1 text-right font-medium text-gray-500">{t('orders.detail.unitPrice')}</th>
+                                        <th className="py-1 text-right font-medium text-gray-500">{t('orders.detail.subtotal')}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
@@ -1101,7 +1104,7 @@ export default function AdminDashboard() {
                                 </tbody>
                                 <tfoot>
                                     <tr className="border-t border-gray-200">
-                                        <td colSpan={3} className="pt-2 text-right text-sm font-medium text-gray-500">Total</td>
+                                        <td colSpan={3} className="pt-2 text-right text-sm font-medium text-gray-500">{t('orders.detail.total')}</td>
                                         <td className="pt-2 text-right text-sm font-bold text-gray-900">₪{selectedOrder.totalAmount.toLocaleString()}</td>
                                     </tr>
                                 </tfoot>
@@ -1111,7 +1114,7 @@ export default function AdminDashboard() {
                         {/* Notes */}
                         {selectedOrder.notes && (
                             <div className="mt-3">
-                                <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Notes</p>
+                                <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">{t('orders.detail.notes')}</p>
                                 <p className="text-sm text-gray-700 bg-gray-50 rounded p-2">{selectedOrder.notes}</p>
                             </div>
                         )}
@@ -1122,7 +1125,7 @@ export default function AdminDashboard() {
                                 onClick={() => setSelectedOrder(null)}
                                 className="w-full px-4 py-2 border border-gray-300 rounded text-sm font-medium text-gray-700 hover:bg-gray-50"
                             >
-                                Close
+                                {t('common.close')}
                             </button>
                         </div>
                     </div>

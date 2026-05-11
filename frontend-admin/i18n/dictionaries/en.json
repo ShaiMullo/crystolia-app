@@ -1,0 +1,412 @@
+{
+  "common": {
+    "loading": "Loading…",
+    "loadingData": "Loading data…",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "close": "Close",
+    "refresh": "Refresh",
+    "actions": "Actions",
+    "edit": "Edit",
+    "view": "View",
+    "delete": "Delete",
+    "remove": "Remove",
+    "create": "Create",
+    "creating": "Creating…",
+    "update": "Update",
+    "add": "Add",
+    "done": "Done",
+    "retry": "Retry",
+    "previous": "Previous",
+    "next": "Next",
+    "pageOf": "Page {page} of {total}",
+    "noResults": "No results found.",
+    "yes": "Yes",
+    "no": "No",
+    "optional": "(optional)",
+    "required": "Required",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "all": "All",
+    "search": "Search",
+    "back": "Back"
+  },
+  "language": {
+    "label": "Language",
+    "he": "Hebrew",
+    "en": "English",
+    "ru": "Russian"
+  },
+  "login": {
+    "brandTitle": "Crystolia Admin",
+    "brandSubtitle": "Internal Management Portal",
+    "heading": "Admin Login",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Login",
+    "submitting": "Logging in…",
+    "invalidCredentials": "Invalid credentials"
+  },
+  "nav": {
+    "brand": "Crystolia",
+    "brandAdminSuffix": "Admin",
+    "brandAgentSuffix": "Agent",
+    "dashboard": "Dashboard",
+    "crm": "CRM",
+    "settings": "Settings",
+    "logout": "Logout",
+    "administratorFallback": "Administrator"
+  },
+  "dashboard": {
+    "tabs": {
+      "leads": "Leads",
+      "users": "Users",
+      "orders": "Orders",
+      "invoices": "Invoices",
+      "audit": "Audit Logs"
+    },
+    "headings": {
+      "leads": "All Leads",
+      "users": "System Users",
+      "orders": "Customer Orders",
+      "invoices": "Invoices",
+      "audit": "System Audit Logs"
+    },
+    "buttons": {
+      "createUser": "+ Create User",
+      "createInvoice": "+ Create Invoice"
+    }
+  },
+  "leads": {
+    "table": {
+      "name": "Name",
+      "status": "Status",
+      "count": "Count",
+      "assignedTo": "Assigned To",
+      "lastContact": "Last Contact",
+      "actions": "Actions"
+    },
+    "filters": {
+      "searchPlaceholder": "Search by name or phone…",
+      "allStatuses": "All Statuses",
+      "allAgents": "All Agents"
+    },
+    "empty": "No leads found.",
+    "toasts": {
+      "loadFailed": "Failed to load leads",
+      "updated": "Lead updated successfully",
+      "updateFailed": "Failed to update lead"
+    },
+    "modal": {
+      "editTitle": "Edit Lead: {name}",
+      "status": "Status",
+      "assignAgent": "Assign Agent",
+      "unassigned": "— Unassigned —",
+      "tagsLabel": "Tags (comma separated)",
+      "tagsPlaceholder": "vip, urgent, referral",
+      "addNote": "Add Note",
+      "addNotePlaceholder": "Add a new note…",
+      "saveChanges": "Save Changes"
+    }
+  },
+  "leadDetail": {
+    "backToDashboard": "← Back to Dashboard",
+    "noEmail": "No email",
+    "info": {
+      "title": "Lead Info",
+      "source": "Source",
+      "tags": "Tags",
+      "contactCount": "Contact Count",
+      "lastContact": "Last Contact",
+      "owner": "Owner",
+      "unassigned": "Unassigned",
+      "created": "Created"
+    },
+    "convertCard": {
+      "title": "Convert",
+      "description": "Create a Company (and optionally a customer login) from this lead.",
+      "button": "Convert to Customer"
+    },
+    "convertedCard": {
+      "title": "Converted",
+      "badge": "customer",
+      "convertedAt": "Converted at:",
+      "companyId": "Company ID:",
+      "userId": "User ID:",
+      "noUserCreated": "No customer user was created."
+    },
+    "changeStatus": {
+      "title": "Change Status",
+      "button": "Update Status"
+    },
+    "assign": {
+      "title": "Assign Owner",
+      "placeholder": "Owner ID or name",
+      "button": "Assign"
+    },
+    "timeline": {
+      "title": "Timeline",
+      "empty": "No timeline events yet."
+    },
+    "notes": {
+      "title": "Notes",
+      "placeholder": "Add a note…",
+      "addBtn": "Add",
+      "empty": "No notes yet."
+    },
+    "messages": {
+      "title": "Messages"
+    },
+    "toasts": {
+      "loadFailed": "Failed to load lead",
+      "statusUpdated": "Status updated to {status}",
+      "statusFailed": "Failed to update status",
+      "noteAdded": "Note added",
+      "noteFailed": "Failed to add note",
+      "ownerAssigned": "Owner assigned",
+      "ownerFailed": "Failed to assign owner",
+      "alreadyConverted": "Lead was already converted",
+      "converted": "Lead converted to customer"
+    },
+    "states": {
+      "loading": "Loading…",
+      "notFound": "Lead not found"
+    }
+  },
+  "convert": {
+    "title": "Convert lead: {name}",
+    "successTitle": "Lead converted",
+    "alreadyConverted": "This lead was already converted — nothing was changed.",
+    "successMessage": "Lead converted successfully.",
+    "companyHeading": "Company",
+    "vat": "VAT:",
+    "customerUserHeading": "Customer user",
+    "tempPasswordHeading": "Temporary password — shown once",
+    "tempPasswordHelp": "Hand this to the customer over a secure channel. It will not be displayed again after you close this dialog.",
+    "fields": {
+      "companyName": "Company name",
+      "vatNumber": "VAT number",
+      "city": "City",
+      "address": "Address",
+      "phone": "Phone",
+      "email": "Email",
+      "contactName": "Contact name",
+      "password": "Password",
+      "passwordPlaceholder": "Leave blank to auto-generate",
+      "internalNote": "Internal note",
+      "internalNotePlaceholder": "Optional note recorded on the lead timeline."
+    },
+    "customerLoginSection": "Customer login (only if email is provided)",
+    "submit": "Convert to customer",
+    "submitting": "Converting…",
+    "errorFallback": "Conversion failed"
+  },
+  "users": {
+    "table": {
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "active": "Active",
+    "inactive": "Inactive",
+    "deactivate": "Deactivate",
+    "activate": "Activate",
+    "confirmToggle": "Are you sure you want to deactivate this user?",
+    "confirmActivate": "Are you sure you want to activate this user?",
+    "toasts": {
+      "deactivated": "User deactivated",
+      "activated": "User activated",
+      "actionFailed": "Action failed",
+      "created": "User created successfully",
+      "updated": "User updated successfully",
+      "saveFailed": "Failed to save user"
+    },
+    "modal": {
+      "createTitle": "Create New User",
+      "editTitle": "Edit User: {label}",
+      "fullName": "Full Name",
+      "emailAddress": "Email Address",
+      "passwordCreate": "Password",
+      "passwordEdit": "New Password (Leave blank to keep)",
+      "role": "Role",
+      "submitCreate": "Create User",
+      "submitUpdate": "Update User",
+      "submitting": "Processing…"
+    }
+  },
+  "orders": {
+    "table": {
+      "orderId": "Order ID",
+      "company": "Company",
+      "items": "Items",
+      "amount": "Amount",
+      "status": "Status",
+      "created": "Created",
+      "actions": "Actions"
+    },
+    "empty": "No orders found.",
+    "itemsSuffix": "items",
+    "itemSuffix": "item",
+    "toasts": {
+      "loadFailed": "Failed to load orders",
+      "updated": "Order status updated",
+      "updateFailed": "Failed to update order status"
+    },
+    "detail": {
+      "titlePrefix": "Order",
+      "company": "Company",
+      "date": "Date",
+      "status": "Status",
+      "total": "Total",
+      "items": "Items",
+      "product": "Product",
+      "qty": "Qty",
+      "unitPrice": "Unit Price",
+      "subtotal": "Subtotal",
+      "notes": "Notes"
+    }
+  },
+  "invoices": {
+    "table": {
+      "invoiceNumber": "Invoice #",
+      "company": "Company",
+      "amount": "Amount",
+      "status": "Status",
+      "issued": "Issued",
+      "due": "Due",
+      "actions": "Actions"
+    },
+    "empty": "No invoices found.",
+    "issueAndPdf": "Issue & PDF",
+    "issuing": "Issuing…",
+    "pdf": "PDF",
+    "toasts": {
+      "loadFailed": "Failed to load invoices",
+      "updated": "Invoice status updated",
+      "updateFailed": "Failed to update invoice status",
+      "issued": "Invoice issued successfully",
+      "issueFailed": "Failed to issue invoice",
+      "created": "Invoice created",
+      "createFailed": "Failed to create invoice",
+      "invoiceNumberRequired": "Invoice number is required",
+      "amountRequired": "Valid total amount is required",
+      "orderRequired": "Please select an order to link a company"
+    },
+    "create": {
+      "title": "Create Invoice",
+      "linkedOrder": "Linked Order",
+      "linkedOrderHelp": "(required to set company)",
+      "selectOrder": "— select order —",
+      "companyLinked": "Company linked ✓",
+      "invoiceNumber": "Invoice Number",
+      "invoiceNumberPlaceholder": "e.g. INV-2024-001",
+      "totalAmount": "Total Amount (₪)",
+      "status": "Status",
+      "dueDate": "Due Date",
+      "notes": "Notes",
+      "submit": "Create Invoice",
+      "submitting": "Creating…"
+    }
+  },
+  "audit": {
+    "table": {
+      "date": "Date",
+      "user": "User",
+      "action": "Action",
+      "entity": "Entity",
+      "details": "Details"
+    },
+    "system": "System",
+    "empty": "No audit logs found."
+  },
+  "settings": {
+    "pageTitle": "Business Settings",
+    "pageSubtitle": "Configure pricing, order rules, and product catalog.",
+    "saveBtn": "Save Settings",
+    "saving": "Saving…",
+    "loadFailed": "Failed to load settings. Please refresh.",
+    "loading": "Loading settings…",
+    "section1": {
+      "title": "Order Settings",
+      "minOrderLabel": "Minimum Order Amount",
+      "minOrderHelp": "Orders below this amount will be rejected.",
+      "currency": "Currency",
+      "minNegative": "Minimum order amount cannot be negative"
+    },
+    "section2": {
+      "title": "Box Prices",
+      "subtitle": "Define the product catalog shown to customers when placing orders.",
+      "addRow": "+ Add Row",
+      "empty": "No box prices defined yet. Click \"+ Add Row\" to add one.",
+      "labelCol": "Label",
+      "skuCol": "SKU",
+      "priceCol": "Price / Unit",
+      "activeCol": "Active",
+      "removeCol": "Remove",
+      "labelPlaceholder": "e.g. Small Box",
+      "skuPlaceholder": "e.g. BOX-S"
+    },
+    "toasts": {
+      "saved": "Settings saved",
+      "saveFailed": "Failed to save settings"
+    }
+  },
+  "agent": {
+    "myLeads": "My Leads",
+    "searchPlaceholder": "Search by name, phone, or email…",
+    "loading": "Loading assignments…",
+    "emptyAssigned": "No leads assigned.",
+    "emptyFiltered": "No leads match your filters.",
+    "table": {
+      "name": "Name",
+      "contact": "Contact",
+      "status": "Status",
+      "lastContact": "Last Contact",
+      "contacts": "Contacts"
+    },
+    "actions": {
+      "whatsapp": "WhatsApp",
+      "notes": "Notes"
+    },
+    "toasts": {
+      "statusUpdated": "Status updated",
+      "statusFailed": "Failed to update status",
+      "leadUpdated": "Lead updated",
+      "leadFailed": "Failed to update lead",
+      "loadFailed": "Failed to load leads"
+    }
+  },
+  "status": {
+    "new": "New",
+    "contacted": "Contacted",
+    "qualified": "Qualified",
+    "proposal": "Proposal",
+    "won": "Won",
+    "lost": "Lost",
+    "converted": "Converted",
+    "closed": "Closed",
+    "archived": "Archived",
+    "re-engaged": "Re-engaged"
+  },
+  "orderStatus": {
+    "pending": "Pending",
+    "approved": "Approved",
+    "shipped": "Shipped",
+    "completed": "Completed",
+    "cancelled": "Cancelled"
+  },
+  "invoiceStatus": {
+    "draft": "Draft",
+    "issued": "Issued",
+    "paid": "Paid",
+    "cancelled": "Cancelled"
+  },
+  "role": {
+    "admin": "Admin",
+    "agent": "Agent",
+    "customer": "Customer"
+  }
+}

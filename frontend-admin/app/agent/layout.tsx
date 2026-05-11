@@ -4,6 +4,8 @@ import { useAuth } from "@/app/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import React from "react";
+import { useAdminI18n } from "@/i18n/I18nProvider";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 
 export default function AgentLayout({
@@ -12,6 +14,7 @@ export default function AgentLayout({
     children: React.ReactNode;
 }) {
     const { user, logout, isLoading } = useAuth();
+    const { t } = useAdminI18n();
     const router = useRouter();
 
     // 🔒 Authorization Guard
@@ -35,10 +38,11 @@ export default function AgentLayout({
                     <div className="flex justify-between h-16">
                         <div className="flex">
                             <div className="flex-shrink-0 flex items-center">
-                                <span className="text-xl font-bold text-gray-800">Crystolia <span className="text-blue-600">Agent</span></span>
+                                <span className="text-xl font-bold text-gray-800">{t('nav.brand')} <span className="text-blue-600">{t('nav.brandAgentSuffix')}</span></span>
                             </div>
                         </div>
                         <div className="flex items-center space-x-4">
+                            <LanguageSwitcher />
                             <span className="text-sm text-gray-500">
                                 {user.name || user.email}
                             </span>
@@ -46,7 +50,7 @@ export default function AgentLayout({
                                 onClick={logout}
                                 className="px-3 py-1 text-sm text-red-600 hover:text-red-800 font-medium"
                             >
-                                Logout
+                                {t('nav.logout')}
                             </button>
                         </div>
                     </div>
