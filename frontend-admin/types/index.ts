@@ -50,6 +50,11 @@ export interface Lead {
     notes: LeadNote[];
     onboarding: LeadOnboarding;
 
+    // Conversion tracking — populated once a lead has been converted into a customer
+    convertedToCompanyId?: string;
+    convertedToUserId?: string;
+    convertedAt?: string;
+
     isDeleted: boolean;
     createdAt: string;
     updatedAt: string;

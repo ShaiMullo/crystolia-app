@@ -6,6 +6,7 @@ import { toast, Toaster } from 'react-hot-toast';
 import { useAuth } from '@/app/context/AuthContext';
 import api from '@/app/lib/api';
 import { Lead, LeadStatus, TimelineEvent, LeadNote } from '@/types';
+import ConvertLeadModal, { ConvertSubmitPayload, ConvertSubmitResult } from '@/components/leads/ConvertLeadModal';
 
 // ═══════════════════════════════════════════════════════
 // 📄  CRM Lead Detail Page
@@ -39,6 +40,7 @@ export default function LeadDetailPage() {
     const [noteText, setNoteText] = useState('');
     const [newStatus, setNewStatus] = useState<LeadStatus>('new');
     const [assignOwner, setAssignOwner] = useState('');
+    const [isConvertOpen, setIsConvertOpen] = useState(false);
 
     const leadId = params?.id as string;
 
@@ -108,6 +110,26 @@ export default function LeadDetailPage() {
         }
     };
 
+    // ─── Convert to customer ───
+    const handleConvertSubmit = useCallback(async (payload: ConvertSubmitPayload): Promise<ConvertSubmitResult> => {
+        const res = await api.post(`/crm/leads/${leadId}/convert`, payload);
+        const data = res.data;
+        if (data.idempotent) {
+            toast('Lead was already converted', { icon: 'ℹ️' });
+        } else {
+            toast.success('Lead converted to customer');
+        }
+        return {
+            success: !!data.success,
+            idempotent: !!data.idempotent,
+            company: data.company || null,
+            user: data.user || null,
+            tempPassword: data.tempPassword,
+        };
+    }, [leadId]);
+
+    const isConverted = !!lead && (lead.status === 'converted' || !!lead.convertedToCompanyId);
+
     if (loading) {
         return <div className="flex items-center justify-center h-screen"><p className="text-gray-500">Loading…</p></div>;
     }
@@ -149,6 +171,53 @@ export default function LeadDetailPage() {
                             <p><strong>Created:</strong> {new Date(lead.createdAt).toLocaleString()}</p>
                         </div>
                     </div>
+
+                    {/* Conversion */}
+                    {isConverted ? (
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-lg shadow-sm p-5 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-lg font-semibold text-emerald-800">Converted</h2>
+                                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                                    customer
+                                </span>
+                            </div>
+                            <div className="text-sm text-emerald-900 space-y-1.5">
+                                {lead.convertedAt && (
+                                    <p>
+                                        <strong className="text-emerald-700">Converted at:</strong>{' '}
+                                        {new Date(lead.convertedAt).toLocaleString()}
+                                    </p>
+                                )}
+                                {lead.convertedToCompanyId && (
+                                    <p className="break-all">
+                                        <strong className="text-emerald-700">Company ID:</strong>{' '}
+                                        <span className="font-mono text-xs">{lead.convertedToCompanyId}</span>
+                                    </p>
+                                )}
+                                {lead.convertedToUserId ? (
+                                    <p className="break-all">
+                                        <strong className="text-emerald-700">User ID:</strong>{' '}
+                                        <span className="font-mono text-xs">{lead.convertedToUserId}</span>
+                                    </p>
+                                ) : (
+                                    <p className="text-xs text-emerald-700/80">No customer user was created.</p>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="bg-white rounded-lg shadow p-5 space-y-3">
+                            <h2 className="text-lg font-semibold text-gray-800">Convert</h2>
+                            <p className="text-xs text-gray-500">
+                                Create a Company (and optionally a customer login) from this lead.
+                            </p>
+                            <button
+                                onClick={() => setIsConvertOpen(true)}
+                                className="w-full bg-emerald-600 text-white rounded py-2 text-sm font-medium hover:bg-emerald-700"
+                            >
+                                Convert to Customer
+                            </button>
+                        </div>
+                    )}
 
                     {/* Change Status */}
                     <div className="bg-white rounded-lg shadow p-5 space-y-3">
@@ -241,6 +310,15 @@ export default function LeadDetailPage() {
                             <p className="text-gray-400 text-sm">No notes yet.</p>
                         )}
                     </div>
+
+                    {/* Convert modal */}
+                    <ConvertLeadModal
+                        isOpen={isConvertOpen}
+                        onClose={() => setIsConvertOpen(false)}
+                        lead={lead}
+                        onSubmit={handleConvertSubmit}
+                        onSuccess={fetchLead}
+                    />
 
                     {/* Messages */}
                     {lead.messages && lead.messages.length > 0 && (

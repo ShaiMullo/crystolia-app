@@ -5,12 +5,23 @@
 // All routes are protected and admin-only
 
 import { Router, Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 import Lead, { LeadStatus } from '../models/Lead.js';
+import Company from '../models/Company.js';
+import User from '../models/User.js';
 import { protect, authorize } from '../middleware/auth.js';
 import { validate, AppError } from '../utils/validation.js';
 import { logAudit } from '../services/auditService.js';
 
 const router = Router();
+
+// Strong-ish placeholder password used when admin converts a lead without
+// supplying one. Always includes an uppercase letter and a digit so it
+// passes the User schema validator.
+function generateTempPassword(): string {
+    const raw = crypto.randomBytes(9).toString('base64').replace(/[+/=]/g, '');
+    return `A${raw}9`;
+}
 
 // All CRM routes require admin auth
 router.use(protect);
@@ -218,6 +229,208 @@ router.patch('/leads/:id/assign', async (req: Request, res: Response, next: Next
         }
 
         res.json({ success: true, lead });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// POST /api/crm/leads/:id/convert
+// Convert a lead into a Company (+ optional customer User).
+// Idempotent: re-calling on an already-converted lead returns the
+// existing company/user without mutating state.
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+router.post('/leads/:id/convert', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        if (!validate.objectId(req.params.id)) {
+            throw new AppError('Invalid Lead ID', 400);
+        }
+
+        const lead = await Lead.findById(req.params.id);
+        if (!lead) {
+            throw new AppError('Lead not found', 404);
+        }
+        if (lead.isDeleted) {
+            throw new AppError('Cannot convert a deleted lead', 400);
+        }
+
+        // ── Idempotency: already converted ──
+        if (lead.convertedToCompanyId) {
+            const [existingCompany, existingUser] = await Promise.all([
+                Company.findById(lead.convertedToCompanyId).lean(),
+                lead.convertedToUserId
+                    ? User.findById(lead.convertedToUserId).select('-password').lean()
+                    : Promise.resolve(null),
+            ]);
+            return res.status(200).json({
+                success: true,
+                idempotent: true,
+                lead: lead.toObject(),
+                company: existingCompany,
+                user: existingUser,
+            });
+        }
+
+        const { companyName, vatNumber, address, city, phone, email, userName, password, note } = req.body || {};
+
+        // ── Resolve company name (required, fallback to lead.name) ──
+        const resolvedCompanyName = (companyName?.trim?.()) || lead.name?.trim();
+        if (!resolvedCompanyName) {
+            throw new AppError('companyName is required (lead has no name to fall back to)', 400);
+        }
+
+        // ── Resolve email (optional; from body or lead) ──
+        const normalizedEmail =
+            (email?.trim?.().toLowerCase()) ||
+            (lead.email?.trim?.().toLowerCase()) ||
+            undefined;
+        if (normalizedEmail && !validate.email(normalizedEmail)) {
+            throw new AppError('Invalid email format', 400);
+        }
+
+        // ── Find or create Company (dedupe by VAT, then by name) ──
+        const trimmedVat = vatNumber?.trim?.();
+        let company = trimmedVat ? await Company.findOne({ vatNumber: trimmedVat }) : null;
+        if (!company) {
+            company = await Company.findOne({ name: resolvedCompanyName });
+        }
+
+        let companyCreated = false;
+        if (!company) {
+            try {
+                company = await Company.create({
+                    name: resolvedCompanyName,
+                    ...(trimmedVat && { vatNumber: trimmedVat }),
+                    ...(address?.trim?.() && { address: address.trim() }),
+                    ...(city?.trim?.() && { city: city.trim() }),
+                    ...((phone?.trim?.() || lead.phone) && { phone: (phone?.trim?.() || lead.phone) }),
+                    ...(normalizedEmail && { email: normalizedEmail }),
+                    isActive: true,
+                });
+                companyCreated = true;
+            } catch (err: unknown) {
+                if ((err as { code?: number }).code === 11000) {
+                    throw new AppError('Duplicate company (name or VAT number already exists)', 409);
+                }
+                throw err;
+            }
+        }
+
+        // ── Optionally find or create customer User ──
+        let user: InstanceType<typeof User> | null = null;
+        let userCreated = false;
+        let tempPassword: string | undefined;
+
+        if (normalizedEmail) {
+            const existingUser = await User.findOne({ email: normalizedEmail });
+            if (existingUser) {
+                if (existingUser.role !== 'customer') {
+                    throw new AppError(
+                        `Email ${normalizedEmail} already belongs to a ${existingUser.role}; cannot link to lead`,
+                        409
+                    );
+                }
+                if (existingUser.company && existingUser.company.toString() !== company._id.toString()) {
+                    throw new AppError(
+                        `User ${normalizedEmail} is already linked to a different company`,
+                        409
+                    );
+                }
+                if (!existingUser.company) {
+                    existingUser.company = company._id;
+                    existingUser.isCompanyOwner = companyCreated;
+                    await existingUser.save({ validateBeforeSave: false });
+                }
+                user = existingUser;
+            } else {
+                const finalName = userName?.trim?.() || lead.name?.trim() || normalizedEmail.split('@')[0];
+                const finalPassword = password?.trim?.() || generateTempPassword();
+                if (!password?.trim?.()) tempPassword = finalPassword;
+
+                try {
+                    user = await User.create({
+                        name: finalName,
+                        email: normalizedEmail,
+                        password: finalPassword,
+                        role: 'customer',
+                        company: company._id,
+                        isCompanyOwner: companyCreated,
+                        isActive: true,
+                    });
+                    userCreated = true;
+                } catch (err: unknown) {
+                    if ((err as { code?: number }).code === 11000) {
+                        throw new AppError('User email already exists (race condition)', 409);
+                    }
+                    throw err;
+                }
+            }
+        }
+
+        // ── Update lead ──
+        const now = new Date();
+        const actorId = req.user?._id?.toString();
+
+        lead.status = 'converted';
+        lead.convertedToCompanyId = company._id;
+        if (user) lead.convertedToUserId = user._id;
+        lead.convertedAt = now;
+
+        lead.timeline.push({
+            type: 'converted',
+            at: now,
+            actorId,
+            meta: {
+                companyId: company._id.toString(),
+                companyCreated,
+                ...(user && { userId: user._id.toString(), userCreated }),
+            },
+        });
+
+        if (note?.trim?.()) {
+            const trimmedNote = note.trim();
+            lead.notes.push({ text: trimmedNote, createdAt: now, actorId });
+            lead.timeline.push({
+                type: 'note_added',
+                at: now,
+                actorId,
+                meta: { source: 'conversion', preview: trimmedNote.substring(0, 50) },
+            });
+        }
+
+        await lead.save();
+
+        // ── Audit ──
+        await logAudit({
+            action: 'UPDATE',
+            entity: 'Lead',
+            entityId: lead._id.toString(),
+            req,
+            details: {
+                action: 'convert',
+                companyId: company._id.toString(),
+                companyCreated,
+                userId: user?._id?.toString(),
+                userCreated,
+            },
+        });
+
+        // Strip password from user response
+        let userResponse: Record<string, unknown> | null = null;
+        if (user) {
+            const obj = user.toObject() as unknown as Record<string, unknown>;
+            delete obj.password;
+            userResponse = obj;
+        }
+
+        res.status(201).json({
+            success: true,
+            idempotent: false,
+            lead: lead.toObject(),
+            company: company.toObject(),
+            user: userResponse,
+            ...(tempPassword && { tempPassword }),
+        });
     } catch (error) {
         next(error);
     }

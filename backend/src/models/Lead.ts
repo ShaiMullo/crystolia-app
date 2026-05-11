@@ -59,6 +59,11 @@ export interface ILead extends Document {
     notes: INote[];
     onboarding: IOnboarding;
 
+    // Conversion tracking — set when lead is converted to a paying customer
+    convertedToCompanyId?: mongoose.Types.ObjectId;
+    convertedToUserId?: mongoose.Types.ObjectId;
+    convertedAt?: Date;
+
     // Soft delete
     isDeleted: boolean;
     deletedAt?: Date;
@@ -155,6 +160,20 @@ const LeadSchema = new Schema<ILead>(
             completed: { type: Boolean, default: false },
             completedAt: { type: Date },
             data: { type: Schema.Types.Mixed, default: {} },
+        },
+
+        // Conversion tracking
+        convertedToCompanyId: {
+            type: Schema.Types.ObjectId,
+            ref: 'Company',
+            index: true,
+        },
+        convertedToUserId: {
+            type: Schema.Types.ObjectId,
+            ref: 'User',
+        },
+        convertedAt: {
+            type: Date,
         },
 
         // Soft delete
