@@ -1,14 +1,29 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import api from "@/app/lib/api";
+import { Plus, Save, Trash2, AlertCircle } from "lucide-react";
 import { toast } from "react-hot-toast";
+import api from "@/app/lib/api";
 import { useAuth } from "@/app/context/AuthContext";
 import { useAdminI18n } from "@/i18n/I18nProvider";
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Types
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+import {
+    Button,
+    Card,
+    CardTitle,
+    EmptyState,
+    Field,
+    Input,
+    LoadingState,
+    PageHeader,
+    Select,
+    Table,
+    TableContainer,
+    TBody,
+    TD,
+    TH,
+    THead,
+    TR,
+} from "@/components/ui";
 
 interface BoxPrice {
     label: string;
@@ -23,16 +38,7 @@ interface SettingsData {
     boxPrices: BoxPrice[];
 }
 
-const EMPTY_BOX_PRICE: BoxPrice = {
-    label: "",
-    sku: "",
-    pricePerUnit: 0,
-    isActive: true,
-};
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Page
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const EMPTY_BOX_PRICE: BoxPrice = { label: "", sku: "", pricePerUnit: 0, isActive: true };
 
 export default function SettingsPage() {
     const { user } = useAuth();
@@ -45,10 +51,6 @@ export default function SettingsPage() {
     const [minimumOrderAmount, setMinimumOrderAmount] = useState(0);
     const [currency, setCurrency] = useState("ILS");
     const [boxPrices, setBoxPrices] = useState<BoxPrice[]>([]);
-
-    // ──────────────────────────────────────────
-    // Fetch
-    // ──────────────────────────────────────────
 
     const fetchSettings = useCallback(async () => {
         setLoading(true);
@@ -71,42 +73,20 @@ export default function SettingsPage() {
         if (user) fetchSettings();
     }, [user, fetchSettings]);
 
-    // ──────────────────────────────────────────
-    // Box price row handlers
-    // ──────────────────────────────────────────
-
     const handleBoxChange = (index: number, field: keyof BoxPrice, value: string | number | boolean) => {
-        setBoxPrices(prev =>
-            prev.map((row, i) => i === index ? { ...row, [field]: value } : row)
-        );
+        setBoxPrices((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
     };
-
-    const handleAddBox = () => {
-        setBoxPrices(prev => [...prev, { ...EMPTY_BOX_PRICE }]);
-    };
-
-    const handleRemoveBox = (index: number) => {
-        setBoxPrices(prev => prev.filter((_, i) => i !== index));
-    };
-
-    // ──────────────────────────────────────────
-    // Save
-    // ──────────────────────────────────────────
+    const handleAddBox = () => setBoxPrices((prev) => [...prev, { ...EMPTY_BOX_PRICE }]);
+    const handleRemoveBox = (index: number) => setBoxPrices((prev) => prev.filter((_, i) => i !== index));
 
     const handleSave = async () => {
-        // Basic client-side guard
         if (minimumOrderAmount < 0) {
             toast.error(t("settings.section1.minNegative"));
             return;
         }
-
         setSaving(true);
         try {
-            await api.put("/settings", {
-                minimumOrderAmount,
-                currency,
-                boxPrices,
-            });
+            await api.put("/settings", { minimumOrderAmount, currency, boxPrices });
             toast.success(t("settings.toasts.saved"));
         } catch (err) {
             console.error(err);
@@ -116,179 +96,145 @@ export default function SettingsPage() {
         }
     };
 
-    // ──────────────────────────────────────────
-    // Render
-    // ──────────────────────────────────────────
-
     if (!user) return null;
 
     return (
         <div className="space-y-6">
-            {/* Page header */}
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">{t('settings.pageTitle')}</h1>
-                    <p className="text-sm text-gray-500 mt-1">{t('settings.pageSubtitle')}</p>
-                </div>
-                <button
-                    onClick={handleSave}
-                    disabled={saving || loading}
-                    className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-white px-5 py-2 rounded text-sm font-medium"
-                >
-                    {saving ? t('settings.saving') : t('settings.saveBtn')}
-                </button>
-            </div>
+            <PageHeader
+                title={t("settings.pageTitle")}
+                description={t("settings.pageSubtitle")}
+                actions={
+                    <Button onClick={handleSave} loading={saving} disabled={loading} iconStart={<Save size={14} />}>
+                        {saving ? t("settings.saving") : t("settings.saveBtn")}
+                    </Button>
+                }
+            />
 
-            {/* Error state */}
             {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
-                    {error}
-                    <button onClick={fetchSettings} className="ml-3 underline text-red-600 hover:text-red-800">
-                        {t('common.retry')}
-                    </button>
-                </div>
+                <Card padded className="border-red-200 bg-red-50/80 dark:bg-red-900/10 dark:border-red-700/30">
+                    <div className="flex items-start gap-3">
+                        <AlertCircle size={18} className="mt-0.5 text-red-600 shrink-0" />
+                        <div className="flex-1">
+                            <p className="text-sm text-red-700 dark:text-red-200">{error}</p>
+                            <button onClick={fetchSettings} className="mt-1 text-sm font-medium text-red-700 hover:text-red-800 underline">
+                                {t("common.retry")}
+                            </button>
+                        </div>
+                    </div>
+                </Card>
             )}
 
-            {/* Loading state */}
             {loading ? (
-                <div className="bg-white shadow rounded-lg p-6 text-center py-12 text-gray-500">
-                    {t('settings.loading')}
-                </div>
+                <Card><LoadingState label={t("settings.loading")} /></Card>
             ) : (
                 <>
-                    {/* ── Section 1: Order Settings ── */}
-                    <div className="bg-white shadow rounded-lg p-6">
-                        <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('settings.section1.title')}</h2>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    {t('settings.section1.minOrderLabel')}
-                                </label>
-                                <input
+                    <Card>
+                        <CardTitle>{t("settings.section1.title")}</CardTitle>
+                        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <Field label={t("settings.section1.minOrderLabel")} hint={t("settings.section1.minOrderHelp")}>
+                                <Input
                                     type="number"
                                     min={0}
                                     step={1}
                                     value={minimumOrderAmount}
-                                    onChange={e => setMinimumOrderAmount(Number(e.target.value))}
-                                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-yellow-500 focus:border-yellow-500"
+                                    onChange={(e) => setMinimumOrderAmount(Number(e.target.value))}
                                 />
-                                <p className="text-xs text-gray-400 mt-1">{t('settings.section1.minOrderHelp')}</p>
-                            </div>
+                            </Field>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    {t('settings.section1.currency')}
-                                </label>
-                                <select
-                                    value={currency}
-                                    onChange={e => setCurrency(e.target.value)}
-                                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-yellow-500 focus:border-yellow-500"
-                                >
+                            <Field label={t("settings.section1.currency")}>
+                                <Select value={currency} onChange={(e) => setCurrency(e.target.value)}>
                                     <option value="ILS">ILS — Israeli New Shekel</option>
                                     <option value="USD">USD — US Dollar</option>
                                     <option value="EUR">EUR — Euro</option>
-                                </select>
-                            </div>
-
+                                </Select>
+                            </Field>
                         </div>
-                    </div>
+                    </Card>
 
-                    {/* ── Section 2: Box Prices ── */}
-                    <div className="bg-white shadow rounded-lg p-6">
-                        <div className="flex justify-between items-center mb-4">
+                    <Card>
+                        <div className="flex items-start justify-between gap-3">
                             <div>
-                                <h2 className="text-lg font-semibold text-gray-900">{t('settings.section2.title')}</h2>
-                                <p className="text-sm text-gray-500 mt-0.5">{t('settings.section2.subtitle')}</p>
+                                <CardTitle>{t("settings.section2.title")}</CardTitle>
+                                <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{t("settings.section2.subtitle")}</p>
                             </div>
-                            <button
-                                onClick={handleAddBox}
-                                className="text-sm text-yellow-600 hover:text-yellow-800 border border-yellow-400 px-3 py-1.5 rounded font-medium"
-                            >
-                                {t('settings.section2.addRow')}
-                            </button>
+                            <Button variant="outline" size="sm" iconStart={<Plus size={14} />} onClick={handleAddBox}>
+                                {t("settings.section2.addRow")}
+                            </Button>
                         </div>
 
-                        {boxPrices.length === 0 ? (
-                            <p className="text-sm text-gray-400 py-4 text-center">
-                                {t('settings.section2.empty')}
-                            </p>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('settings.section2.labelCol')}</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('settings.section2.skuCol')}</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('settings.section2.priceCol')} ({currency})</th>
-                                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{t('settings.section2.activeCol')}</th>
-                                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('settings.section2.removeCol')}</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-200">
-                                        {boxPrices.map((row, i) => (
-                                            <tr key={i}>
-                                                <td className="px-4 py-3">
-                                                    <input
-                                                        type="text"
-                                                        value={row.label}
-                                                        placeholder={t('settings.section2.labelPlaceholder')}
-                                                        onChange={e => handleBoxChange(i, "label", e.target.value)}
-                                                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-yellow-500 focus:border-yellow-500"
-                                                    />
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <input
-                                                        type="text"
-                                                        value={row.sku}
-                                                        placeholder={t('settings.section2.skuPlaceholder')}
-                                                        onChange={e => handleBoxChange(i, "sku", e.target.value)}
-                                                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-yellow-500 focus:border-yellow-500"
-                                                    />
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <input
-                                                        type="number"
-                                                        min={0}
-                                                        step={0.01}
-                                                        value={row.pricePerUnit}
-                                                        onChange={e => handleBoxChange(i, "pricePerUnit", Number(e.target.value))}
-                                                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-yellow-500 focus:border-yellow-500"
-                                                    />
-                                                </td>
-                                                <td className="px-4 py-3 text-center">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={row.isActive}
-                                                        onChange={e => handleBoxChange(i, "isActive", e.target.checked)}
-                                                        className="h-4 w-4 text-yellow-500 border-gray-300 rounded focus:ring-yellow-500"
-                                                    />
-                                                </td>
-                                                <td className="px-4 py-3 text-right">
-                                                    <button
-                                                        onClick={() => handleRemoveBox(i)}
-                                                        className="text-red-500 hover:text-red-700 text-sm font-medium"
-                                                    >
-                                                        {t('common.remove')}
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </div>
+                        <div className="mt-4">
+                            {boxPrices.length === 0 ? (
+                                <EmptyState title={t("settings.section2.empty")} />
+                            ) : (
+                                <TableContainer>
+                                    <Table>
+                                        <THead>
+                                            <TR>
+                                                <TH>{t("settings.section2.labelCol")}</TH>
+                                                <TH>{t("settings.section2.skuCol")}</TH>
+                                                <TH>{t("settings.section2.priceCol")} ({currency})</TH>
+                                                <TH align="center">{t("settings.section2.activeCol")}</TH>
+                                                <TH align="end">{t("settings.section2.removeCol")}</TH>
+                                            </TR>
+                                        </THead>
+                                        <TBody>
+                                            {boxPrices.map((row, i) => (
+                                                <TR key={i}>
+                                                    <TD>
+                                                        <Input
+                                                            value={row.label}
+                                                            placeholder={t("settings.section2.labelPlaceholder")}
+                                                            onChange={(e) => handleBoxChange(i, "label", e.target.value)}
+                                                        />
+                                                    </TD>
+                                                    <TD>
+                                                        <Input
+                                                            value={row.sku}
+                                                            placeholder={t("settings.section2.skuPlaceholder")}
+                                                            onChange={(e) => handleBoxChange(i, "sku", e.target.value)}
+                                                        />
+                                                    </TD>
+                                                    <TD>
+                                                        <Input
+                                                            type="number"
+                                                            min={0}
+                                                            step={0.01}
+                                                            value={row.pricePerUnit}
+                                                            onChange={(e) => handleBoxChange(i, "pricePerUnit", Number(e.target.value))}
+                                                        />
+                                                    </TD>
+                                                    <TD align="center">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={row.isActive}
+                                                            onChange={(e) => handleBoxChange(i, "isActive", e.target.checked)}
+                                                            className="h-4 w-4 rounded text-yellow-500 border-gray-300 focus:ring-yellow-500 dark:border-gray-700 dark:bg-gray-900"
+                                                        />
+                                                    </TD>
+                                                    <TD align="end">
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            iconStart={<Trash2 size={14} />}
+                                                            onClick={() => handleRemoveBox(i)}
+                                                            className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                        >
+                                                            {t("common.remove")}
+                                                        </Button>
+                                                    </TD>
+                                                </TR>
+                                            ))}
+                                        </TBody>
+                                    </Table>
+                                </TableContainer>
+                            )}
+                        </div>
+                    </Card>
 
-                    {/* Bottom save bar */}
-                    <div className="flex justify-end pb-4">
-                        <button
-                            onClick={handleSave}
-                            disabled={saving || loading}
-                            className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-white px-6 py-2 rounded text-sm font-medium"
-                        >
-                            {saving ? t('settings.saving') : t('settings.saveBtn')}
-                        </button>
+                    <div className="flex justify-end">
+                        <Button onClick={handleSave} loading={saving} disabled={loading} iconStart={<Save size={14} />}>
+                            {saving ? t("settings.saving") : t("settings.saveBtn")}
+                        </Button>
                     </div>
                 </>
             )}

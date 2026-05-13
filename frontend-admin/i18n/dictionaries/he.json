@@ -59,6 +59,10 @@
     "administratorFallback": "מנהל"
   },
   "dashboard": {
+    "title": "לוח בקרה",
+    "subtitle": "סקירה תפעולית של לידים, משתמשים, הזמנות וחשבוניות.",
+    "agentTitle": "הצינור שלי",
+    "agentSubtitle": "לידים שמשויכים אליך.",
     "tabs": {
       "leads": "לידים",
       "users": "משתמשים",
@@ -74,8 +78,31 @@
       "audit": "יומן ביקורת מערכת"
     },
     "buttons": {
-      "createUser": "+ צור משתמש",
-      "createInvoice": "+ צור חשבונית"
+      "createUser": "משתמש חדש",
+      "createInvoice": "חשבונית חדשה"
+    },
+    "kpi": {
+      "openLeads": "לידים פתוחים",
+      "openLeadsHint": "מתוך {total}",
+      "converted": "הומרו ללקוחות",
+      "convertedHint": "חברות שנוצרו מלידים",
+      "pendingOrders": "הזמנות פעילות",
+      "ordersRevenueHint": "פייפליין: {amount}",
+      "outstandingInvoices": "ממתינות לתשלום",
+      "outstandingHint": "{count} חשבוניות שהונפקו",
+      "activeAgents": "סוכנים פעילים"
+    },
+    "quickActions": {
+      "title": "פעולות מהירות",
+      "createUser": "יצירת משתמש",
+      "createInvoice": "יצירת חשבונית",
+      "findLeads": "מציאת ליד",
+      "settings": "הגדרות"
+    },
+    "recentActivity": {
+      "title": "פעילות אחרונה",
+      "empty": "אין עדיין פעילות",
+      "emptyHint": "פעולות משתמש וארועי מערכת יוצגו כאן."
     }
   },
   "leads": {
@@ -92,7 +119,8 @@
       "allStatuses": "כל הסטטוסים",
       "allAgents": "כל הסוכנים"
     },
-    "empty": "לא נמצאו לידים.",
+    "empty": "לא נמצאו לידים",
+    "emptyHint": "התאם את הסינון או המתן להגשה חדשה.",
     "toasts": {
       "loadFailed": "טעינת הלידים נכשלה",
       "updated": "הליד עודכן בהצלחה",
@@ -212,6 +240,7 @@
     },
     "active": "פעיל",
     "inactive": "לא פעיל",
+    "empty": "אין עדיין משתמשים",
     "deactivate": "השבת",
     "activate": "הפעל",
     "confirmToggle": "האם להשבית את המשתמש?",

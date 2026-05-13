@@ -59,6 +59,10 @@
     "administratorFallback": "Administrator"
   },
   "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Operational overview of leads, users, orders and invoices.",
+    "agentTitle": "My pipeline",
+    "agentSubtitle": "Leads assigned to you.",
     "tabs": {
       "leads": "Leads",
       "users": "Users",
@@ -74,8 +78,31 @@
       "audit": "System Audit Logs"
     },
     "buttons": {
-      "createUser": "+ Create User",
-      "createInvoice": "+ Create Invoice"
+      "createUser": "New user",
+      "createInvoice": "New invoice"
+    },
+    "kpi": {
+      "openLeads": "Open leads",
+      "openLeadsHint": "of {total} total",
+      "converted": "Converted",
+      "convertedHint": "Companies created from leads",
+      "pendingOrders": "Active orders",
+      "ordersRevenueHint": "Pipeline: {amount}",
+      "outstandingInvoices": "Outstanding",
+      "outstandingHint": "{count} invoices issued",
+      "activeAgents": "Active agents"
+    },
+    "quickActions": {
+      "title": "Quick actions",
+      "createUser": "Create user",
+      "createInvoice": "Create invoice",
+      "findLeads": "Find a lead",
+      "settings": "Open settings"
+    },
+    "recentActivity": {
+      "title": "Recent activity",
+      "empty": "No activity yet",
+      "emptyHint": "User actions and system events will appear here."
     }
   },
   "leads": {
@@ -92,7 +119,8 @@
       "allStatuses": "All Statuses",
       "allAgents": "All Agents"
     },
-    "empty": "No leads found.",
+    "empty": "No leads found",
+    "emptyHint": "Adjust filters or wait for new submissions.",
     "toasts": {
       "loadFailed": "Failed to load leads",
       "updated": "Lead updated successfully",
@@ -212,6 +240,7 @@
     },
     "active": "Active",
     "inactive": "Inactive",
+    "empty": "No users yet",
     "deactivate": "Deactivate",
     "activate": "Activate",
     "confirmToggle": "Are you sure you want to deactivate this user?",

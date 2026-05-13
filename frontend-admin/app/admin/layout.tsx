@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { LayoutDashboard, Settings, LogOut } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
-import Link from 'next/link';
 import { useAdminI18n } from "@/i18n/I18nProvider";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { cn } from "@/lib/cn";
 
 export default function AdminLayout({
     children,
@@ -15,58 +17,101 @@ export default function AdminLayout({
     const { user, logout, isLoading } = useAuth();
     const { t } = useAdminI18n();
     const router = useRouter();
+    const pathname = usePathname();
 
     useEffect(() => {
         if (isLoading) return;
         if (!user) {
-            router.push('/login');
-        } else if (user.role !== 'admin') {
-            router.push(user.role === 'agent' ? '/agent' : '/login');
+            router.push("/login");
+        } else if (user.role !== "admin") {
+            router.push(user.role === "agent" ? "/agent" : "/login");
         }
     }, [user, isLoading, router]);
 
-    if (isLoading || !user || user.role !== 'admin') return null;
+    if (isLoading || !user || user.role !== "admin") return null;
+
+    const initials = (user.name || user.email).slice(0, 1).toUpperCase();
+    const navItems = [
+        { href: "/admin", label: t("nav.dashboard"), icon: LayoutDashboard },
+        { href: "/admin/settings", label: t("nav.settings"), icon: Settings },
+    ];
 
     return (
-        <div className="min-h-screen bg-gray-100 flex flex-col">
-            {/* ADMIN Top Navigation */}
-            <header className="bg-white shadow-sm border-b border-gray-200">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between h-16">
-                        <div className="flex items-center gap-8">
-                            <div className="flex-shrink-0 flex items-center">
-                                <span className="text-xl font-bold text-gray-900">{t('nav.brand')} <span className="text-yellow-600">{t('nav.brandAdminSuffix')}</span></span>
-                            </div>
-                            <nav className="flex space-x-4">
-                                <Link href="/admin" className="text-gray-900 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium">
-                                    {t('nav.dashboard')}
-                                </Link>
-                                <Link href="/admin" className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
-                                    {t('nav.crm')}
-                                </Link>
-                                <Link href="/admin/settings" className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
-                                    {t('nav.settings')}
-                                </Link>
-                            </nav>
-                        </div>
-                        <div className="flex items-center space-x-4">
-                            <LanguageSwitcher />
-                            <span className="text-sm text-gray-500">
-                                {user?.name || t('nav.administratorFallback')}
+        <div className="admin-shell flex flex-col">
+            <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/85 backdrop-blur dark:border-gray-800 dark:bg-gray-950/85">
+                <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+                    <div className="flex items-center gap-6 min-w-0">
+                        <Link href="/admin" className="flex items-center gap-2 shrink-0">
+                            <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-yellow-500 text-white text-sm font-bold">C</span>
+                            <span className="text-sm font-semibold text-gray-900 dark:text-gray-50">
+                                {t("nav.brand")}
+                                <span className="ms-1 text-xs font-medium text-yellow-600">{t("nav.brandAdminSuffix")}</span>
                             </span>
-                            <button
-                                onClick={logout}
-                                className="px-3 py-1 text-sm text-red-600 hover:text-red-800 font-medium"
-                            >
-                                {t('nav.logout')}
-                            </button>
+                        </Link>
+                        <nav className="hidden md:flex items-center gap-1">
+                            {navItems.map((item) => {
+                                const active = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href));
+                                return (
+                                    <Link
+                                        key={item.href}
+                                        href={item.href}
+                                        className={cn(
+                                            "inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                                            active
+                                                ? "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-50"
+                                                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800",
+                                        )}
+                                    >
+                                        <item.icon size={14} />
+                                        {item.label}
+                                    </Link>
+                                );
+                            })}
+                        </nav>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <LanguageSwitcher />
+                        <div className="flex items-center gap-2 rounded-full bg-gray-100 dark:bg-gray-800 ps-1 pe-3 py-1">
+                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-yellow-500 text-xs font-semibold text-white">
+                                {initials}
+                            </span>
+                            <span className="hidden sm:inline text-xs text-gray-700 dark:text-gray-200 truncate max-w-[8rem]">
+                                {user.name || t("nav.administratorFallback")}
+                            </span>
                         </div>
+                        <button
+                            onClick={logout}
+                            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-red-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                            aria-label={t("nav.logout")}
+                        >
+                            <LogOut size={14} />
+                            <span className="hidden sm:inline">{t("nav.logout")}</span>
+                        </button>
                     </div>
                 </div>
+                <nav className="md:hidden flex gap-1 px-4 pb-2 overflow-x-auto">
+                    {navItems.map((item) => {
+                        const active = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href));
+                        return (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                className={cn(
+                                    "inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium",
+                                    active
+                                        ? "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-50"
+                                        : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800",
+                                )}
+                            >
+                                <item.icon size={14} />
+                                {item.label}
+                            </Link>
+                        );
+                    })}
+                </nav>
             </header>
 
-            {/* Main Content */}
-            <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+            <main className="mx-auto w-full max-w-7xl flex-1 px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
                 {children}
             </main>
         </div>

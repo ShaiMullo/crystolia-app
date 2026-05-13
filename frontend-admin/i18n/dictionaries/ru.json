@@ -59,6 +59,10 @@
     "administratorFallback": "Администратор"
   },
   "dashboard": {
+    "title": "Панель управления",
+    "subtitle": "Оперативный обзор лидов, пользователей, заказов и счетов.",
+    "agentTitle": "Мои лиды",
+    "agentSubtitle": "Лиды, назначенные вам.",
     "tabs": {
       "leads": "Лиды",
       "users": "Пользователи",
@@ -74,8 +78,31 @@
       "audit": "Системный журнал аудита"
     },
     "buttons": {
-      "createUser": "+ Создать пользователя",
-      "createInvoice": "+ Создать счёт"
+      "createUser": "Новый пользователь",
+      "createInvoice": "Новый счёт"
+    },
+    "kpi": {
+      "openLeads": "Открытые лиды",
+      "openLeadsHint": "из {total}",
+      "converted": "Сконвертированы",
+      "convertedHint": "Компании, созданные из лидов",
+      "pendingOrders": "Активные заказы",
+      "ordersRevenueHint": "Воронка: {amount}",
+      "outstandingInvoices": "К оплате",
+      "outstandingHint": "Выставлено счетов: {count}",
+      "activeAgents": "Активные агенты"
+    },
+    "quickActions": {
+      "title": "Быстрые действия",
+      "createUser": "Создать пользователя",
+      "createInvoice": "Создать счёт",
+      "findLeads": "Найти лида",
+      "settings": "Настройки"
+    },
+    "recentActivity": {
+      "title": "Последняя активность",
+      "empty": "Активности пока нет",
+      "emptyHint": "Действия и системные события появятся здесь."
     }
   },
   "leads": {
@@ -92,7 +119,8 @@
       "allStatuses": "Все статусы",
       "allAgents": "Все агенты"
     },
-    "empty": "Лиды не найдены.",
+    "empty": "Лиды не найдены",
+    "emptyHint": "Измените фильтры или дождитесь новых обращений.",
     "toasts": {
       "loadFailed": "Не удалось загрузить лиды",
       "updated": "Лид успешно обновлён",
@@ -212,6 +240,7 @@
     },
     "active": "Активен",
     "inactive": "Неактивен",
+    "empty": "Пользователей пока нет",
     "deactivate": "Деактивировать",
     "activate": "Активировать",
     "confirmToggle": "Деактивировать этого пользователя?",

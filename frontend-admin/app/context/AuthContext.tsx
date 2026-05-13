@@ -1,7 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import api from '@/app/lib/api';
 
 interface User {
@@ -24,14 +24,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [user, setUser] = useState<User | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const router = useRouter();
-    const pathname = usePathname();
 
     const checkAuth = async () => {
         try {
             // Cookie is sent automatically
             const res = await api.get('/auth/me');
             setUser(res.data.user);
-        } catch (error) {
+        } catch {
             // Quietly fail context check
             setUser(null);
         } finally {
