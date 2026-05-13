@@ -26,8 +26,7 @@ export function errorHandler(err: AppError, req: Request, res: Response, next: N
     console.error(JSON.stringify(entry));
 
     const statusCode = err.statusCode || 500;
-    let message = err.message || 'Internal Server Error';
-    let errorDetails: any = undefined;
+    const message = err.message || 'Internal Server Error';
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // 🔍 MongoDB / Mongoose Error Handling
@@ -69,6 +68,5 @@ export function errorHandler(err: AppError, req: Request, res: Response, next: N
         success: false,
         error: message,
         ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
-        ...(errorDetails && { details: errorDetails }),
     });
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 import Link from 'next/link';
 import { useAdminI18n } from "@/i18n/I18nProvider";
@@ -10,8 +12,20 @@ export default function AdminLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const { user, logout } = useAuth();
+    const { user, logout, isLoading } = useAuth();
     const { t } = useAdminI18n();
+    const router = useRouter();
+
+    useEffect(() => {
+        if (isLoading) return;
+        if (!user) {
+            router.push('/login');
+        } else if (user.role !== 'admin') {
+            router.push(user.role === 'agent' ? '/agent' : '/login');
+        }
+    }, [user, isLoading, router]);
+
+    if (isLoading || !user || user.role !== 'admin') return null;
 
     return (
         <div className="min-h-screen bg-gray-100 flex flex-col">

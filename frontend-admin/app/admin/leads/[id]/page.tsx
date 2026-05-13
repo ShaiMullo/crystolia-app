@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { toast, Toaster } from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import { useAuth } from '@/app/context/AuthContext';
 import api from '@/app/lib/api';
 import { Lead, LeadStatus, TimelineEvent, LeadNote } from '@/types';
@@ -142,8 +142,6 @@ export default function LeadDetailPage() {
 
     return (
         <div className="min-h-screen bg-gray-50 p-6">
-            <Toaster position="top-right" />
-
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <div>

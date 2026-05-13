@@ -25,21 +25,10 @@ interface JwtPayload {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 export const protect = async (req: Request, res: Response, next: NextFunction) => {
-    let token;
-
-    // DEBUG: Log Auth Headers/Cookies
-    console.log(`[AUTH-DEBUG] Protecting Route: ${req.originalUrl}`);
-    console.log('[AUTH-DEBUG] Cookies:', req.cookies);
-    // console.log('[AUTH-DEBUG] Headers:', req.headers); // Too noisy, verify cookie first
-
     // 1. Get token from Cookie ONLY (Strict Same-Origin)
-    if (req.cookies && req.cookies.auth_token) {
-        token = req.cookies.auth_token;
-        console.log('[AUTH-DEBUG] Token found in Cookie (auth_token)');
-    }
+    const token = req.cookies?.auth_token;
 
     if (!token) {
-        console.warn('[AUTH-DEBUG] No token found in request');
         return next(new AppError('Not authorized to access this route', 401));
     }
 

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import api from "@/app/lib/api";
-import { toast, Toaster } from "react-hot-toast";
+import { toast } from "react-hot-toast";
 import { useAuth } from "@/app/context/AuthContext";
 import { Lead, LeadStatus } from "@/types";
 import LeadEditModal from "@/components/leads/LeadEditModal";
@@ -117,8 +117,6 @@ export default function AgentDashboard() {
 
     return (
         <div className="space-y-6">
-            <Toaster />
-
             <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-bold text-gray-900">{t('agent.myLeads')}</h1>
                 <button

@@ -48,11 +48,6 @@ router.get(
                 path: '/'
             };
 
-            console.log('[AUTH] Setting Google Auth Cookie:', {
-                token: token.substring(0, 10) + '...',
-                options: cookieOptions
-            });
-
             res.cookie('auth_token', token, cookieOptions);
 
             // Redirect Logic
@@ -93,8 +88,6 @@ const createSendToken = (user: any, statusCode: number, res: Response) => {
         domain: config.cookieDomain,    // Optional: .crystolia.com
         path: '/'                       // Available across entire app
     };
-
-    console.log('[AUTH] Setting Cookie:', { token: token.substring(0, 10), options: cookieOptions });
 
     res.cookie('auth_token', token, cookieOptions);
 

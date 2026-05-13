@@ -2,10 +2,16 @@
 // 🔄 Recreate Agent Script
 // ===============================================
 
-import mongoose from 'mongoose';
+// Safety guard: this script deletes and recreates a user with a known password.
+// It must never run in staging or production.
+if (process.env.NODE_ENV !== 'development') {
+    console.error('❌ recreateAgent.ts must not be run outside development (NODE_ENV is not "development").');
+    process.exit(1);
+}
+
 import 'dotenv/config';
 import User from '../models/User.js';
-import { connectDatabase, disconnectDatabase } from '../db/connection.js';
+import { connectDatabase } from '../db/connection.js';
 
 const recreateAgent = async () => {
     try {
@@ -14,11 +20,9 @@ const recreateAgent = async () => {
         const agentEmail = process.env.APP_USER_EMAIL || 'agent@crystolia.com';
         const agentPassword = process.env.APP_USER_PASSWORD || 'agent123';
 
-        // Delete existing agent
         await User.deleteOne({ email: agentEmail });
         console.log(`🗑️  Deleted existing agent: ${agentEmail}`);
 
-        // Create new agent
         await User.create({
             name: 'Sales Agent',
             email: agentEmail,
@@ -26,7 +30,7 @@ const recreateAgent = async () => {
             role: 'agent',
             isActive: true,
         });
-        console.log(`✅ Created fresh Agent user: ${agentEmail} / ${agentPassword}`);
+        console.log(`✅ Created fresh Agent user: ${agentEmail}`);
 
         console.log('🔄 Recreate complete');
         process.exit(0);

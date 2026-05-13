@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import api from "@/app/lib/api";
-import { toast, Toaster } from "react-hot-toast";
+import { toast } from "react-hot-toast";
 import { useAuth } from "@/app/context/AuthContext";
 import { Lead, User, AuditLog, LeadStatus, Order, OrderStatus, Invoice, InvoiceStatus } from "@/types";
 import LeadEditModal from "@/components/leads/LeadEditModal";
@@ -374,8 +374,6 @@ export default function AdminDashboard() {
 
     return (
         <div className="space-y-6">
-            <Toaster />
-
             {/* Tabs */}
             <div className="border-b border-gray-200">
                 <nav className="-mb-px flex space-x-8">

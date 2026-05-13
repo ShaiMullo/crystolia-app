@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import api from "@/app/lib/api";
-import { toast, Toaster } from "react-hot-toast";
+import { toast } from "react-hot-toast";
 import { useAuth } from "@/app/context/AuthContext";
 import { useAdminI18n } from "@/i18n/I18nProvider";
 
@@ -124,8 +124,6 @@ export default function SettingsPage() {
 
     return (
         <div className="space-y-6">
-            <Toaster />
-
             {/* Page header */}
             <div className="flex justify-between items-center">
                 <div>

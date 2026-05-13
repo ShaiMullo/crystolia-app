@@ -56,25 +56,6 @@ interface Config {
     secureCookie: boolean;
 }
 
-// Strict JWT_SECRET check
-console.log('🔍 Environment check:', {
-    NODE_ENV: process.env.NODE_ENV,
-    Keys: Object.keys(process.env).filter(k => !k.startsWith('npm_')),
-    HasJwtSecret: !!process.env.JWT_SECRET
-});
-
-console.log("UltraMsg configured:", {
-    hasInstance: !!process.env.ULTRAMSG_INSTANCE_ID,
-    hasToken: !!process.env.ULTRAMSG_TOKEN,
-    hasAdmin: !!process.env.ADMIN_PHONE_NUMBER
-});
-
-console.log("Green Invoice configured:", {
-    hasApiId: !!process.env.GREEN_INVOICE_API_ID,
-    hasSecret: !!process.env.GREEN_INVOICE_SECRET,
-    sandbox: process.env.GREEN_INVOICE_SANDBOX !== 'false',
-});
-
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
     throw new Error("JWT_SECRET is not defined in environment variables");
