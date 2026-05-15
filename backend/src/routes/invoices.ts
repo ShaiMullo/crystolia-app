@@ -9,6 +9,7 @@ import Company from '../models/Company.js';
 import { AppError } from '../utils/validation.js';
 import { logAudit } from '../services/auditService.js';
 import { issueInvoice } from '../services/greenInvoiceService.js';
+import { dispatch as dispatchAutomation } from '../services/automationService.js';
 
 const router = Router();
 
@@ -190,6 +191,18 @@ router.post('/:id/issue', authorize('admin', 'agent'), async (req: Request, res:
             entityId: invoice._id.toString(),
             req,
             details: { issued: true, pdfUrl, greenInvoiceDocId },
+        });
+
+        await dispatchAutomation({
+            event: 'invoice.issued',
+            payload: {
+                invoiceId: invoice._id.toString(),
+                invoiceNumber: invoice.invoiceNumber,
+                totalAmount: invoice.totalAmount,
+                companyId: invoice.company?.toString(),
+                companyName: company.name,
+                actorId: req.user?._id?.toString(),
+            },
         });
 
         res.status(200).json({

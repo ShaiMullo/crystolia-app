@@ -54,6 +54,10 @@
     "brandAgentSuffix": "סוכן",
     "dashboard": "לוח בקרה",
     "crm": "CRM",
+    "pipeline": "פייפליין",
+    "customers": "לקוחות",
+    "tasks": "משימות",
+    "activity": "פעילות",
     "settings": "הגדרות",
     "logout": "התנתק",
     "administratorFallback": "מנהל"
@@ -65,6 +69,7 @@
     "agentSubtitle": "לידים שמשויכים אליך.",
     "tabs": {
       "leads": "לידים",
+      "customers": "לקוחות",
       "users": "משתמשים",
       "orders": "הזמנות",
       "invoices": "חשבוניות",
@@ -103,6 +108,9 @@
       "title": "פעילות אחרונה",
       "empty": "אין עדיין פעילות",
       "emptyHint": "פעולות משתמש וארועי מערכת יוצגו כאן."
+    },
+    "myTasks": {
+      "title": "המשימות שלי"
     }
   },
   "leads": {
@@ -162,7 +170,8 @@
       "convertedAt": "הומר בתאריך:",
       "companyId": "מזהה חברה:",
       "userId": "מזהה משתמש:",
-      "noUserCreated": "לא נוצר משתמש לקוח."
+      "noUserCreated": "לא נוצר משתמש לקוח.",
+      "viewCustomer": "פתח כרטיס לקוח"
     },
     "changeStatus": {
       "title": "שינוי סטטוס",
@@ -351,6 +360,92 @@
     "system": "מערכת",
     "empty": "לא נמצאו רשומות ביקורת."
   },
+  "customers": {
+    "pageTitle": "לקוחות",
+    "pageSubtitle": "ניהול חברות, אנשי קשר ופעילות CRM.",
+    "empty": "אין עדיין לקוחות",
+    "emptyHint": "לקוחות מופיעים כאן אוטומטית אחרי המרת ליד.",
+    "filters": {
+      "searchPlaceholder": "חיפוש לפי חברה, איש קשר, טלפון, אימייל…",
+      "allStatuses": "כל הסטטוסים",
+      "allAgents": "כל הסוכנים"
+    },
+    "table": {
+      "company": "חברה",
+      "contact": "איש קשר",
+      "status": "סטטוס",
+      "agent": "סוכן",
+      "orders": "הזמנות",
+      "revenue": "הכנסות",
+      "lastContact": "מגע אחרון",
+      "actions": "פעולות"
+    },
+    "toasts": {
+      "loadFailed": "טעינת הלקוחות נכשלה",
+      "updated": "הלקוח עודכן",
+      "updateFailed": "עדכון הלקוח נכשל",
+      "noteAdded": "ההערה נוספה",
+      "noteFailed": "הוספת ההערה נכשלה"
+    },
+    "modal": {
+      "edit": "עריכת לקוח",
+      "editTitle": "עריכת לקוח: {name}",
+      "crmSection": "פרטי CRM",
+      "companySection": "פרטי חברה",
+      "status": "סטטוס",
+      "assignedTo": "סוכן משויך",
+      "unassigned": "לא משויך",
+      "contactName": "שם איש קשר",
+      "contactEmail": "אימייל איש קשר",
+      "contactPhone": "טלפון איש קשר",
+      "tagsLabel": "תגיות",
+      "tagsHint": "מופרדות בפסיק.",
+      "tagsPlaceholder": "VIP, סיטונאי, צפון",
+      "addNote": "הוספת הערה",
+      "addNoteHint": "נרשמת בציר הזמן של הלקוח."
+    },
+    "detail": {
+      "title": "לקוח",
+      "back": "חזרה ללקוחות",
+      "loading": "טוען לקוח…",
+      "notFound": "הלקוח לא נמצא",
+      "info": "פרטים",
+      "stats": "פעילות",
+      "totalOrders": "הזמנות",
+      "totalRevenue": "הכנסות",
+      "company": "חברה",
+      "contactName": "שם איש קשר",
+      "contactEmail": "אימייל איש קשר",
+      "contactPhone": "טלפון איש קשר",
+      "assignedTo": "סוכן משויך",
+      "created": "נוצר",
+      "lastContact": "מגע אחרון",
+      "sourceLead": "ליד מקור",
+      "orders": "הזמנות",
+      "ordersEmpty": "אין עדיין הזמנות",
+      "invoices": "חשבוניות",
+      "invoicesEmpty": "אין עדיין חשבוניות",
+      "notes": "הערות",
+      "notesPlaceholder": "הוסף הערה…",
+      "notesEmpty": "אין עדיין הערות",
+      "timeline": "פעילות",
+      "timelineEmpty": "אין עדיין פעילות"
+    },
+    "timelineEvents": {
+      "customer_created": "נוצר לקוח",
+      "customer_updated": "עודכן לקוח",
+      "customer_linked": "שויך לליד",
+      "status_changed": "שונה סטטוס",
+      "agent_assigned": "שויך סוכן",
+      "note_added": "נוספה הערה"
+    }
+  },
+  "customerStatus": {
+    "active": "פעיל",
+    "inactive": "לא פעיל",
+    "on-hold": "ממתין",
+    "archived": "בארכיון"
+  },
   "settings": {
     "pageTitle": "הגדרות עסק",
     "pageSubtitle": "הגדרת תמחור, כללי הזמנה וקטלוג מוצרים.",
@@ -437,5 +532,94 @@
     "admin": "מנהל",
     "agent": "סוכן",
     "customer": "לקוח"
+  },
+  "pipeline": {
+    "pageTitle": "פייפליין מכירות",
+    "pageSubtitle": "גרור לידים בין שלבים כדי לעדכן סטטוס.",
+    "loading": "טוען פייפליין…",
+    "column": {
+      "empty": "אין לידים"
+    },
+    "card": {
+      "agent": "סוכן",
+      "lastActivity": "פעילות אחרונה"
+    },
+    "toasts": {
+      "moved": "הועבר ל-{status}",
+      "moveFailed": "העברת הליד נכשלה"
+    },
+    "kpi": {
+      "winRate": "אחוז זכייה",
+      "winRateHint": "{won} נסגרו · {lost} אבדו החודש",
+      "conversion": "אחוז המרה",
+      "conversionHint": "{count} לידים הומרו ללקוחות",
+      "pipelineValue": "ערך הפייפליין",
+      "outstandingHint": "חשבוניות פתוחות: {amount}",
+      "avgResponse": "זמן תגובה ממוצע",
+      "avgResponseHint": "מקבלת ליד עד פנייה ראשונה",
+      "minutes": "{count} דק׳",
+      "overdueTasks": "משימות באיחור",
+      "overdueHint": "משימות שעבר תאריך היעד",
+      "topAgents": "סוכנים מובילים",
+      "topAgentsHint": "לפי זכיות",
+      "trendUp": "+{pct}%",
+      "trendDown": "-{pct}%",
+      "flat": "—"
+    }
+  },
+  "tasks": {
+    "pageTitle": "משימות",
+    "pageSubtitle": "פולואפ, תזכורות ומשימות אוטומציה.",
+    "loading": "טוען משימות…",
+    "empty": "אין משימות",
+    "emptyHint": "צור משימה חדשה או חכה לאוטומציה.",
+    "overdue": "באיחור",
+    "completeAria": "סמן משימה כהושלמה",
+    "fromAutomation": "אוטומציה",
+    "viewAll": "הצג הכל",
+    "tabs": {
+      "mine": "שלי",
+      "overdue": "באיחור",
+      "team": "צוות",
+      "done": "הושלמו"
+    },
+    "priority": {
+      "low": "נמוכה",
+      "normal": "רגילה",
+      "high": "גבוהה",
+      "urgent": "דחופה"
+    },
+    "create": {
+      "title": "משימה חדשה",
+      "titleLabel": "כותרת",
+      "titleRequired": "יש למלא כותרת",
+      "description": "תיאור",
+      "priority": "עדיפות",
+      "due": "תאריך יעד",
+      "assignedTo": "שייך ל",
+      "assignToMe": "אליי",
+      "failed": "יצירת המשימה נכשלה"
+    },
+    "toasts": {
+      "loadFailed": "טעינת המשימות נכשלה",
+      "completed": "המשימה הושלמה",
+      "completeFailed": "השלמת המשימה נכשלה",
+      "created": "המשימה נוצרה",
+      "createFailed": "יצירת המשימה נכשלה"
+    }
+  },
+  "notifications": {
+    "title": "התראות",
+    "empty": "הגעת לסוף — אין התראות",
+    "markAll": "סמן הכל כנקרא",
+    "automation": "אוטומציה",
+    "openActivity": "פתח מרכז פעילות"
+  },
+  "activity": {
+    "pageTitle": "פעילות",
+    "pageSubtitle": "פיד מאוחד של שינויים במערכת.",
+    "loading": "טוען פעילות…",
+    "empty": "עדיין אין פעילות",
+    "allEntities": "כל הישויות"
   }
 }

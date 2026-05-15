@@ -62,6 +62,7 @@ export interface ILead extends Document {
     // Conversion tracking — set when lead is converted to a paying customer
     convertedToCompanyId?: mongoose.Types.ObjectId;
     convertedToUserId?: mongoose.Types.ObjectId;
+    customerId?: mongoose.Types.ObjectId;
     convertedAt?: Date;
 
     // Soft delete
@@ -171,6 +172,11 @@ const LeadSchema = new Schema<ILead>(
         convertedToUserId: {
             type: Schema.Types.ObjectId,
             ref: 'User',
+        },
+        customerId: {
+            type: Schema.Types.ObjectId,
+            ref: 'Customer',
+            index: true,
         },
         convertedAt: {
             type: Date,

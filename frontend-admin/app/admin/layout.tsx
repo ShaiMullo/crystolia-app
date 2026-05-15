@@ -3,10 +3,11 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, Building2, Settings, LogOut, Kanban, CheckSquare, Activity } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
 import { useAdminI18n } from "@/i18n/I18nProvider";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { cn } from "@/lib/cn";
 
 export default function AdminLayout({
@@ -33,6 +34,10 @@ export default function AdminLayout({
     const initials = (user.name || user.email).slice(0, 1).toUpperCase();
     const navItems = [
         { href: "/admin", label: t("nav.dashboard"), icon: LayoutDashboard },
+        { href: "/admin/pipeline", label: t("nav.pipeline"), icon: Kanban },
+        { href: "/admin/customers", label: t("nav.customers"), icon: Building2 },
+        { href: "/admin/tasks", label: t("nav.tasks"), icon: CheckSquare },
+        { href: "/admin/activity", label: t("nav.activity"), icon: Activity },
         { href: "/admin/settings", label: t("nav.settings"), icon: Settings },
     ];
 
@@ -69,7 +74,8 @@ export default function AdminLayout({
                             })}
                         </nav>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        <NotificationsBell />
                         <LanguageSwitcher />
                         <div className="flex items-center gap-2 rounded-full bg-gray-100 dark:bg-gray-800 ps-1 pe-3 py-1">
                             <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-yellow-500 text-xs font-semibold text-white">

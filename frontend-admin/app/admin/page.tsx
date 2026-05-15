@@ -2,17 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
-import { Inbox, Users as UsersIcon, ShoppingBag, FileText, Activity, RefreshCw, FilePlus, UserPlus } from "lucide-react";
+import { Inbox, Users as UsersIcon, ShoppingBag, FileText, Activity, RefreshCw, FilePlus, UserPlus, Building2 } from "lucide-react";
 import api from "@/app/lib/api";
 import { useAuth } from "@/app/context/AuthContext";
 import { useAdminI18n } from "@/i18n/I18nProvider";
-import { Button, PageHeader, Tabs, type TabItem } from "@/components/ui";
+import { Button, Card, CardTitle, PageHeader, Tabs, type TabItem } from "@/components/ui";
 import LeadEditModal from "@/components/leads/LeadEditModal";
 import UserActionModal from "@/components/users/UserActionModal";
 import { KpiGrid } from "@/components/dashboard/KpiGrid";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
+import { TaskList } from "@/components/tasks/TaskList";
 import { LeadsTab } from "@/components/dashboard/LeadsTab";
+import { CustomersTab } from "@/components/dashboard/CustomersTab";
 import { UsersTab } from "@/components/dashboard/UsersTab";
 import { OrdersTab } from "@/components/dashboard/OrdersTab";
 import { InvoicesTab } from "@/components/dashboard/InvoicesTab";
@@ -29,7 +31,7 @@ import type {
     User,
 } from "@/types";
 
-type TabId = "leads" | "users" | "orders" | "invoices" | "audit";
+type TabId = "leads" | "customers" | "users" | "orders" | "invoices" | "audit";
 
 export default function AdminDashboard() {
     const { user } = useAuth();
@@ -313,6 +315,7 @@ export default function AdminDashboard() {
     // ── Tabs ──────────────────────────────────────────────────────────────
     const tabs: TabItem<TabId>[] = useMemo(() => [
         { id: "leads", label: t("dashboard.tabs.leads"), icon: <Inbox size={14} /> },
+        { id: "customers", label: t("dashboard.tabs.customers"), icon: <Building2 size={14} /> },
         { id: "users", label: t("dashboard.tabs.users"), icon: <UsersIcon size={14} /> },
         { id: "orders", label: t("dashboard.tabs.orders"), icon: <ShoppingBag size={14} /> },
         { id: "invoices", label: t("dashboard.tabs.invoices"), icon: <FileText size={14} /> },
@@ -348,11 +351,25 @@ export default function AdminDashboard() {
             <KpiGrid leads={leads} users={users} orders={orders} invoices={invoices} />
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                <div className="lg:col-span-1"><QuickActions
-                    onCreateUser={handleCreateUser}
-                    onCreateInvoice={() => setIsCreateInvoiceOpen(true)}
-                    onJumpToLeads={() => setActiveTab("leads")}
-                /></div>
+                <div className="lg:col-span-1 space-y-4">
+                    <QuickActions
+                        onCreateUser={handleCreateUser}
+                        onCreateInvoice={() => setIsCreateInvoiceOpen(true)}
+                        onJumpToLeads={() => setActiveTab("leads")}
+                    />
+                    <Card>
+                        <CardTitle>{t("dashboard.myTasks.title")}</CardTitle>
+                        <div className="mt-4">
+                            <TaskList
+                                params={{ assignedTo: "me", status: "open" }}
+                                compact
+                                limit={6}
+                                refreshMs={60_000}
+                                viewAllHref="/admin/tasks"
+                            />
+                        </div>
+                    </Card>
+                </div>
                 <div className="lg:col-span-2"><RecentActivity logs={auditLogs} /></div>
             </div>
 
@@ -375,6 +392,9 @@ export default function AdminDashboard() {
                         onPageChange={setPage}
                         onEdit={handleEditLead}
                     />
+                )}
+                {activeTab === "customers" && (
+                    <CustomersTab agents={users} />
                 )}
                 {activeTab === "users" && (
                     <UsersTab

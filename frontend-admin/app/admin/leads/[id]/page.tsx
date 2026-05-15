@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { ArrowLeft, MessageSquare, Activity, FileText } from "lucide-react";
@@ -189,6 +190,15 @@ export default function LeadDetailPage() {
                                     <p className="text-xs text-emerald-700/80 dark:text-emerald-300/80">{t("leadDetail.convertedCard.noUserCreated")}</p>
                                 )}
                             </div>
+                            {lead.customerId && (
+                                <div className="mt-4">
+                                    <Link href={`/admin/customers/${lead.customerId}`}>
+                                        <Button size="sm" variant="outline" fullWidth>
+                                            {t("leadDetail.convertedCard.viewCustomer")}
+                                        </Button>
+                                    </Link>
+                                </div>
+                            )}
                         </Card>
                     ) : (
                         <Card>

@@ -15,6 +15,10 @@ import { config } from './config/index.js';
 import { connectDatabase, disconnectDatabase, isDatabaseConnected } from './db/connection.js';
 import leadsRouter from './routes/leads.js';
 import crmRouter from './routes/crm.js';
+import crmCustomersRouter from './routes/crmCustomers.js';
+import crmTasksRouter from './routes/crmTasks.js';
+import crmNotificationsRouter from './routes/crmNotifications.js';
+import crmAnalyticsRouter from './routes/crmAnalytics.js';
 
 import authRouter from './routes/auth.js';
 import usersRouter from './routes/users.js';
@@ -26,6 +30,7 @@ import settingsRouter from './routes/settings.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { seedAdmin } from './db/seedAdmin.js';
+import { seedDefaultRules } from './services/automationService.js';
 import passport from './config/passport.js';
 
 // Application instance
@@ -126,6 +131,10 @@ app.get('/api/live', (_req: Request, res: Response) => {
 app.use('/api/auth', authRouter);
 app.use('/api/leads', leadsRouter);
 app.use('/api/crm', crmRouter);
+app.use('/api/crm/customers', crmCustomersRouter);
+app.use('/api/crm/tasks', crmTasksRouter);
+app.use('/api/crm/notifications', crmNotificationsRouter);
+app.use('/api/crm/analytics', crmAnalyticsRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/customers', customersRouter);
@@ -181,6 +190,9 @@ async function startServer(): Promise<void> {
 
         // Seed default admin in development
         await seedAdmin();
+
+        // Seed default automation rules (idempotent — safe to run every boot)
+        await seedDefaultRules();
 
         // Start HTTP server
         server = app.listen(config.port, () => {

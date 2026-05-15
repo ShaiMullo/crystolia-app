@@ -1,7 +1,7 @@
 // Centralized status → visual tone maps. Kept here so badges, selects,
 // and chips stay in sync without hardcoded per-page palettes.
 
-import type { LeadStatus, OrderStatus, InvoiceStatus } from "@/types";
+import type { CustomerStatus, LeadStatus, OrderStatus, InvoiceStatus } from "@/types";
 
 export type Tone =
     | "neutral"
@@ -56,4 +56,11 @@ export const invoiceStatusTone: Record<InvoiceStatus, Tone> = {
     issued: "info",
     paid: "success",
     cancelled: "danger",
+};
+
+export const customerStatusTone: Record<CustomerStatus, Tone> = {
+    active: "success",
+    inactive: "neutral",
+    "on-hold": "warning",
+    archived: "neutral",
 };

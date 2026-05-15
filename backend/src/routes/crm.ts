@@ -8,10 +8,12 @@ import { Router, Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import Lead, { LeadStatus } from '../models/Lead.js';
 import Company from '../models/Company.js';
+import Customer from '../models/Customer.js';
 import User from '../models/User.js';
 import { protect, authorize } from '../middleware/auth.js';
 import { validate, AppError } from '../utils/validation.js';
 import { logAudit } from '../services/auditService.js';
+import { dispatch as dispatchAutomation } from '../services/automationService.js';
 
 const router = Router();
 
@@ -256,11 +258,14 @@ router.post('/leads/:id/convert', async (req: Request, res: Response, next: Next
 
         // ── Idempotency: already converted ──
         if (lead.convertedToCompanyId) {
-            const [existingCompany, existingUser] = await Promise.all([
+            const [existingCompany, existingUser, existingCustomer] = await Promise.all([
                 Company.findById(lead.convertedToCompanyId).lean(),
                 lead.convertedToUserId
                     ? User.findById(lead.convertedToUserId).select('-password').lean()
                     : Promise.resolve(null),
+                lead.customerId
+                    ? Customer.findById(lead.customerId).lean()
+                    : Customer.findOne({ company: lead.convertedToCompanyId, isDeleted: false }).lean(),
             ]);
             return res.status(200).json({
                 success: true,
@@ -268,6 +273,7 @@ router.post('/leads/:id/convert', async (req: Request, res: Response, next: Next
                 lead: lead.toObject(),
                 company: existingCompany,
                 user: existingUser,
+                customer: existingCustomer,
             });
         }
 
@@ -371,9 +377,44 @@ router.post('/leads/:id/convert', async (req: Request, res: Response, next: Next
         const now = new Date();
         const actorId = req.user?._id?.toString();
 
+        // ── Find or create CRM Customer record (dedupe by company) ──
+        let customer = await Customer.findOne({ company: company._id, isDeleted: false });
+        let customerCreated = false;
+        if (!customer) {
+            customer = await Customer.create({
+                company: company._id,
+                contactName: userName?.trim?.() || lead.name?.trim() || undefined,
+                contactEmail: normalizedEmail,
+                contactPhone: phone?.trim?.() || lead.phone || undefined,
+                sourceLeadId: lead._id,
+                createdBy: req.user?._id,
+                lastContactAt: now,
+                tags: lead.tags || [],
+                timeline: [{
+                    type: 'customer_created',
+                    at: now,
+                    actorId,
+                    meta: { source: 'lead_conversion', leadId: lead._id.toString() },
+                }],
+            });
+            customerCreated = true;
+        } else if (!customer.sourceLeadId) {
+            // Backfill source lead reference if we converted twice from different leads
+            customer.sourceLeadId = lead._id;
+            customer.lastContactAt = now;
+            customer.timeline.push({
+                type: 'customer_linked',
+                at: now,
+                actorId,
+                meta: { leadId: lead._id.toString() },
+            });
+            await customer.save();
+        }
+
         lead.status = 'converted';
         lead.convertedToCompanyId = company._id;
         if (user) lead.convertedToUserId = user._id;
+        lead.customerId = customer._id;
         lead.convertedAt = now;
 
         lead.timeline.push({
@@ -383,6 +424,8 @@ router.post('/leads/:id/convert', async (req: Request, res: Response, next: Next
             meta: {
                 companyId: company._id.toString(),
                 companyCreated,
+                customerId: customer._id.toString(),
+                customerCreated,
                 ...(user && { userId: user._id.toString(), userCreated }),
             },
         });
@@ -410,10 +453,22 @@ router.post('/leads/:id/convert', async (req: Request, res: Response, next: Next
                 action: 'convert',
                 companyId: company._id.toString(),
                 companyCreated,
+                customerId: customer._id.toString(),
+                customerCreated,
                 userId: user?._id?.toString(),
                 userCreated,
             },
         });
+
+        if (customerCreated) {
+            await logAudit({
+                action: 'CREATE',
+                entity: 'Customer',
+                entityId: customer._id.toString(),
+                req,
+                details: { source: 'lead_conversion', leadId: lead._id.toString() },
+            });
+        }
 
         // Strip password from user response
         let userResponse: Record<string, unknown> | null = null;
@@ -423,11 +478,26 @@ router.post('/leads/:id/convert', async (req: Request, res: Response, next: Next
             userResponse = obj;
         }
 
+        // Fire automation: lead.converted
+        await dispatchAutomation({
+            event: 'lead.converted',
+            payload: {
+                leadId: lead._id.toString(),
+                leadName: lead.name,
+                customerId: customer._id.toString(),
+                customerName: resolvedCompanyName,
+                companyId: company._id.toString(),
+                assignedTo: lead.assignedTo || lead.ownerId,
+                actorId: req.user?._id?.toString(),
+            },
+        });
+
         res.status(201).json({
             success: true,
             idempotent: false,
             lead: lead.toObject(),
             company: company.toObject(),
+            customer: customer.toObject(),
             user: userResponse,
             ...(tempPassword && { tempPassword }),
         });

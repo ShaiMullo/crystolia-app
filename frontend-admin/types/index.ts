@@ -53,6 +53,7 @@ export interface Lead {
     // Conversion tracking — populated once a lead has been converted into a customer
     convertedToCompanyId?: string;
     convertedToUserId?: string;
+    customerId?: string;
     convertedAt?: string;
 
     isDeleted: boolean;
@@ -106,6 +107,141 @@ export interface Order {
     createdAt: string;
     company?: { _id: string; name: string } | string;
     createdBy?: { _id: string; name?: string; email: string } | string;
+}
+
+export type TaskStatus = 'open' | 'in_progress' | 'done' | 'cancelled';
+export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent';
+export type TaskRelatedType = 'Lead' | 'Customer' | 'Invoice' | 'Order' | 'None';
+
+export interface TaskRecord {
+    _id: string;
+    title: string;
+    description?: string;
+    status: TaskStatus;
+    priority: TaskPriority;
+    dueAt?: string;
+    completedAt?: string;
+    assignedTo?: { _id: string; name?: string; email: string; role?: string } | string | null;
+    createdBy?: { _id: string; name?: string; email: string } | string | null;
+    relatedType: TaskRelatedType;
+    relatedId?: string;
+    relatedLabel?: string;
+    sourceAutomation?: string;
+    isDeleted: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export type NotificationType =
+    | 'lead_assigned'
+    | 'lead_status_changed'
+    | 'task_assigned'
+    | 'task_overdue'
+    | 'invoice_overdue'
+    | 'invoice_issued'
+    | 'customer_created'
+    | 'automation_triggered'
+    | 'generic';
+
+export interface NotificationRecord {
+    _id: string;
+    type: NotificationType;
+    title: string;
+    body?: string;
+    link?: string;
+    icon?: string;
+    channel: 'in_app' | 'email' | 'whatsapp';
+    isRead: boolean;
+    readAt?: string;
+    meta?: Record<string, unknown>;
+    sourceAutomation?: string;
+    createdAt: string;
+}
+
+export interface PipelineAnalytics {
+    totals: {
+        totalLeads: number;
+        wonThisMonth: number;
+        lostThisMonth: number;
+        convertedTotal: number;
+        overdueTasks: number;
+        pipelineRevenue: number;
+        outstandingInvoices: number;
+    };
+    rates: {
+        winRate: number;
+        winRateTrend: number;
+        conversionRate: number;
+    };
+    byStatus: Record<string, number>;
+    topAgents: Array<{ id: string; label: string; wins: number }>;
+    avgResponseMinutes: number | null;
+}
+
+export type CustomerStatus = 'active' | 'inactive' | 'on-hold' | 'archived';
+
+export interface CustomerNote {
+    text: string;
+    createdAt: string;
+    actorId?: string;
+}
+
+export interface CustomerTimelineEvent {
+    type: string;
+    at: string;
+    actorId?: string;
+    meta?: Record<string, unknown>;
+}
+
+export interface CustomerCompanyRef {
+    _id: string;
+    name: string;
+    vatNumber?: string;
+    email?: string;
+    phone?: string;
+    city?: string;
+    address?: string;
+}
+
+export interface CustomerAssignedAgent {
+    _id: string;
+    name?: string;
+    email: string;
+    role: 'admin' | 'agent' | 'customer';
+}
+
+export interface Customer {
+    _id: string;
+    company: CustomerCompanyRef | string;
+    contactName?: string;
+    contactEmail?: string;
+    contactPhone?: string;
+    status: CustomerStatus;
+    tags: string[];
+    notes: CustomerNote[];
+    timeline: CustomerTimelineEvent[];
+    assignedTo?: CustomerAssignedAgent | string | null;
+    sourceLeadId?: string | null;
+    createdBy?: { _id: string; name?: string; email: string } | string | null;
+    lastContactAt?: string;
+    totalOrders: number;
+    totalRevenue: number;
+    isDeleted: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface CustomerDetail extends Customer {
+    orders: Order[];
+    invoices: Invoice[];
+    sourceLead?: {
+        _id: string;
+        name: string;
+        phone: string;
+        email?: string;
+        status: LeadStatus;
+        convertedAt?: string;
+    } | null;
 }
 
 export interface AuditLog {

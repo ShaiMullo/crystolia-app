@@ -10,6 +10,7 @@ import { rateLimit } from '../middleware/rateLimit.js';
 import { validate, AppError } from '../utils/validation.js';
 import { protect, authorize } from '../middleware/auth.js';
 import { logAudit } from '../services/auditService.js';
+import { dispatch as dispatchAutomation } from '../services/automationService.js';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 
@@ -327,6 +328,9 @@ router.patch('/:id', protect, async (req: Request, res: Response, next: NextFunc
             query.assignedTo = req.user._id;
         }
 
+        // Capture previous state for automation diffing.
+        const previous = await Lead.findOne(query).select('status assignedTo').lean();
+
         const lead = await Lead.findOneAndUpdate(
             query,
             updateData,
@@ -345,6 +349,21 @@ router.patch('/:id', protect, async (req: Request, res: Response, next: NextFunc
                 entityId: lead._id.toString(),
                 req,
                 details: updateData
+            });
+        }
+
+        // Fire automation events (side-effect only, never blocks the response)
+        if (previous && status && previous.status !== status) {
+            await dispatchAutomation({
+                event: 'lead.status_changed',
+                payload: {
+                    leadId: lead._id.toString(),
+                    leadName: lead.name,
+                    from: previous.status,
+                    to: status,
+                    assignedTo: lead.assignedTo,
+                    actorId: req.user?._id?.toString(),
+                },
             });
         }
 

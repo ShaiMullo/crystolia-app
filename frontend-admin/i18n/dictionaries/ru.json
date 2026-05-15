@@ -54,6 +54,10 @@
     "brandAgentSuffix": "Agent",
     "dashboard": "Дашборд",
     "crm": "CRM",
+    "pipeline": "Воронка",
+    "customers": "Клиенты",
+    "tasks": "Задачи",
+    "activity": "Активность",
     "settings": "Настройки",
     "logout": "Выйти",
     "administratorFallback": "Администратор"
@@ -65,6 +69,7 @@
     "agentSubtitle": "Лиды, назначенные вам.",
     "tabs": {
       "leads": "Лиды",
+      "customers": "Клиенты",
       "users": "Пользователи",
       "orders": "Заказы",
       "invoices": "Счета",
@@ -103,6 +108,9 @@
       "title": "Последняя активность",
       "empty": "Активности пока нет",
       "emptyHint": "Действия и системные события появятся здесь."
+    },
+    "myTasks": {
+      "title": "Мои задачи"
     }
   },
   "leads": {
@@ -162,7 +170,8 @@
       "convertedAt": "Конвертирован:",
       "companyId": "ID компании:",
       "userId": "ID пользователя:",
-      "noUserCreated": "Учётная запись клиента не была создана."
+      "noUserCreated": "Учётная запись клиента не была создана.",
+      "viewCustomer": "Открыть карточку клиента"
     },
     "changeStatus": {
       "title": "Изменить статус",
@@ -351,6 +360,92 @@
     "system": "Система",
     "empty": "Записей аудита не найдено."
   },
+  "customers": {
+    "pageTitle": "Клиенты",
+    "pageSubtitle": "Управление компаниями, контактами и CRM-активностью.",
+    "empty": "Клиентов пока нет",
+    "emptyHint": "Клиенты появятся здесь автоматически после конвертации лида.",
+    "filters": {
+      "searchPlaceholder": "Поиск по компании, контакту, телефону, email…",
+      "allStatuses": "Все статусы",
+      "allAgents": "Все агенты"
+    },
+    "table": {
+      "company": "Компания",
+      "contact": "Контакт",
+      "status": "Статус",
+      "agent": "Агент",
+      "orders": "Заказы",
+      "revenue": "Выручка",
+      "lastContact": "Последний контакт",
+      "actions": "Действия"
+    },
+    "toasts": {
+      "loadFailed": "Не удалось загрузить клиентов",
+      "updated": "Клиент обновлён",
+      "updateFailed": "Не удалось обновить клиента",
+      "noteAdded": "Заметка добавлена",
+      "noteFailed": "Не удалось добавить заметку"
+    },
+    "modal": {
+      "edit": "Редактировать клиента",
+      "editTitle": "Редактировать клиента: {name}",
+      "crmSection": "CRM-детали",
+      "companySection": "Реквизиты компании",
+      "status": "Статус",
+      "assignedTo": "Закреплённый агент",
+      "unassigned": "Не назначен",
+      "contactName": "Имя контакта",
+      "contactEmail": "Email контакта",
+      "contactPhone": "Телефон контакта",
+      "tagsLabel": "Теги",
+      "tagsHint": "Через запятую.",
+      "tagsPlaceholder": "vip, опт, север",
+      "addNote": "Добавить заметку",
+      "addNoteHint": "Запишется в таймлайн клиента."
+    },
+    "detail": {
+      "title": "Клиент",
+      "back": "К клиентам",
+      "loading": "Загрузка клиента…",
+      "notFound": "Клиент не найден",
+      "info": "Информация",
+      "stats": "Активность",
+      "totalOrders": "Заказы",
+      "totalRevenue": "Выручка",
+      "company": "Компания",
+      "contactName": "Имя контакта",
+      "contactEmail": "Email контакта",
+      "contactPhone": "Телефон контакта",
+      "assignedTo": "Закреплённый агент",
+      "created": "Создан",
+      "lastContact": "Последний контакт",
+      "sourceLead": "Исходный лид",
+      "orders": "Заказы",
+      "ordersEmpty": "Заказов пока нет",
+      "invoices": "Счета",
+      "invoicesEmpty": "Счетов пока нет",
+      "notes": "Заметки",
+      "notesPlaceholder": "Добавить заметку…",
+      "notesEmpty": "Заметок пока нет",
+      "timeline": "Активность",
+      "timelineEmpty": "Активности пока нет"
+    },
+    "timelineEvents": {
+      "customer_created": "Клиент создан",
+      "customer_updated": "Клиент обновлён",
+      "customer_linked": "Связан с лидом",
+      "status_changed": "Статус изменён",
+      "agent_assigned": "Назначен агент",
+      "note_added": "Добавлена заметка"
+    }
+  },
+  "customerStatus": {
+    "active": "Активный",
+    "inactive": "Неактивный",
+    "on-hold": "В ожидании",
+    "archived": "В архиве"
+  },
   "settings": {
     "pageTitle": "Настройки бизнеса",
     "pageSubtitle": "Настройте цены, правила заказов и каталог товаров.",
@@ -437,5 +532,94 @@
     "admin": "Администратор",
     "agent": "Агент",
     "customer": "Клиент"
+  },
+  "pipeline": {
+    "pageTitle": "Воронка продаж",
+    "pageSubtitle": "Перетаскивайте лиды между этапами, чтобы менять статус.",
+    "loading": "Загрузка воронки…",
+    "column": {
+      "empty": "Нет лидов"
+    },
+    "card": {
+      "agent": "Агент",
+      "lastActivity": "Последняя активность"
+    },
+    "toasts": {
+      "moved": "Перенесён в {status}",
+      "moveFailed": "Не удалось перенести лид"
+    },
+    "kpi": {
+      "winRate": "Доля побед",
+      "winRateHint": "{won} побед · {lost} проигрышей за месяц",
+      "conversion": "Конверсия",
+      "conversionHint": "{count} лидов конвертировано в клиентов",
+      "pipelineValue": "Объём воронки",
+      "outstandingHint": "Выставлено к оплате: {amount}",
+      "avgResponse": "Среднее время ответа",
+      "avgResponseHint": "От лида до первого касания",
+      "minutes": "{count} мин",
+      "overdueTasks": "Просрочено",
+      "overdueHint": "Задачи с истёкшим сроком",
+      "topAgents": "Лучшие агенты",
+      "topAgentsHint": "По победам",
+      "trendUp": "+{pct}%",
+      "trendDown": "-{pct}%",
+      "flat": "—"
+    }
+  },
+  "tasks": {
+    "pageTitle": "Задачи",
+    "pageSubtitle": "Follow-up, напоминания и задачи автоматизаций.",
+    "loading": "Загрузка задач…",
+    "empty": "Задач нет",
+    "emptyHint": "Создайте задачу или дождитесь автоматизаций.",
+    "overdue": "Просрочено",
+    "completeAria": "Отметить задачу выполненной",
+    "fromAutomation": "Автоматизация",
+    "viewAll": "Все задачи",
+    "tabs": {
+      "mine": "Мои",
+      "overdue": "Просрочено",
+      "team": "Команда",
+      "done": "Выполнены"
+    },
+    "priority": {
+      "low": "Низкий",
+      "normal": "Обычный",
+      "high": "Высокий",
+      "urgent": "Срочный"
+    },
+    "create": {
+      "title": "Новая задача",
+      "titleLabel": "Заголовок",
+      "titleRequired": "Заголовок обязателен",
+      "description": "Описание",
+      "priority": "Приоритет",
+      "due": "Срок",
+      "assignedTo": "Назначить",
+      "assignToMe": "Мне",
+      "failed": "Не удалось создать задачу"
+    },
+    "toasts": {
+      "loadFailed": "Не удалось загрузить задачи",
+      "completed": "Задача выполнена",
+      "completeFailed": "Не удалось завершить задачу",
+      "created": "Задача создана",
+      "createFailed": "Не удалось создать задачу"
+    }
+  },
+  "notifications": {
+    "title": "Уведомления",
+    "empty": "Уведомлений нет",
+    "markAll": "Прочитать всё",
+    "automation": "Автоматизация",
+    "openActivity": "Открыть центр активности"
+  },
+  "activity": {
+    "pageTitle": "Активность",
+    "pageSubtitle": "Единая лента изменений в CRM.",
+    "loading": "Загрузка активности…",
+    "empty": "Пока нет активности",
+    "allEntities": "Все сущности"
   }
 }

@@ -54,6 +54,10 @@
     "brandAgentSuffix": "Agent",
     "dashboard": "Dashboard",
     "crm": "CRM",
+    "pipeline": "Pipeline",
+    "customers": "Customers",
+    "tasks": "Tasks",
+    "activity": "Activity",
     "settings": "Settings",
     "logout": "Logout",
     "administratorFallback": "Administrator"
@@ -65,6 +69,7 @@
     "agentSubtitle": "Leads assigned to you.",
     "tabs": {
       "leads": "Leads",
+      "customers": "Customers",
       "users": "Users",
       "orders": "Orders",
       "invoices": "Invoices",
@@ -103,6 +108,9 @@
       "title": "Recent activity",
       "empty": "No activity yet",
       "emptyHint": "User actions and system events will appear here."
+    },
+    "myTasks": {
+      "title": "My tasks"
     }
   },
   "leads": {
@@ -162,7 +170,8 @@
       "convertedAt": "Converted at:",
       "companyId": "Company ID:",
       "userId": "User ID:",
-      "noUserCreated": "No customer user was created."
+      "noUserCreated": "No customer user was created.",
+      "viewCustomer": "Open customer record"
     },
     "changeStatus": {
       "title": "Change Status",
@@ -351,6 +360,92 @@
     "system": "System",
     "empty": "No audit logs found."
   },
+  "customers": {
+    "pageTitle": "Customers",
+    "pageSubtitle": "Manage company accounts, contacts, and CRM activity.",
+    "empty": "No customers yet",
+    "emptyHint": "Customers appear here automatically after a lead is converted.",
+    "filters": {
+      "searchPlaceholder": "Search by company, contact, phone, email…",
+      "allStatuses": "All statuses",
+      "allAgents": "All agents"
+    },
+    "table": {
+      "company": "Company",
+      "contact": "Contact",
+      "status": "Status",
+      "agent": "Agent",
+      "orders": "Orders",
+      "revenue": "Revenue",
+      "lastContact": "Last contact",
+      "actions": "Actions"
+    },
+    "toasts": {
+      "loadFailed": "Failed to load customers",
+      "updated": "Customer updated",
+      "updateFailed": "Failed to update customer",
+      "noteAdded": "Note added",
+      "noteFailed": "Failed to add note"
+    },
+    "modal": {
+      "edit": "Edit customer",
+      "editTitle": "Edit customer: {name}",
+      "crmSection": "CRM details",
+      "companySection": "Company details",
+      "status": "Status",
+      "assignedTo": "Assigned agent",
+      "unassigned": "Unassigned",
+      "contactName": "Contact name",
+      "contactEmail": "Contact email",
+      "contactPhone": "Contact phone",
+      "tagsLabel": "Tags",
+      "tagsHint": "Comma separated.",
+      "tagsPlaceholder": "vip, wholesale, north",
+      "addNote": "Add note",
+      "addNoteHint": "Recorded in the customer timeline."
+    },
+    "detail": {
+      "title": "Customer",
+      "back": "Back to customers",
+      "loading": "Loading customer…",
+      "notFound": "Customer not found",
+      "info": "Info",
+      "stats": "Activity",
+      "totalOrders": "Orders",
+      "totalRevenue": "Revenue",
+      "company": "Company",
+      "contactName": "Contact name",
+      "contactEmail": "Contact email",
+      "contactPhone": "Contact phone",
+      "assignedTo": "Assigned agent",
+      "created": "Created",
+      "lastContact": "Last contact",
+      "sourceLead": "Source lead",
+      "orders": "Orders",
+      "ordersEmpty": "No orders yet",
+      "invoices": "Invoices",
+      "invoicesEmpty": "No invoices yet",
+      "notes": "Notes",
+      "notesPlaceholder": "Add a note…",
+      "notesEmpty": "No notes yet",
+      "timeline": "Activity",
+      "timelineEmpty": "No activity yet"
+    },
+    "timelineEvents": {
+      "customer_created": "Customer created",
+      "customer_updated": "Customer updated",
+      "customer_linked": "Linked to lead",
+      "status_changed": "Status changed",
+      "agent_assigned": "Agent assigned",
+      "note_added": "Note added"
+    }
+  },
+  "customerStatus": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "on-hold": "On hold",
+    "archived": "Archived"
+  },
   "settings": {
     "pageTitle": "Business Settings",
     "pageSubtitle": "Configure pricing, order rules, and product catalog.",
@@ -437,5 +532,94 @@
     "admin": "Admin",
     "agent": "Agent",
     "customer": "Customer"
+  },
+  "pipeline": {
+    "pageTitle": "Sales pipeline",
+    "pageSubtitle": "Drag leads across stages to update status.",
+    "loading": "Loading pipeline…",
+    "column": {
+      "empty": "No leads"
+    },
+    "card": {
+      "agent": "Agent",
+      "lastActivity": "Last activity"
+    },
+    "toasts": {
+      "moved": "Moved to {status}",
+      "moveFailed": "Failed to move lead"
+    },
+    "kpi": {
+      "winRate": "Win rate",
+      "winRateHint": "{won} won · {lost} lost this month",
+      "conversion": "Conversion rate",
+      "conversionHint": "{count} leads converted to customers",
+      "pipelineValue": "Pipeline value",
+      "outstandingHint": "Outstanding invoices: {amount}",
+      "avgResponse": "Avg. response time",
+      "avgResponseHint": "Time from lead in to first touch",
+      "minutes": "{count} min",
+      "overdueTasks": "Overdue tasks",
+      "overdueHint": "Tasks past their due date",
+      "topAgents": "Top agents",
+      "topAgentsHint": "By wins",
+      "trendUp": "+{pct}%",
+      "trendDown": "-{pct}%",
+      "flat": "—"
+    }
+  },
+  "tasks": {
+    "pageTitle": "Tasks",
+    "pageSubtitle": "Follow-ups, reminders, and automated tasks.",
+    "loading": "Loading tasks…",
+    "empty": "No tasks",
+    "emptyHint": "Create one or wait for automations to schedule follow-ups.",
+    "overdue": "Overdue",
+    "completeAria": "Mark task complete",
+    "fromAutomation": "Automation",
+    "viewAll": "View all",
+    "tabs": {
+      "mine": "Mine",
+      "overdue": "Overdue",
+      "team": "Team",
+      "done": "Done"
+    },
+    "priority": {
+      "low": "Low",
+      "normal": "Normal",
+      "high": "High",
+      "urgent": "Urgent"
+    },
+    "create": {
+      "title": "New task",
+      "titleLabel": "Title",
+      "titleRequired": "Title is required",
+      "description": "Description",
+      "priority": "Priority",
+      "due": "Due date",
+      "assignedTo": "Assign to",
+      "assignToMe": "Me",
+      "failed": "Failed to create task"
+    },
+    "toasts": {
+      "loadFailed": "Failed to load tasks",
+      "completed": "Task completed",
+      "completeFailed": "Failed to complete task",
+      "created": "Task created",
+      "createFailed": "Failed to create task"
+    }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "You're all caught up",
+    "markAll": "Mark all read",
+    "automation": "Automated",
+    "openActivity": "Open activity center"
+  },
+  "activity": {
+    "pageTitle": "Activity",
+    "pageSubtitle": "Unified feed of changes across the CRM.",
+    "loading": "Loading activity…",
+    "empty": "No activity recorded yet",
+    "allEntities": "All entities"
   }
 }
