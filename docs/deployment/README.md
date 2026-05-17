@@ -124,3 +124,4 @@ helm template crystolia ./helm/crystolia-chart -f crystolia-gitops/staging/value
 # Smoke tests (against a running backend)
 cd backend && npm run smoke
 ```
+
