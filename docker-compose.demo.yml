@@ -1,0 +1,163 @@
+# =============================================================================
+# Crystolia — Single-Server Demo Deployment
+# =============================================================================
+# Low-cost production-ish stack for a project demo / book, NOT EKS.
+# Runs the whole app on one small box (AWS Lightsail / EC2) behind Caddy,
+# which terminates TLS automatically via Let's Encrypt.
+#
+#   Public:  crystolia.com        → frontend-client
+#            admin.crystolia.com  → frontend-admin
+#            api.crystolia.com    → backend
+#   Internal only (no host ports): backend:4000, *:3000
+#
+# Usage on the server:
+#   docker compose -f docker-compose.demo.yml --env-file deploy/demo/.env.demo pull
+#   docker compose -f docker-compose.demo.yml --env-file deploy/demo/.env.demo up -d
+#
+# MongoDB: use MongoDB Atlas (free M0 — a real replica set, so transactions
+# work). For a fully-offline demo, start the bundled standalone Mongo with
+#   --profile local-mongo   (note: standalone ⇒ no transactions, fallback mode).
+#
+# See docs/deployment-cheap/ for the full runbook.
+# =============================================================================
+
+services:
+  # ───────────────────────────────────────────────────────────────────────────
+  # Caddy — reverse proxy + automatic HTTPS (Let's Encrypt)
+  # ───────────────────────────────────────────────────────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    environment:
+      CLIENT_DOMAIN: ${CLIENT_DOMAIN:-crystolia.com}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:-admin.crystolia.com}
+      API_DOMAIN: ${API_DOMAIN:-api.crystolia.com}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@crystolia.com}
+    volumes:
+      - ./deploy/demo/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data       # persists issued certificates — DO NOT lose this
+      - caddy_config:/config
+    depends_on:
+      - backend
+      - frontend-admin
+      - frontend-client
+    networks:
+      - crystolia
+    mem_limit: 96m
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Backend API (Express + MongoDB)
+  # ───────────────────────────────────────────────────────────────────────────
+  backend:
+    image: ${IMAGE_PREFIX:-ghcr.io/shaimullo}/crystolia-backend:${IMAGE_TAG:-demo-latest}
+    # `build:` lets you run the demo fully locally with `docker compose build`.
+    # It is dormant on the server, which only ever runs `pull` + `up`.
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: ./backend/.env.demo
+        required: false
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+    expose:
+      - "4000"
+    networks:
+      - crystolia
+    mem_limit: 420m
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Frontend Admin (Next.js CRM/ERP — same-origin /api rewrite to backend)
+  # ───────────────────────────────────────────────────────────────────────────
+  frontend-admin:
+    image: ${IMAGE_PREFIX:-ghcr.io/shaimullo}/crystolia-frontend-admin:${IMAGE_TAG:-demo-latest}
+    build:
+      context: ./frontend-admin
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: /api
+    restart: unless-stopped
+    env_file:
+      - path: ./frontend-admin/.env.demo
+        required: false
+    environment:
+      NODE_ENV: production
+      BACKEND_URL: http://backend:4000
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/login"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - crystolia
+    mem_limit: 320m
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Frontend Client (Next.js customer portal — same-origin /api rewrite)
+  # ───────────────────────────────────────────────────────────────────────────
+  frontend-client:
+    image: ${IMAGE_PREFIX:-ghcr.io/shaimullo}/crystolia-frontend:${IMAGE_TAG:-demo-latest}
+    build:
+      context: ./frontend-client
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: /api
+    restart: unless-stopped
+    env_file:
+      - path: ./frontend-client/.env.demo
+        required: false
+    environment:
+      NODE_ENV: production
+      BACKEND_URL: http://backend:4000
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - crystolia
+    mem_limit: 320m
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Optional local MongoDB — start only with `--profile local-mongo`.
+  # Standalone ⇒ no transactions (the app falls back gracefully; Admin → System
+  # will show "Fallback mode"). Prefer Atlas M0 for a replica set.
+  # ───────────────────────────────────────────────────────────────────────────
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    profiles: ["local-mongo"]
+    volumes:
+      - mongo_data:/data/db
+    expose:
+      - "27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand('ping').ok"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - crystolia
+    mem_limit: 600m
+
+networks:
+  crystolia:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:
+  mongo_data:

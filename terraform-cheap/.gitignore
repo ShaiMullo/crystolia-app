@@ -1,0 +1,14 @@
+# Local state — this stack intentionally uses local state.
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+crash.log
+
+# Real variable values (may narrow ssh_cidr to a personal IP, etc.).
+terraform.tfvars
+*.auto.tfvars
+
+# Plans
+tfplan
+*.tfplan

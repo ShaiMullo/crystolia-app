@@ -1,0 +1,191 @@
+# =============================================================================
+# Demo Deployment — single-server (Lightsail / EC2) via Docker Compose
+# =============================================================================
+# A LOW-COST deployment path, fully separate from the EKS pipeline. It does
+# not touch staging.yml / production.yml or the GitOps repo.
+#
+#   flow:  verify → build & push (GHCR) → ssh deploy → health check
+#
+# Manual trigger only (workflow_dispatch) — you choose when the demo box
+# updates. Pick the git ref to deploy in the run dialog.
+#
+# Required GitHub secrets:
+#   DEMO_SSH_HOST     demo server IP / hostname
+#   DEMO_SSH_USER     SSH user (in the `docker` group)
+#   DEMO_SSH_KEY      SSH private key (PEM)
+#   GHCR_PAT          (optional) PAT with read:packages — only if the GHCR
+#                     packages are private; omit if you make them public
+# Optional repo variables (sensible fallbacks if unset):
+#   DEMO_SSH_PORT     SSH port (default 22)
+#   DEMO_API_DOMAIN / DEMO_ADMIN_DOMAIN / DEMO_CLIENT_DOMAIN
+# =============================================================================
+
+name: Demo Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref (branch/tag/SHA) to build & deploy"
+        required: false
+        default: "main"
+
+concurrency:
+  group: demo-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # ── Quality gate — never deploy code that does not compile ──────────────────
+  verify:
+    name: 🧪 Verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Backend typecheck
+        working-directory: ./backend
+        run: npm ci && npm run typecheck
+      - name: Frontend Admin typecheck
+        working-directory: ./frontend-admin
+        run: npm ci && npm run typecheck
+
+  # ── Build & push the three images to GHCR ───────────────────────────────────
+  build:
+    name: 🏗️ Build & Push
+    needs: verify
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+      image_prefix: ${{ steps.meta.outputs.image_prefix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
+
+      - name: Compute image metadata
+        id: meta
+        run: |
+          # GHCR requires a lowercase namespace.
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "image_prefix=ghcr.io/${OWNER}" >> "$GITHUB_OUTPUT"
+          echo "image_tag=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & push backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image_prefix }}/crystolia-backend:${{ steps.meta.outputs.image_tag }}
+            ${{ steps.meta.outputs.image_prefix }}/crystolia-backend:demo-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build & push frontend-admin
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend-admin
+          file: ./frontend-admin/Dockerfile
+          platforms: linux/amd64
+          push: true
+          build-args: |
+            NEXT_PUBLIC_API_URL=/api
+          tags: |
+            ${{ steps.meta.outputs.image_prefix }}/crystolia-frontend-admin:${{ steps.meta.outputs.image_tag }}
+            ${{ steps.meta.outputs.image_prefix }}/crystolia-frontend-admin:demo-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build & push frontend-client
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend-client
+          file: ./frontend-client/Dockerfile
+          platforms: linux/amd64
+          push: true
+          build-args: |
+            NEXT_PUBLIC_API_URL=/api
+          tags: |
+            ${{ steps.meta.outputs.image_prefix }}/crystolia-frontend:${{ steps.meta.outputs.image_tag }}
+            ${{ steps.meta.outputs.image_prefix }}/crystolia-frontend:demo-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── Ship to the demo box over SSH ───────────────────────────────────────────
+  deploy:
+    name: 🚀 Deploy to demo server
+    needs: build
+    runs-on: ubuntu-latest
+    environment: demo
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
+
+      - name: Prepare SSH
+        env:
+          SSH_KEY: ${{ secrets.DEMO_SSH_KEY }}
+          SSH_HOST: ${{ secrets.DEMO_SSH_HOST }}
+          SSH_PORT: ${{ vars.DEMO_SSH_PORT || '22' }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Copy compose + Caddyfile to server
+        env:
+          SSH_HOST: ${{ secrets.DEMO_SSH_HOST }}
+          SSH_USER: ${{ secrets.DEMO_SSH_USER }}
+          SSH_PORT: ${{ vars.DEMO_SSH_PORT || '22' }}
+        run: |
+          # Per-service .env.demo files live on the box and are never touched.
+          scp -P "$SSH_PORT" -i ~/.ssh/id_deploy \
+            docker-compose.demo.yml \
+            "${SSH_USER}@${SSH_HOST}:/opt/crystolia/docker-compose.demo.yml"
+          scp -P "$SSH_PORT" -i ~/.ssh/id_deploy \
+            deploy/demo/Caddyfile \
+            "${SSH_USER}@${SSH_HOST}:/opt/crystolia/deploy/demo/Caddyfile"
+
+      - name: Run remote deploy
+        env:
+          SSH_HOST: ${{ secrets.DEMO_SSH_HOST }}
+          SSH_USER: ${{ secrets.DEMO_SSH_USER }}
+          SSH_PORT: ${{ vars.DEMO_SSH_PORT || '22' }}
+          IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+          IMAGE_PREFIX: ${{ needs.build.outputs.image_prefix }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GHCR_PAT }}
+        run: |
+          ssh -p "$SSH_PORT" -i ~/.ssh/id_deploy "${SSH_USER}@${SSH_HOST}" \
+            "IMAGE_TAG='${IMAGE_TAG}' IMAGE_PREFIX='${IMAGE_PREFIX}' GHCR_USER='${GHCR_USER}' GHCR_TOKEN='${GHCR_TOKEN}' bash -s" \
+            < deploy/demo/remote-deploy.sh
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### 🚀 Demo deploy" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Ref: \`${{ github.event.inputs.ref }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Image tag: \`${{ needs.build.outputs.image_tag }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Result: ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"

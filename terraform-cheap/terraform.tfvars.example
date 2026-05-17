@@ -1,0 +1,27 @@
+# =============================================================================
+# terraform-cheap — example variables
+# =============================================================================
+# Copy to terraform.tfvars and adjust. terraform.tfvars is git-ignored.
+#   cp terraform.tfvars.example terraform.tfvars
+# =============================================================================
+
+aws_region        = "us-east-1"
+availability_zone = "us-east-1a"
+instance_name     = "crystolia-demo"
+
+# OS + size. Verify bundle IDs/prices: aws lightsail get-bundles
+blueprint_id = "ubuntu_22_04"
+bundle_id    = "small_3_0" # ~2 GB RAM, ~$12/mo (use medium_3_0 for local Mongo)
+
+# Existing Lightsail key pair name. Empty = region default key pair.
+key_pair_name = ""
+
+# Lock SSH down to your own IP, e.g. "203.0.113.7/32".
+ssh_cidr = "0.0.0.0/0"
+
+# ── Optional Route 53 DNS ────────────────────────────────────────────────────
+manage_dns      = false
+route53_zone_id = "" # e.g. "Z0123456789ABCDEFGHIJ" — required if manage_dns = true
+client_domain   = "crystolia.com"
+admin_domain    = "admin.crystolia.com"
+api_domain      = "api.crystolia.com"

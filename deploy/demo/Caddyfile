@@ -1,0 +1,48 @@
+# =============================================================================
+# Caddy — Crystolia demo reverse proxy
+# =============================================================================
+# Domains come from environment variables (set by docker-compose.demo.yml):
+#   {$CLIENT_DOMAIN} {$ADMIN_DOMAIN} {$API_DOMAIN} {$ACME_EMAIL}
+#
+# Caddy provisions + renews Let's Encrypt certificates automatically.
+# Certificates are stored in the `caddy_data` volume — keep that volume.
+# =============================================================================
+
+{
+	email {$ACME_EMAIL}
+	# Uncomment to use the Let's Encrypt STAGING CA while testing DNS/TLS
+	# (avoids hitting production rate limits):
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+# Shared hardening + compression, applied to every site below.
+(common) {
+	encode zstd gzip
+	header {
+		# Conservative security headers — safe for an internal demo.
+		-Server
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+}
+
+# ── Customer portal ──────────────────────────────────────────────────────────
+{$CLIENT_DOMAIN} {
+	import common
+	reverse_proxy frontend-client:3000
+}
+
+# ── Admin CRM/ERP ────────────────────────────────────────────────────────────
+{$ADMIN_DOMAIN} {
+	import common
+	reverse_proxy frontend-admin:3000
+}
+
+# ── Public API ───────────────────────────────────────────────────────────────
+# Direct backend access for webhooks, the landing site's lead ingestion and
+# external integrations. The two frontends reach the API same-origin via their
+# own Next.js /api rewrite, so normal UI traffic does NOT depend on this host.
+{$API_DOMAIN} {
+	import common
+	reverse_proxy backend:4000
+}

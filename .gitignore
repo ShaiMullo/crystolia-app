@@ -12,6 +12,8 @@
 .env
 .env.*
 !.env.example
+!.env.demo.example
+# Real demo env files (copied from *.demo.example, then filled in) stay ignored.
 
 ########################
 # Node / JavaScript
