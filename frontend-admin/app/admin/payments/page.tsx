@@ -20,6 +20,7 @@ import {
     TR,
 } from "@/components/ui";
 import { PaymentModal } from "@/components/payments/PaymentModal";
+import { ExportButton } from "@/components/system/ExportButton";
 import { useAdminI18n } from "@/i18n/I18nProvider";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { listPayments, voidPayment } from "@/lib/opsApi";
@@ -94,6 +95,7 @@ export default function PaymentsPage() {
                 description={t("payments.pageSubtitle")}
                 actions={
                     <>
+                        <ExportButton dataset="payments" />
                         <Button variant="outline" size="sm" iconStart={<RefreshCw size={14} />} onClick={fetchPayments}>
                             {t("common.refresh")}
                         </Button>

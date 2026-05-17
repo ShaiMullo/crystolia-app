@@ -64,6 +64,7 @@
     "purchaseOrders": "הזמנות רכש",
     "tasks": "משימות",
     "activity": "פעילות",
+    "system": "מערכת",
     "settings": "הגדרות",
     "logout": "התנתק",
     "administratorFallback": "מנהל"
@@ -446,7 +447,17 @@
       "details": "פרטים"
     },
     "system": "מערכת",
-    "empty": "לא נמצאו רשומות ביקורת."
+    "empty": "לא נמצאו רשומות ביקורת.",
+    "allActions": "כל הפעולות",
+    "allSeverities": "כל הרמות",
+    "correlationId": "מזהה מתאם",
+    "from": "מתאריך",
+    "to": "עד תאריך",
+    "severity": {
+      "info": "מידע",
+      "warning": "אזהרה",
+      "critical": "קריטי"
+    }
   },
   "customers": {
     "pageTitle": "לקוחות",
@@ -1057,5 +1068,98 @@
     "topProducts": "מוצרים מובילים ברווח",
     "topCustomers": "לקוחות מובילים ברווח",
     "noData": "אין עדיין נתונים"
+  },
+  "system": {
+    "pageTitle": "מערכת",
+    "pageSubtitle": "תקינות תפעולית, משימות מתוזמנות ואבחון.",
+    "loading": "טוען סטטוס מערכת…"
+  },
+  "health": {
+    "title": "ציון תקינות",
+    "checkedAt": "נבדק",
+    "reconciliation": "התאמה",
+    "failedJobs": "משימות שנכשלו",
+    "lowStock": "מלאי נמוך",
+    "overdueInvoices": "חשבוניות באיחור",
+    "paymentMismatch": "אי-התאמות תשלום",
+    "severity": {
+      "healthy": "תקין",
+      "warning": "אזהרה",
+      "critical": "קריטי"
+    }
+  },
+  "jobs": {
+    "title": "משימות מתוזמנות",
+    "runNow": "הרץ עכשיו",
+    "enable": "הפעל",
+    "disable": "השבת",
+    "ranOk": "המשימה הושלמה",
+    "runFailed": "הרצת המשימה נכשלה",
+    "alreadyRunning": "המשימה כבר רצה",
+    "toggleFailed": "עדכון המשימה נכשל",
+    "status": {
+      "idle": "ממתין",
+      "running": "רץ",
+      "success": "הצלחה",
+      "failed": "נכשל"
+    },
+    "table": {
+      "name": "משימה",
+      "status": "סטטוס אחרון",
+      "lastRun": "ריצה אחרונה",
+      "runs": "ריצות",
+      "failures": "כשלים",
+      "actions": "פעולות"
+    }
+  },
+  "backups": {
+    "title": "גיבויים",
+    "pageTitle": "גיבויים",
+    "pageSubtitle": "מניפסטים של גיבוי ואימות.",
+    "back": "חזרה למערכת",
+    "create": "צור גיבוי",
+    "verify": "אמת",
+    "empty": "אין עדיין גיבויים",
+    "emptyHint": "צור מניפסט גיבוי כדי לעקוב אחר תמונות מצב.",
+    "metadataNote": "גיבויים רושמים מניפסט מטא-דאטה בלבד — אין העתקה או העלאה של נתונים.",
+    "status": {
+      "pending": "ממתין",
+      "completed": "הושלם",
+      "failed": "נכשל",
+      "verified": "אומת"
+    },
+    "table": {
+      "label": "תווית",
+      "status": "סטטוס",
+      "documents": "מסמכים",
+      "size": "גודל משוער",
+      "created": "נוצר",
+      "actions": "פעולות"
+    },
+    "toasts": {
+      "loadFailed": "טעינת הגיבויים נכשלה",
+      "created": "מניפסט הגיבוי נוצר",
+      "createFailed": "יצירת הגיבוי נכשלה",
+      "verified": "הגיבוי אומת (סטייה: {drift})",
+      "verifyFailed": "אימות הגיבוי נכשל"
+    }
+  },
+  "exports": {
+    "export": "ייצוא",
+    "hint": "לחיצה לייצוא CSV · Shift+לחיצה ל-JSON",
+    "done": "הייצוא הורד",
+    "failed": "הייצוא נכשל"
+  },
+  "monitoring": {
+    "diagnostics": "אבחון",
+    "topology": "טופולוגיה",
+    "transactions": "טרנזקציות",
+    "txnSupported": "נתמך",
+    "txnFallback": "מצב חלופי",
+    "standaloneWarning": "פועל על MongoDB עצמאי — תהליכי כתיבה מרובים חוזרים לביצוע ללא טרנזקציה.",
+    "recentFailures": "כשלים אחרונים",
+    "errorTitle": "משהו השתבש",
+    "errorBody": "לא ניתן היה לטעון את הקטע הזה.",
+    "retry": "נסה שוב"
   }
 }

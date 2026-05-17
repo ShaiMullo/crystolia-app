@@ -13,6 +13,9 @@ export interface IReconciliationLog extends Document {
     reservationDriftCount: number;
     negativeStockCount: number;
     invoicePaymentMismatchCount: number;
+    impossibleStateCount: number;
+    healthScore: number;
+    severity: 'healthy' | 'warning' | 'critical';
     fixed: boolean;
     summary?: Record<string, unknown>;
     createdAt: Date;
@@ -28,6 +31,9 @@ const ReconciliationLogSchema = new Schema<IReconciliationLog>(
         reservationDriftCount: { type: Number, default: 0 },
         negativeStockCount: { type: Number, default: 0 },
         invoicePaymentMismatchCount: { type: Number, default: 0 },
+        impossibleStateCount: { type: Number, default: 0 },
+        healthScore: { type: Number, default: 100 },
+        severity: { type: String, enum: ['healthy', 'warning', 'critical'], default: 'healthy' },
         fixed: { type: Boolean, default: false },
         summary: { type: Schema.Types.Mixed },
     },

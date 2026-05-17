@@ -26,6 +26,8 @@ import crmPaymentsRouter from './routes/crmPayments.js';
 import crmShipmentsRouter from './routes/crmShipments.js';
 import crmSuppliersRouter from './routes/crmSuppliers.js';
 import crmPurchaseOrdersRouter from './routes/crmPurchaseOrders.js';
+import crmSystemRouter from './routes/crmSystem.js';
+import crmExportsRouter from './routes/crmExports.js';
 
 import authRouter from './routes/auth.js';
 import usersRouter from './routes/users.js';
@@ -38,6 +40,7 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { seedAdmin } from './db/seedAdmin.js';
 import { seedDefaultRules } from './services/automationService.js';
+import { seedScheduledJobs, startScheduler, stopScheduler } from './jobs/scheduler.js';
 import passport from './config/passport.js';
 
 // Application instance
@@ -149,6 +152,8 @@ app.use('/api/crm/payments', crmPaymentsRouter);
 app.use('/api/crm/shipments', crmShipmentsRouter);
 app.use('/api/crm/suppliers', crmSuppliersRouter);
 app.use('/api/crm/purchase-orders', crmPurchaseOrdersRouter);
+app.use('/api/crm/system', crmSystemRouter);
+app.use('/api/crm/exports', crmExportsRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/customers', customersRouter);
@@ -167,6 +172,9 @@ app.use(errorHandler);
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function gracefulShutdown(signal: string): Promise<void> {
     console.log(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
+
+    // Stop the scheduler so no new jobs fire mid-shutdown
+    stopScheduler();
 
     // Stop accepting new connections
     server.close(async () => {
@@ -207,6 +215,10 @@ async function startServer(): Promise<void> {
 
         // Seed default automation rules (idempotent — safe to run every boot)
         await seedDefaultRules();
+
+        // Seed scheduled jobs and start the in-process scheduler
+        await seedScheduledJobs();
+        startScheduler();
 
         // Start HTTP server
         server = app.listen(config.port, () => {

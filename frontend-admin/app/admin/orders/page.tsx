@@ -21,6 +21,7 @@ import {
 } from "@/components/ui";
 import { OrderStatusBadge } from "@/components/dashboard/StatusBadges";
 import { OrderModal } from "@/components/orders/OrderModal";
+import { ExportButton } from "@/components/system/ExportButton";
 import { useAdminI18n } from "@/i18n/I18nProvider";
 import { formatCurrency, formatDate, shortId } from "@/lib/format";
 import { createOrder, listOrders, type OrderUpsertPayload } from "@/lib/ordersApi";
@@ -108,6 +109,7 @@ export default function OrdersPage() {
                 description={t("orders.pageSubtitle")}
                 actions={
                     <>
+                        <ExportButton dataset="orders" />
                         <Button variant="outline" size="sm" iconStart={<RefreshCw size={14} />} onClick={fetchOrders}>
                             {t("common.refresh")}
                         </Button>

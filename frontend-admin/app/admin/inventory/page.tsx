@@ -20,6 +20,7 @@ import {
 } from "@/components/ui";
 import { InventoryMovementModal } from "@/components/inventory/InventoryMovementModal";
 import { MovementHistoryModal } from "@/components/inventory/MovementHistoryModal";
+import { ExportButton } from "@/components/system/ExportButton";
 import { useAdminI18n } from "@/i18n/I18nProvider";
 import { formatDateTime } from "@/lib/format";
 import {
@@ -120,6 +121,7 @@ export default function InventoryPage() {
                 description={t("inventory.pageSubtitle")}
                 actions={
                     <>
+                        <ExportButton dataset="inventory" />
                         <Button variant="outline" size="sm" iconStart={<RefreshCw size={14} />} onClick={fetchList}>
                             {t("common.refresh")}
                         </Button>

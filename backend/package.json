@@ -8,7 +8,10 @@
         "build": "tsc",
         "start": "node dist/index.js",
         "lint": "eslint src --ext .ts",
-        "seed": "tsx src/scripts/seed.ts"
+        "seed": "tsx src/scripts/seed.ts",
+        "seed:demo": "tsx src/scripts/seedDemo.ts",
+        "reset:demo": "tsx src/scripts/seedDemo.ts -- --reset",
+        "smoke": "tsx src/scripts/smoke/run.ts"
     },
     "keywords": [
         "crystolia",

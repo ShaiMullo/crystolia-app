@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { Button, PageHeader } from "@/components/ui";
+import { ExportButton } from "@/components/system/ExportButton";
 import { CustomersTab } from "@/components/dashboard/CustomersTab";
 import { useAdminI18n } from "@/i18n/I18nProvider";
 import api from "@/app/lib/api";
@@ -35,14 +36,17 @@ export default function CustomersPage() {
                 title={t("customers.pageTitle")}
                 description={t("customers.pageSubtitle")}
                 actions={
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        iconStart={<RefreshCw size={14} />}
-                        onClick={() => setRefreshKey((k) => k + 1)}
-                    >
-                        {t("common.refresh")}
-                    </Button>
+                    <>
+                        <ExportButton dataset="customers" />
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            iconStart={<RefreshCw size={14} />}
+                            onClick={() => setRefreshKey((k) => k + 1)}
+                        >
+                            {t("common.refresh")}
+                        </Button>
+                    </>
                 }
             />
 

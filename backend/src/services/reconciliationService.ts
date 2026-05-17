@@ -36,14 +36,43 @@ export interface InvoicePaymentMismatch {
     actualAmountPaid: number;
 }
 
+export interface ImpossibleStateIssue {
+    productId: string;
+    location: string;
+    quantity: number;
+    reservedQuantity: number;
+    reason: string;
+}
+
+export type ReconciliationSeverity = 'healthy' | 'warning' | 'critical';
+
 export interface ReconciliationResult {
     scannedOrders: number;
     scannedInventoryRows: number;
     discrepancies: ReconciliationDiscrepancy[];
     negativeStock: NegativeStockIssue[];
     invoicePaymentMismatches: InvoicePaymentMismatch[];
+    impossibleStates: ImpossibleStateIssue[];
+    healthScore: number;          // 0–100
+    severity: ReconciliationSeverity;
     fixed: boolean;
     ranAt: string;
+}
+
+/**
+ * Health score: 100 minus weighted penalties, floored at 0.
+ *  drift -2 · mismatch -5 · negative stock -10 · impossible state -12
+ */
+export function computeHealthScore(counts: {
+    drift: number;
+    mismatch: number;
+    negative: number;
+    impossible: number;
+}): { score: number; severity: ReconciliationSeverity } {
+    const penalty = counts.drift * 2 + counts.mismatch * 5 + counts.negative * 10 + counts.impossible * 12;
+    const score = Math.max(0, 100 - penalty);
+    const severity: ReconciliationSeverity = score >= 85 ? 'healthy' : score >= 50 ? 'warning' : 'critical';
+    return { score, severity };
 }
 
 /**
@@ -77,6 +106,7 @@ export async function reconcileInventory(autoFix: boolean, actorId?: string, log
 
     const discrepancies: ReconciliationDiscrepancy[] = [];
     const negativeStock: NegativeStockIssue[] = [];
+    const impossibleStates: ImpossibleStateIssue[] = [];
 
     for (const row of rows) {
         const product = row.product as unknown as { _id: mongoose.Types.ObjectId; name?: string; stockTrackingEnabled?: boolean; isDeleted?: boolean } | null;
@@ -88,6 +118,17 @@ export async function reconcileInventory(autoFix: boolean, actorId?: string, log
         // Negative stock — should never happen; flag for manual review.
         if ((row.quantity || 0) < 0 || (row.reservedQuantity || 0) < 0) {
             negativeStock.push({ productId: key, location: row.location, quantity: row.quantity || 0 });
+        }
+
+        // Impossible state — more reserved than on-hand.
+        if ((row.reservedQuantity || 0) > (row.quantity || 0)) {
+            impossibleStates.push({
+                productId: key,
+                location: row.location,
+                quantity: row.quantity || 0,
+                reservedQuantity: row.reservedQuantity || 0,
+                reason: 'reserved exceeds on-hand',
+            });
         }
 
         // Reservation drift (also surfaces orphan reservations: stored > 0 but
@@ -153,7 +194,15 @@ export async function reconcileInventory(autoFix: boolean, actorId?: string, log
         }
     }
 
-    const totalIssues = discrepancies.length + negativeStock.length + invoicePaymentMismatches.length;
+    const totalIssues =
+        discrepancies.length + negativeStock.length + invoicePaymentMismatches.length + impossibleStates.length;
+
+    const { score: healthScore, severity } = computeHealthScore({
+        drift: discrepancies.length,
+        mismatch: invoicePaymentMismatches.length,
+        negative: negativeStock.length,
+        impossible: impossibleStates.length,
+    });
 
     // Persist a durable reconciliation history entry — but not for clean
     // read-only health checks, to keep the history meaningful.
@@ -167,8 +216,16 @@ export async function reconcileInventory(autoFix: boolean, actorId?: string, log
                 reservationDriftCount: discrepancies.length,
                 negativeStockCount: negativeStock.length,
                 invoicePaymentMismatchCount: invoicePaymentMismatches.length,
+                impossibleStateCount: impossibleStates.length,
+                healthScore,
+                severity,
                 fixed: autoFix && totalIssues > 0,
-                summary: { discrepancies: discrepancies.length, negativeStock: negativeStock.length, mismatches: invoicePaymentMismatches.length },
+                summary: {
+                    discrepancies: discrepancies.length,
+                    negativeStock: negativeStock.length,
+                    mismatches: invoicePaymentMismatches.length,
+                    impossibleStates: impossibleStates.length,
+                },
             });
         } catch (err) {
             console.error('reconciliation log write failed:', err);
@@ -181,16 +238,41 @@ export async function reconcileInventory(autoFix: boolean, actorId?: string, log
         discrepancies,
         negativeStock,
         invoicePaymentMismatches,
+        impossibleStates,
+        healthScore,
+        severity,
         fixed: autoFix && totalIssues > 0,
         ranAt: new Date().toISOString(),
     };
 }
 
 /** Convenience: count issues without mutating anything. Cheap health check. */
-export async function reconciliationStatus(): Promise<{ driftCount: number; issueCount: number; ranAt: string }> {
+export async function reconciliationStatus(): Promise<{
+    driftCount: number;
+    issueCount: number;
+    negativeStockCount: number;
+    impossibleStateCount: number;
+    mismatchCount: number;
+    healthScore: number;
+    severity: ReconciliationSeverity;
+    ranAt: string;
+}> {
     const result = await reconcileInventory(false, undefined, false);
-    const issueCount = result.discrepancies.length + result.negativeStock.length + result.invoicePaymentMismatches.length;
-    return { driftCount: result.discrepancies.length, issueCount, ranAt: result.ranAt };
+    const issueCount =
+        result.discrepancies.length +
+        result.negativeStock.length +
+        result.invoicePaymentMismatches.length +
+        result.impossibleStates.length;
+    return {
+        driftCount: result.discrepancies.length,
+        issueCount,
+        negativeStockCount: result.negativeStock.length,
+        impossibleStateCount: result.impossibleStates.length,
+        mismatchCount: result.invoicePaymentMismatches.length,
+        healthScore: result.healthScore,
+        severity: result.severity,
+        ranAt: result.ranAt,
+    };
 }
 
 /** Reconciliation run history (newest first). */

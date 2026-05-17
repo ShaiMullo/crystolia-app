@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { TrendingUp, Percent, Coins } from "lucide-react";
 import { Card, CardTitle } from "@/components/ui";
+import { ExportButton } from "@/components/system/ExportButton";
 import { useAdminI18n } from "@/i18n/I18nProvider";
 import { formatCurrency } from "@/lib/format";
 import { getProfitability } from "@/lib/opsApi";
@@ -42,7 +43,10 @@ export function ProfitabilityWidget() {
 
     return (
         <Card>
-            <CardTitle>{t("profitability.title")}</CardTitle>
+            <div className="flex items-center justify-between gap-3">
+                <CardTitle>{t("profitability.title")}</CardTitle>
+                <ExportButton dataset="profitability" />
+            </div>
             <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
                 <Stat icon={<Coins size={16} />} label={t("profitability.revenue")} value={formatCurrency(data.totals.revenue, "ILS", loc)} />
                 <Stat icon={<Coins size={16} />} label={t("profitability.cogs")} value={formatCurrency(data.totals.cogs, "ILS", loc)} />

@@ -64,6 +64,7 @@
     "purchaseOrders": "Purchase orders",
     "tasks": "Tasks",
     "activity": "Activity",
+    "system": "System",
     "settings": "Settings",
     "logout": "Logout",
     "administratorFallback": "Administrator"
@@ -446,7 +447,17 @@
       "details": "Details"
     },
     "system": "System",
-    "empty": "No audit logs found."
+    "empty": "No audit logs found.",
+    "allActions": "All actions",
+    "allSeverities": "All severities",
+    "correlationId": "Correlation ID",
+    "from": "From",
+    "to": "To",
+    "severity": {
+      "info": "Info",
+      "warning": "Warning",
+      "critical": "Critical"
+    }
   },
   "customers": {
     "pageTitle": "Customers",
@@ -1057,5 +1068,98 @@
     "topProducts": "Top products by profit",
     "topCustomers": "Top customers by profit",
     "noData": "No data yet"
+  },
+  "system": {
+    "pageTitle": "System",
+    "pageSubtitle": "Operational health, scheduled jobs and diagnostics.",
+    "loading": "Loading system status…"
+  },
+  "health": {
+    "title": "Health score",
+    "checkedAt": "Checked",
+    "reconciliation": "Reconciliation",
+    "failedJobs": "Failed jobs",
+    "lowStock": "Low stock",
+    "overdueInvoices": "Overdue invoices",
+    "paymentMismatch": "Payment mismatches",
+    "severity": {
+      "healthy": "Healthy",
+      "warning": "Warning",
+      "critical": "Critical"
+    }
+  },
+  "jobs": {
+    "title": "Scheduled jobs",
+    "runNow": "Run now",
+    "enable": "Enable",
+    "disable": "Disable",
+    "ranOk": "Job completed",
+    "runFailed": "Job run failed",
+    "alreadyRunning": "Job is already running",
+    "toggleFailed": "Failed to update job",
+    "status": {
+      "idle": "Idle",
+      "running": "Running",
+      "success": "Success",
+      "failed": "Failed"
+    },
+    "table": {
+      "name": "Job",
+      "status": "Last status",
+      "lastRun": "Last run",
+      "runs": "Runs",
+      "failures": "Failures",
+      "actions": "Actions"
+    }
+  },
+  "backups": {
+    "title": "Backups",
+    "pageTitle": "Backups",
+    "pageSubtitle": "Backup manifests and verification.",
+    "back": "Back to system",
+    "create": "Create backup",
+    "verify": "Verify",
+    "empty": "No backups yet",
+    "emptyHint": "Create a backup manifest to track database snapshots.",
+    "metadataNote": "Backups record a metadata manifest only — no data is copied or uploaded.",
+    "status": {
+      "pending": "Pending",
+      "completed": "Completed",
+      "failed": "Failed",
+      "verified": "Verified"
+    },
+    "table": {
+      "label": "Label",
+      "status": "Status",
+      "documents": "Documents",
+      "size": "Est. size",
+      "created": "Created",
+      "actions": "Actions"
+    },
+    "toasts": {
+      "loadFailed": "Failed to load backups",
+      "created": "Backup manifest created",
+      "createFailed": "Failed to create backup",
+      "verified": "Backup verified (drift: {drift})",
+      "verifyFailed": "Failed to verify backup"
+    }
+  },
+  "exports": {
+    "export": "Export",
+    "hint": "Click to export CSV · Shift-click for JSON",
+    "done": "Export downloaded",
+    "failed": "Export failed"
+  },
+  "monitoring": {
+    "diagnostics": "Diagnostics",
+    "topology": "Topology",
+    "transactions": "Transactions",
+    "txnSupported": "Supported",
+    "txnFallback": "Fallback mode",
+    "standaloneWarning": "Running on a standalone MongoDB — multi-write flows fall back to non-transactional execution.",
+    "recentFailures": "Recent failures",
+    "errorTitle": "Something went wrong",
+    "errorBody": "This section could not be loaded.",
+    "retry": "Retry"
   }
 }
