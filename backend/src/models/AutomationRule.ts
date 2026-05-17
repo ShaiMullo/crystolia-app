@@ -14,7 +14,10 @@ export type AutomationTrigger =
     | 'customer.created'
     | 'invoice.issued'
     | 'invoice.overdue'
-    | 'task.overdue';
+    | 'task.overdue'
+    | 'payment.received'
+    | 'shipment.delivered'
+    | 'inventory.low_stock';
 
 export type AutomationActionType =
     | 'create_task'
@@ -81,6 +84,9 @@ const AutomationRuleSchema = new Schema<IAutomationRule>(
                 'invoice.issued',
                 'invoice.overdue',
                 'task.overdue',
+                'payment.received',
+                'shipment.delivered',
+                'inventory.low_stock',
             ],
             required: true,
             index: true,

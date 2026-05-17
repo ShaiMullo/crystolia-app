@@ -2,6 +2,108 @@
 // 📦 CRM Type Definitions
 // ===============================================
 
+// ── Phase 7: Payments / Shipments / Suppliers / Purchase Orders ──────────────
+
+export type PaymentMethod = 'cash' | 'bank_transfer' | 'credit_card' | 'check' | 'other';
+export type InvoicePaymentStatus = 'unpaid' | 'partial' | 'paid' | 'overdue';
+
+export interface PaymentRecord {
+    _id: string;
+    invoice: { _id: string; invoiceNumber: string; totalAmount: number } | string;
+    company?: { _id: string; name: string } | string;
+    amount: number;
+    method: PaymentMethod;
+    status: 'posted' | 'voided';
+    externalRef?: string;
+    notes?: string;
+    paidAt: string;
+    createdBy?: { _id: string; name?: string; email: string } | string;
+    createdAt: string;
+}
+
+export type ShipmentStatus = 'pending' | 'shipped' | 'in_transit' | 'delivered' | 'cancelled';
+
+export interface ShipmentRecord {
+    _id: string;
+    order: string | { _id: string; totalAmount: number; status: string };
+    company?: { _id: string; name: string } | string;
+    status: ShipmentStatus;
+    courier?: string;
+    trackingNumber?: string;
+    shippedAt?: string;
+    deliveredAt?: string;
+    notes?: string;
+    timeline: Array<{ type: string; at: string; meta?: Record<string, unknown> }>;
+    createdAt: string;
+}
+
+export interface SupplierNote {
+    text: string;
+    createdAt: string;
+}
+
+export interface Supplier {
+    _id: string;
+    name: string;
+    contactName?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    city?: string;
+    vatNumber?: string;
+    notes: SupplierNote[];
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface SupplierDetail extends Supplier {
+    products: Array<{ _id: string; name: string; sku: string; price: number; costPrice?: number; unit: string; isActive: boolean }>;
+}
+
+export type PurchaseOrderStatus = 'draft' | 'ordered' | 'partially_received' | 'received' | 'cancelled';
+
+export interface PurchaseOrderItem {
+    product: string;
+    productName: string;
+    quantity: number;
+    receivedQuantity: number;
+    unitCost: number;
+}
+
+export interface PurchaseOrder {
+    _id: string;
+    poNumber: string;
+    supplier: { _id: string; name: string; email?: string; phone?: string } | string;
+    status: PurchaseOrderStatus;
+    items: PurchaseOrderItem[];
+    totalCost: number;
+    notes?: string;
+    expectedAt?: string;
+    orderedAt?: string;
+    receivedAt?: string;
+    timeline: Array<{ type: string; at: string; meta?: Record<string, unknown> }>;
+    createdAt: string;
+}
+
+export interface ProfitabilitySummary {
+    totals: { revenue: number; cogs: number; grossProfit: number; marginPct: number };
+    topProducts: Array<{ productId: string; name: string; revenue: number; profit: number; marginPct: number; qty: number }>;
+    topCustomers: Array<{ companyId: string; name: string; revenue: number; profit: number; marginPct: number }>;
+}
+
+export interface ReconciliationHistoryEntry {
+    _id: string;
+    autoFix: boolean;
+    scannedOrders: number;
+    scannedInventoryRows: number;
+    reservationDriftCount: number;
+    negativeStockCount: number;
+    invoicePaymentMismatchCount: number;
+    fixed: boolean;
+    createdAt: string;
+}
+
 export interface TimelineEvent {
     type: string;
     at: string;
@@ -86,16 +188,27 @@ export interface Invoice {
     notes?: string;
     pdfUrl?: string;
     greenInvoiceDocId?: string;
+    amountPaid?: number;
+    paymentStatus?: InvoicePaymentStatus;
     createdAt: string;
     company?: { _id: string; name: string } | string;
     order?: { _id: string; totalAmount: number; status: string } | string;
 }
 
 export interface OrderItem {
+    productId?: string;
     productName?: string;
     productType?: string;
     quantity: number;
     price?: number;
+    taxRate?: number;
+}
+
+export interface OrderTimelineEvent {
+    type: string;
+    at: string;
+    actorId?: string;
+    meta?: Record<string, unknown>;
 }
 
 export interface Order {
@@ -103,9 +216,13 @@ export interface Order {
     status: OrderStatus;
     items: OrderItem[];
     totalAmount: number;
+    subtotal?: number;
+    taxTotal?: number;
     notes?: string;
+    timeline?: OrderTimelineEvent[];
     createdAt: string;
-    company?: { _id: string; name: string } | string;
+    updatedAt?: string;
+    company?: { _id: string; name: string; vatNumber?: string; email?: string; phone?: string } | string;
     createdBy?: { _id: string; name?: string; email: string } | string;
 }
 
@@ -119,13 +236,93 @@ export interface Product {
     description?: string;
     unit: ProductUnit;
     price: number;
+    costPrice?: number;
     currency: string;
     taxRate: number;
+    supplier?: string;
+    barcode?: string;
     isActive: boolean;
     stockTrackingEnabled: boolean;
     tags: string[];
     createdAt: string;
     updatedAt: string;
+}
+
+export interface OrderDetail extends Order {
+    invoices: Invoice[];
+    customer?: { _id: string; contactName?: string } | null;
+}
+
+export interface OrderTotals {
+    items: Array<{
+        productId?: string;
+        productName: string;
+        quantity: number;
+        price: number;
+        taxRate: number;
+        lineSubtotal: number;
+        lineTax: number;
+        lineTotal: number;
+    }>;
+    subtotal: number;
+    taxTotal: number;
+    totalAmount: number;
+}
+
+export interface OrderInventoryPreviewLine {
+    productId?: string;
+    productName: string;
+    quantity: number;
+    available: number | null;
+    sufficient: boolean;
+}
+
+export interface ReconciliationDiscrepancy {
+    productId: string;
+    productName: string;
+    location: string;
+    storedReserved: number;
+    expectedReserved: number;
+    drift: number;
+}
+
+export interface ReconciliationResult {
+    scannedOrders: number;
+    scannedInventoryRows: number;
+    discrepancies: ReconciliationDiscrepancy[];
+    fixed: boolean;
+    ranAt: string;
+}
+
+export interface FinanceSummary {
+    revenue: {
+        ordersTotal: number;
+        ordersCount: number;
+        ordersThisMonth: number;
+        ordersThisMonthCount: number;
+        paidInvoices: number;
+    };
+    invoices: {
+        outstandingTotal: number;
+        outstandingCount: number;
+        overdueCount: number;
+        overdue: Array<{
+            _id: string;
+            invoiceNumber: string;
+            totalAmount: number;
+            dueDate?: string;
+            company?: { _id: string; name: string } | string;
+        }>;
+    };
+    inventoryValuation: { cost: number; retail: number };
+    recentOrders: Array<{
+        _id: string;
+        status: OrderStatus;
+        totalAmount: number;
+        company?: { _id: string; name: string } | string;
+        itemCount: number;
+        createdAt: string;
+    }>;
 }
 
 export type InventoryMovementType = 'in' | 'out' | 'adjustment' | 'reserved' | 'released';

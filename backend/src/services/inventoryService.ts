@@ -4,7 +4,7 @@
 // Single entry point for stock changes. Always writes both the Inventory
 // summary row AND an InventoryMovement record so the log stays in sync.
 
-import mongoose from 'mongoose';
+import mongoose, { ClientSession } from 'mongoose';
 import Inventory from '../models/Inventory.js';
 import InventoryMovement, { MovementType } from '../models/InventoryMovement.js';
 import Product from '../models/Product.js';
@@ -17,31 +17,42 @@ export interface MovementInput {
     reason?: string;
     relatedOrderId?: string | mongoose.Types.ObjectId;
     actorId?: string | mongoose.Types.ObjectId;
+    /** Optional Mongo session — when present, all writes join that transaction. */
+    session?: ClientSession;
 }
 
-async function getOrCreateInventoryRow(productId: mongoose.Types.ObjectId, location: string) {
-    let row = await Inventory.findOne({ product: productId, location });
+async function getOrCreateInventoryRow(
+    productId: mongoose.Types.ObjectId,
+    location: string,
+    session?: ClientSession,
+) {
+    let row = await Inventory.findOne({ product: productId, location }).session(session ?? null);
     if (!row) {
-        row = await Inventory.create({ product: productId, location });
+        const created = await Inventory.create([{ product: productId, location }], { session });
+        row = created[0];
     }
     return row;
 }
 
 export async function applyMovement(input: MovementInput) {
-    if (input.quantity <= 0) throw new Error('quantity must be positive');
+    if (input.quantity < 0) throw new Error('quantity must be non-negative');
+    if (input.quantity === 0 && input.type !== 'adjustment') {
+        throw new Error('quantity must be positive');
+    }
     const productId = typeof input.productId === 'string'
         ? new mongoose.Types.ObjectId(input.productId)
         : input.productId;
     const location = input.location || 'main';
     const now = new Date();
+    const session = input.session;
 
     // If the product opts out of stock tracking, log the movement only.
-    const product = await Product.findById(productId).select('stockTrackingEnabled isDeleted');
+    const product = await Product.findById(productId).select('stockTrackingEnabled isDeleted').session(session ?? null);
     if (!product || product.isDeleted) {
         throw new Error('Product not found');
     }
 
-    const row = await getOrCreateInventoryRow(productId, location);
+    const row = await getOrCreateInventoryRow(productId, location, session);
 
     if (product.stockTrackingEnabled) {
         if (input.type === 'in') {
@@ -63,18 +74,21 @@ export async function applyMovement(input: MovementInput) {
             row.reservedQuantity = Math.max(0, row.reservedQuantity - input.quantity);
         }
         row.lastMovementAt = now;
-        await row.save();
+        await row.save({ session });
     }
 
-    const movement = await InventoryMovement.create({
-        product: productId,
-        location,
-        type: input.type,
-        quantity: input.quantity,
-        reason: input.reason,
-        relatedOrder: input.relatedOrderId,
-        createdBy: input.actorId,
-    });
+    const [movement] = await InventoryMovement.create(
+        [{
+            product: productId,
+            location,
+            type: input.type,
+            quantity: input.quantity,
+            reason: input.reason,
+            relatedOrder: input.relatedOrderId,
+            createdBy: input.actorId,
+        }],
+        { session },
+    );
 
     return { inventory: row, movement };
 }

@@ -11,6 +11,7 @@ import Settings from '../models/Settings.js';
 import { AppError } from '../utils/validation.js';
 import { logAudit } from '../services/auditService.js';
 import { reserveForOrder, releaseForOrder, shipForOrder } from '../services/inventoryService.js';
+import { computeOrderTotals, RawOrderItem } from '../services/orderService.js';
 
 const router = Router();
 
@@ -28,14 +29,16 @@ router.post('/', authorize('customer'), async (req: Request, res: Response, next
             return next(new AppError('Order must contain at least one item', 400));
         }
 
-        // Calculate total amount
-        let totalAmount = 0;
+        // Validate item structure (preserve legacy error message + behavior)
         for (const item of items) {
             if (!item.productName || !item.quantity || item.price === undefined) {
                 return next(new AppError('Invalid item structure', 400));
             }
-            totalAmount += item.quantity * item.price;
         }
+
+        // Centralized total calculation (handles optional per-item taxRate)
+        const totals = computeOrderTotals(items as RawOrderItem[]);
+        const totalAmount = totals.totalAmount;
 
         // Enforce minimum order amount
         const businessSettings = await Settings.findOne({ key: 'business' }).lean();
@@ -58,8 +61,11 @@ router.post('/', authorize('customer'), async (req: Request, res: Response, next
             createdBy: user._id,
             items,
             totalAmount,
+            subtotal: totals.subtotal,
+            taxTotal: totals.taxTotal,
             status: 'pending',
-            notes
+            notes,
+            timeline: [{ type: 'order_created', at: new Date(), actorId: user._id?.toString() }],
         });
 
         await logAudit({
@@ -140,6 +146,14 @@ router.patch('/:id', authorize('admin', 'agent'), async (req: Request, res: Resp
 
         const previousStatus = order.status;
         order.status = status;
+        if (previousStatus !== status) {
+            order.timeline.push({
+                type: 'status_changed',
+                at: new Date(),
+                actorId: req.user?._id?.toString(),
+                meta: { from: previousStatus, to: status },
+            });
+        }
         await order.save();
 
         // ━━━ Inventory side-effects (best-effort, never block response) ━━━

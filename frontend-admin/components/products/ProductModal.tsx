@@ -32,8 +32,11 @@ export function ProductModal({ isOpen, onClose, product, onSubmit }: ProductModa
     const [description, setDescription] = useState("");
     const [unit, setUnit] = useState<ProductUnit>("unit");
     const [price, setPrice] = useState("0");
+    const [costPrice, setCostPrice] = useState("");
     const [currency, setCurrency] = useState("ILS");
     const [taxRate, setTaxRate] = useState("17");
+    const [supplier, setSupplier] = useState("");
+    const [barcode, setBarcode] = useState("");
     const [isActive, setIsActive] = useState(true);
     const [stockTrackingEnabled, setStockTrackingEnabled] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -48,8 +51,11 @@ export function ProductModal({ isOpen, onClose, product, onSubmit }: ProductModa
             setDescription(product.description || "");
             setUnit(product.unit);
             setPrice(String(product.price));
+            setCostPrice(product.costPrice != null ? String(product.costPrice) : "");
             setCurrency(product.currency || "ILS");
             setTaxRate(String(product.taxRate));
+            setSupplier(product.supplier || "");
+            setBarcode(product.barcode || "");
             setIsActive(product.isActive);
             setStockTrackingEnabled(product.stockTrackingEnabled);
         } else {
@@ -59,8 +65,11 @@ export function ProductModal({ isOpen, onClose, product, onSubmit }: ProductModa
             setDescription("");
             setUnit("unit");
             setPrice("0");
+            setCostPrice("");
             setCurrency("ILS");
             setTaxRate("17");
+            setSupplier("");
+            setBarcode("");
             setIsActive(true);
             setStockTrackingEnabled(true);
         }
@@ -86,6 +95,11 @@ export function ProductModal({ isOpen, onClose, product, onSubmit }: ProductModa
             setError(t("products.modal.taxInvalid"));
             return;
         }
+        const parsedCost = costPrice.trim() === "" ? undefined : parseFloat(costPrice);
+        if (parsedCost !== undefined && (isNaN(parsedCost) || parsedCost < 0)) {
+            setError(t("products.modal.costInvalid"));
+            return;
+        }
         setSaving(true);
         try {
             await onSubmit({
@@ -95,8 +109,11 @@ export function ProductModal({ isOpen, onClose, product, onSubmit }: ProductModa
                 description: description.trim() || undefined,
                 unit,
                 price: parsedPrice,
+                costPrice: parsedCost,
                 currency: currency.trim().toUpperCase(),
                 taxRate: parsedTax,
+                supplier: supplier.trim() || undefined,
+                barcode: barcode.trim() || undefined,
                 isActive,
                 stockTrackingEnabled,
             });
@@ -108,6 +125,15 @@ export function ProductModal({ isOpen, onClose, product, onSubmit }: ProductModa
             setSaving(false);
         }
     };
+
+    // Margin hint — only shown when both price and cost are valid.
+    const marginHint = (() => {
+        const p = parseFloat(price);
+        const c = parseFloat(costPrice);
+        if (isNaN(p) || isNaN(c) || p <= 0 || c < 0) return undefined;
+        const marginPct = Math.round(((p - c) / p) * 100);
+        return t("products.modal.marginHint", { pct: marginPct });
+    })();
 
     return (
         <Modal
@@ -165,6 +191,18 @@ export function ProductModal({ isOpen, onClose, product, onSubmit }: ProductModa
                     </Field>
                     <Field label={t("products.fields.taxRate")}>
                         <Input type="number" min="0" max="100" step="0.5" value={taxRate} onChange={(e) => setTaxRate(e.target.value)} />
+                    </Field>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <Field label={t("products.fields.costPrice")} hint={marginHint}>
+                        <Input type="number" min="0" step="0.01" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} />
+                    </Field>
+                    <Field label={t("products.fields.supplier")}>
+                        <Input value={supplier} onChange={(e) => setSupplier(e.target.value)} />
+                    </Field>
+                    <Field label={t("products.fields.barcode")}>
+                        <Input value={barcode} onChange={(e) => setBarcode(e.target.value)} />
                     </Field>
                 </div>
 

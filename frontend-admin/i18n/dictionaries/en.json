@@ -56,8 +56,12 @@
     "crm": "CRM",
     "pipeline": "Pipeline",
     "customers": "Customers",
+    "orders": "Orders",
+    "payments": "Payments",
     "products": "Products",
     "inventory": "Inventory",
+    "suppliers": "Suppliers",
+    "purchaseOrders": "Purchase orders",
     "tasks": "Tasks",
     "activity": "Activity",
     "settings": "Settings",
@@ -120,6 +124,21 @@
       "emptyHint": "Set minimum thresholds on inventory rows to get alerts here.",
       "min": "min",
       "viewAll": "View all"
+    },
+    "finance": {
+      "title": "Finance overview",
+      "viewOrders": "View orders",
+      "monthRevenue": "Revenue (MTD)",
+      "ordersCount": "{count} orders",
+      "paidInvoices": "Paid invoices",
+      "inventoryValue": "Inventory value",
+      "retailValue": "Retail: {amount}",
+      "outstanding": "Outstanding",
+      "overdueCount": "{count} overdue",
+      "recentOrders": "Recent orders",
+      "noOrders": "No orders yet",
+      "overdueInvoices": "Overdue invoices",
+      "noOverdue": "No overdue invoices"
     }
   },
   "leads": {
@@ -295,25 +314,85 @@
       "actions": "Actions"
     },
     "empty": "No orders found.",
+    "emptyHint": "Create an order to start the workflow.",
     "itemsSuffix": "items",
     "itemSuffix": "item",
+    "pageTitle": "Orders",
+    "pageSubtitle": "Create and manage customer orders.",
+    "new": "New order",
+    "filters": {
+      "allStatuses": "All statuses"
+    },
     "toasts": {
       "loadFailed": "Failed to load orders",
-      "updated": "Order status updated",
-      "updateFailed": "Failed to update order status"
+      "updated": "Order updated",
+      "updateFailed": "Failed to update order status",
+      "created": "Order created",
+      "statusUpdated": "Order status updated",
+      "statusFailed": "Failed to update status"
+    },
+    "modal": {
+      "createTitle": "New order",
+      "editTitle": "Edit order",
+      "customer": "Customer",
+      "selectCustomer": "Select a customer…",
+      "customerRequired": "Please select a customer",
+      "unknownCompany": "Unknown company",
+      "items": "Items",
+      "addLine": "Add line",
+      "removeLine": "Remove line",
+      "customLine": "Custom line",
+      "itemName": "Item name",
+      "qty": "Qty",
+      "price": "Price",
+      "taxRate": "Tax %",
+      "notes": "Notes",
+      "subtotal": "Subtotal",
+      "tax": "Tax",
+      "total": "Total",
+      "noItems": "Add at least one item",
+      "lineInvalid": "Each line needs a valid quantity and price",
+      "saveFailed": "Failed to save order",
+      "lockedHint": "This order is no longer pending — items cannot be edited.",
+      "availableStock": "{count} available",
+      "notTracked": "Stock not tracked"
+    },
+    "timelineEvents": {
+      "order_created": "Order created",
+      "order_items_updated": "Items updated",
+      "status_changed": "Status changed"
     },
     "detail": {
       "titlePrefix": "Order",
+      "title": "Order",
+      "back": "Back to orders",
+      "loading": "Loading order…",
+      "notFound": "Order not found",
       "company": "Company",
+      "customer": "Customer",
+      "openCustomer": "Open customer",
       "date": "Date",
       "status": "Status",
+      "statusHint": "Changing status triggers inventory reservations.",
       "total": "Total",
+      "subtotal": "Subtotal",
+      "taxTotal": "Tax",
+      "tax": "Tax",
+      "lineTotal": "Line total",
       "items": "Items",
       "product": "Product",
       "qty": "Qty",
       "unitPrice": "Unit Price",
-      "subtotal": "Subtotal",
-      "notes": "Notes"
+      "notes": "Notes",
+      "timeline": "Timeline",
+      "timelineEmpty": "No events yet",
+      "invoices": "Invoices",
+      "invoicesEmpty": "No invoices linked",
+      "fulfilment": "Fulfilment",
+      "shipmentPlaceholder": "Shipment tracking — coming soon",
+      "paymentPlaceholder": "Payment status — coming soon",
+      "paid": "Paid",
+      "recordPayment": "Record payment"
     }
   },
   "invoices": {
@@ -648,8 +727,11 @@
       "description": "Description",
       "unit": "Unit",
       "price": "Price",
+      "costPrice": "Cost price",
       "currency": "Currency",
       "taxRate": "Tax %",
+      "supplier": "Supplier",
+      "barcode": "Barcode",
       "isActive": "Active",
       "stockTracking": "Track stock"
     },
@@ -676,7 +758,9 @@
       "editTitle": "Edit: {name}",
       "nameSkuRequired": "Name and SKU are required",
       "priceInvalid": "Price must be a non-negative number",
+      "costInvalid": "Cost price must be a non-negative number",
       "taxInvalid": "Tax rate must be between 0 and 100",
+      "marginHint": "Margin: {pct}%",
       "saveFailed": "Failed to save product"
     },
     "toasts": {
@@ -694,6 +778,7 @@
     "emptyHint": "Stock rows are created automatically with the first movement.",
     "adjust": "Adjust",
     "lowStockCount": "{count} low",
+    "lowChip": "Low",
     "filters": {
       "all": "All",
       "low": "Low stock only"
@@ -704,9 +789,26 @@
       "onHand": "On hand",
       "reserved": "Reserved",
       "available": "Available",
+      "level": "Level",
       "minimum": "Min",
       "lastMovement": "Last movement",
       "actions": "Actions"
+    },
+    "history": {
+      "short": "History",
+      "title": "Movements: {name}",
+      "loading": "Loading movements…",
+      "empty": "No movements recorded",
+      "date": "Date",
+      "type": "Type",
+      "quantity": "Quantity",
+      "reason": "Reason"
+    },
+    "reconciliation": {
+      "run": "Reconcile",
+      "clean": "Inventory is in sync",
+      "fixed": "Fixed {count} discrepancies",
+      "failed": "Reconciliation failed"
     },
     "types": {
       "in": "Stock in",
@@ -732,5 +834,228 @@
       "loadFailed": "Failed to load inventory",
       "created": "Movement recorded"
     }
+  },
+  "payments": {
+    "pageTitle": "Payments",
+    "pageSubtitle": "Track payments posted against invoices.",
+    "record": "Record payment",
+    "void": "Void",
+    "confirmVoid": "Void this payment? The invoice balance will be recalculated.",
+    "empty": "No payments yet",
+    "emptyHint": "Post a payment against an issued invoice.",
+    "table": {
+      "date": "Date",
+      "invoice": "Invoice",
+      "company": "Company",
+      "method": "Method",
+      "amount": "Amount",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "status": {
+      "unpaid": "Unpaid",
+      "partial": "Partial",
+      "paid": "Paid",
+      "overdue": "Overdue"
+    },
+    "recordStatus": {
+      "posted": "Posted",
+      "voided": "Voided"
+    },
+    "methods": {
+      "cash": "Cash",
+      "bank_transfer": "Bank transfer",
+      "credit_card": "Credit card",
+      "check": "Check",
+      "other": "Other"
+    },
+    "modal": {
+      "title": "Record payment",
+      "post": "Post payment",
+      "invoice": "Invoice",
+      "selectInvoice": "Select an invoice…",
+      "invoiceRequired": "Please select an invoice",
+      "outstanding": "Outstanding",
+      "outstandingHint": "Outstanding: {amount}",
+      "amount": "Amount",
+      "amountInvalid": "Amount must be a positive number",
+      "method": "Method",
+      "externalRef": "External reference",
+      "externalRefPlaceholder": "Transfer ID, check number…",
+      "notes": "Notes",
+      "failed": "Failed to post payment"
+    },
+    "toasts": {
+      "loadFailed": "Failed to load payments",
+      "voided": "Payment voided",
+      "voidFailed": "Failed to void payment"
+    }
+  },
+  "shipments": {
+    "title": "Shipments",
+    "new": "New shipment",
+    "empty": "No shipments yet",
+    "courier": "Courier",
+    "tracking": "Tracking",
+    "shippedAt": "Shipped",
+    "deliveredAt": "Delivered",
+    "status": {
+      "pending": "Pending",
+      "shipped": "Shipped",
+      "in_transit": "In transit",
+      "delivered": "Delivered",
+      "cancelled": "Cancelled"
+    },
+    "modal": {
+      "title": "New shipment",
+      "courierPlaceholder": "DHL, local courier…"
+    },
+    "toasts": {
+      "created": "Shipment created",
+      "createFailed": "Failed to create shipment",
+      "updated": "Shipment updated",
+      "updateFailed": "Failed to update shipment"
+    }
+  },
+  "suppliers": {
+    "pageTitle": "Suppliers",
+    "pageSubtitle": "Manage suppliers and their catalog.",
+    "new": "New supplier",
+    "searchPlaceholder": "Search suppliers…",
+    "empty": "No suppliers yet",
+    "emptyHint": "Add a supplier to start creating purchase orders.",
+    "active": "Active",
+    "inactive": "Inactive",
+    "fields": {
+      "name": "Name",
+      "contactName": "Contact name",
+      "email": "Email",
+      "phone": "Phone",
+      "city": "City",
+      "address": "Address",
+      "vatNumber": "VAT number"
+    },
+    "table": {
+      "name": "Supplier",
+      "contact": "Contact",
+      "phone": "Phone",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "modal": {
+      "createTitle": "New supplier",
+      "editTitle": "Edit supplier",
+      "nameRequired": "Name is required",
+      "failed": "Failed to save supplier"
+    },
+    "detail": {
+      "back": "Back to suppliers",
+      "loading": "Loading supplier…",
+      "notFound": "Supplier not found",
+      "info": "Info",
+      "notes": "Notes",
+      "notePlaceholder": "Add a note…",
+      "notesEmpty": "No notes yet",
+      "products": "Linked products",
+      "productsEmpty": "No products linked to this supplier",
+      "product": "Product",
+      "sku": "SKU",
+      "price": "Price",
+      "cost": "Cost",
+      "status": "Status"
+    },
+    "toasts": {
+      "loadFailed": "Failed to load suppliers",
+      "created": "Supplier created",
+      "updated": "Supplier updated",
+      "updateFailed": "Failed to update supplier",
+      "noteAdded": "Note added"
+    }
+  },
+  "purchaseOrders": {
+    "pageTitle": "Purchase orders",
+    "pageSubtitle": "Replenish stock from suppliers.",
+    "new": "New purchase order",
+    "empty": "No purchase orders yet",
+    "emptyHint": "Create a purchase order to replenish inventory.",
+    "filters": {
+      "allStatuses": "All statuses"
+    },
+    "status": {
+      "draft": "Draft",
+      "ordered": "Ordered",
+      "partially_received": "Partially received",
+      "received": "Received",
+      "cancelled": "Cancelled"
+    },
+    "table": {
+      "poNumber": "PO #",
+      "supplier": "Supplier",
+      "items": "Items",
+      "total": "Total",
+      "status": "Status",
+      "created": "Created",
+      "actions": "Actions"
+    },
+    "modal": {
+      "title": "New purchase order",
+      "supplier": "Supplier",
+      "selectSupplier": "Select a supplier…",
+      "supplierRequired": "Please select a supplier",
+      "items": "Items",
+      "addLine": "Add line",
+      "removeLine": "Remove line",
+      "selectProduct": "Select a product…",
+      "qty": "Qty",
+      "unitCost": "Unit cost",
+      "notes": "Notes",
+      "total": "Total",
+      "noItems": "Add at least one item",
+      "lineInvalid": "Each line needs a valid quantity and cost",
+      "failed": "Failed to create purchase order"
+    },
+    "detail": {
+      "title": "PO",
+      "back": "Back to purchase orders",
+      "loading": "Loading purchase order…",
+      "notFound": "Purchase order not found",
+      "items": "Items",
+      "product": "Product",
+      "ordered": "Ordered",
+      "received": "Received",
+      "outstanding": "Outstanding",
+      "unitCost": "Unit cost",
+      "receiveNow": "Receive",
+      "receiveStock": "Receive stock",
+      "nothingToReceive": "Enter quantities to receive",
+      "complete": "Complete",
+      "markOrdered": "Mark as ordered",
+      "cancel": "Cancel PO",
+      "summary": "Summary",
+      "supplier": "Supplier",
+      "totalCost": "Total cost",
+      "created": "Created",
+      "receivedAt": "Received",
+      "timeline": "Timeline",
+      "timelineEmpty": "No events yet"
+    },
+    "toasts": {
+      "loadFailed": "Failed to load purchase orders",
+      "created": "Purchase order created",
+      "updated": "Purchase order updated",
+      "updateFailed": "Failed to update purchase order",
+      "received": "Stock received",
+      "receiveFailed": "Failed to receive stock"
+    }
+  },
+  "profitability": {
+    "title": "Profitability",
+    "revenue": "Revenue",
+    "cogs": "COGS",
+    "grossProfit": "Gross profit",
+    "margin": "Margin",
+    "topProducts": "Top products by profit",
+    "topCustomers": "Top customers by profit",
+    "noData": "No data yet"
   }
 }

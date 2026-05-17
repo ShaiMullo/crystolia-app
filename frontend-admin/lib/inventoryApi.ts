@@ -7,6 +7,7 @@ import type {
     InventoryRow,
     Product,
     ProductUnit,
+    ReconciliationResult,
 } from "@/types";
 
 // ── Products ─────────────────────────────────────────────────────────────────
@@ -44,8 +45,11 @@ export interface ProductPayload {
     description?: string;
     unit?: ProductUnit;
     price?: number;
+    costPrice?: number;
     currency?: string;
     taxRate?: number;
+    supplier?: string;
+    barcode?: string;
     isActive?: boolean;
     stockTrackingEnabled?: boolean;
     tags?: string[];
@@ -105,4 +109,16 @@ export async function updateThreshold(productId: string, minimumQuantity: number
     const s = new URLSearchParams();
     s.set("location", location);
     await api.patch(`/crm/inventory/${productId}?${s.toString()}`, { minimumQuantity });
+}
+
+// ── Reconciliation ───────────────────────────────────────────────────────────
+
+export async function getReconciliationStatus(): Promise<{ driftCount: number; ranAt: string }> {
+    const res = await api.get("/crm/inventory/reconciliation");
+    return res.data.data;
+}
+
+export async function runReconciliation(autoFix: boolean, notifyOnDrift = false): Promise<ReconciliationResult> {
+    const res = await api.post("/crm/inventory/reconciliation", { autoFix, notifyOnDrift });
+    return res.data.data;
 }

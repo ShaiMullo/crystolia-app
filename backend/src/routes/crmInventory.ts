@@ -10,12 +10,72 @@ import { protect, authorize } from '../middleware/auth.js';
 import { validate, AppError } from '../utils/validation.js';
 import { logAudit } from '../services/auditService.js';
 import { applyMovement } from '../services/inventoryService.js';
+import { reconcileInventory, reconciliationStatus, reconciliationHistory } from '../services/reconciliationService.js';
+import { createNotification } from '../services/notificationService.js';
+import { dispatch as dispatchAutomation } from '../services/automationService.js';
 
 const router = Router();
 router.use(protect);
 router.use(authorize('admin'));
 
 const TYPES = new Set<MovementType>(['in', 'out', 'adjustment', 'reserved', 'released']);
+
+// ━━ GET /api/crm/inventory/reconciliation - drift status (read-only)
+router.get('/reconciliation', async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        const status = await reconciliationStatus();
+        res.json({ success: true, data: status });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// ━━ GET /api/crm/inventory/reconciliation/history - past runs
+router.get('/reconciliation/history', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const limit = parseInt(req.query.limit as string) || 20;
+        const history = await reconciliationHistory(limit);
+        res.json({ success: true, data: history });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// ━━ POST /api/crm/inventory/reconciliation - run reconciliation
+//    body: { autoFix?: boolean, notifyOnDrift?: boolean }
+router.post('/reconciliation', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const autoFix = req.body?.autoFix === true;
+        const result = await reconcileInventory(autoFix, req.user?._id?.toString());
+
+        await logAudit({
+            action: 'UPDATE',
+            entity: 'Inventory',
+            entityId: 'reconciliation',
+            req,
+            details: {
+                scannedOrders: result.scannedOrders,
+                driftCount: result.discrepancies.length,
+                fixed: result.fixed,
+            },
+        });
+
+        if (req.body?.notifyOnDrift === true && result.discrepancies.length > 0 && req.user?._id) {
+            await createNotification({
+                recipientId: req.user._id,
+                type: 'automation_triggered',
+                title: `Inventory reconciliation: ${result.discrepancies.length} discrepancies`,
+                body: result.fixed ? 'Discrepancies were auto-fixed.' : 'Run with autoFix to correct them.',
+                link: '/admin/inventory',
+                icon: 'RefreshCw',
+            });
+        }
+
+        res.json({ success: true, data: result });
+    } catch (err) {
+        next(err);
+    }
+});
 
 // ━━ GET /api/crm/inventory - list inventory rows w/ product joined
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
@@ -78,6 +138,21 @@ router.post('/movements', async (req: Request, res: Response, next: NextFunction
             req,
             details: { productId: productId.toString(), type, quantity, reason },
         });
+
+        // Fire low-stock automation when this movement drops available below the threshold.
+        const available = Math.max(0, (inventory.quantity || 0) - (inventory.reservedQuantity || 0));
+        if ((inventory.minimumQuantity || 0) > 0 && available <= inventory.minimumQuantity) {
+            await dispatchAutomation({
+                event: 'inventory.low_stock',
+                payload: {
+                    productId: productId.toString(),
+                    productName: product.name,
+                    available,
+                    minimum: inventory.minimumQuantity,
+                    actorId: req.user?._id?.toString(),
+                },
+            });
+        }
 
         res.status(201).json({ success: true, data: { inventory: inventory.toObject(), movement: movement.toObject() } });
     } catch (err) {

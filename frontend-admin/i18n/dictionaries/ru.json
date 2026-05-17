@@ -56,8 +56,12 @@
     "crm": "CRM",
     "pipeline": "Воронка",
     "customers": "Клиенты",
+    "orders": "Заказы",
+    "payments": "Платежи",
     "products": "Товары",
     "inventory": "Склад",
+    "suppliers": "Поставщики",
+    "purchaseOrders": "Закупки",
     "tasks": "Задачи",
     "activity": "Активность",
     "settings": "Настройки",
@@ -120,6 +124,21 @@
       "emptyHint": "Задайте минимальный остаток, чтобы получать оповещения.",
       "min": "мин",
       "viewAll": "Все"
+    },
+    "finance": {
+      "title": "Финансовый обзор",
+      "viewOrders": "Открыть заказы",
+      "monthRevenue": "Выручка (мес.)",
+      "ordersCount": "{count} заказов",
+      "paidInvoices": "Оплаченные счета",
+      "inventoryValue": "Стоимость склада",
+      "retailValue": "Розница: {amount}",
+      "outstanding": "К оплате",
+      "overdueCount": "{count} просрочено",
+      "recentOrders": "Недавние заказы",
+      "noOrders": "Заказов пока нет",
+      "overdueInvoices": "Просроченные счета",
+      "noOverdue": "Просроченных счетов нет"
     }
   },
   "leads": {
@@ -295,25 +314,85 @@
       "actions": "Действия"
     },
     "empty": "Заказы не найдены.",
+    "emptyHint": "Создайте заказ, чтобы запустить процесс.",
     "itemsSuffix": "поз.",
     "itemSuffix": "поз.",
+    "pageTitle": "Заказы",
+    "pageSubtitle": "Создание и управление заказами клиентов.",
+    "new": "Новый заказ",
+    "filters": {
+      "allStatuses": "Все статусы"
+    },
     "toasts": {
       "loadFailed": "Не удалось загрузить заказы",
-      "updated": "Статус заказа обновлён",
-      "updateFailed": "Не удалось обновить статус заказа"
+      "updated": "Заказ обновлён",
+      "updateFailed": "Не удалось обновить статус заказа",
+      "created": "Заказ создан",
+      "statusUpdated": "Статус заказа обновлён",
+      "statusFailed": "Не удалось обновить статус"
+    },
+    "modal": {
+      "createTitle": "Новый заказ",
+      "editTitle": "Редактирование заказа",
+      "customer": "Клиент",
+      "selectCustomer": "Выберите клиента…",
+      "customerRequired": "Выберите клиента",
+      "unknownCompany": "Неизвестная компания",
+      "items": "Позиции",
+      "addLine": "Добавить строку",
+      "removeLine": "Удалить строку",
+      "customLine": "Произвольная строка",
+      "itemName": "Название позиции",
+      "qty": "Кол-во",
+      "price": "Цена",
+      "taxRate": "НДС %",
+      "notes": "Заметки",
+      "subtotal": "Подытог",
+      "tax": "НДС",
+      "total": "Итого",
+      "noItems": "Добавьте хотя бы одну позицию",
+      "lineInvalid": "В каждой строке нужны корректные количество и цена",
+      "saveFailed": "Не удалось сохранить заказ",
+      "lockedHint": "Заказ больше не в ожидании — позиции нельзя редактировать.",
+      "availableStock": "Доступно: {count}",
+      "notTracked": "Остаток не отслеживается"
+    },
+    "timelineEvents": {
+      "order_created": "Заказ создан",
+      "order_items_updated": "Позиции обновлены",
+      "status_changed": "Статус изменён"
     },
     "detail": {
       "titlePrefix": "Заказ",
+      "title": "Заказ",
+      "back": "К заказам",
+      "loading": "Загрузка заказа…",
+      "notFound": "Заказ не найден",
       "company": "Компания",
+      "customer": "Клиент",
+      "openCustomer": "Открыть клиента",
       "date": "Дата",
       "status": "Статус",
+      "statusHint": "Смена статуса запускает резервирование склада.",
       "total": "Итого",
+      "subtotal": "Подытог",
+      "taxTotal": "НДС",
+      "tax": "НДС",
+      "lineTotal": "Итого по строке",
       "items": "Позиции",
       "product": "Товар",
       "qty": "Кол-во",
       "unitPrice": "Цена за ед.",
-      "subtotal": "Подытог",
-      "notes": "Заметки"
+      "notes": "Заметки",
+      "timeline": "Хронология",
+      "timelineEmpty": "Событий пока нет",
+      "invoices": "Счета",
+      "invoicesEmpty": "Нет связанных счетов",
+      "fulfilment": "Выполнение",
+      "shipmentPlaceholder": "Отслеживание доставки — скоро",
+      "paymentPlaceholder": "Статус оплаты — скоро",
+      "paid": "Оплачено",
+      "recordPayment": "Записать платёж"
     }
   },
   "invoices": {
@@ -648,8 +727,11 @@
       "description": "Описание",
       "unit": "Единица",
       "price": "Цена",
+      "costPrice": "Себестоимость",
       "currency": "Валюта",
       "taxRate": "НДС %",
+      "supplier": "Поставщик",
+      "barcode": "Штрихкод",
       "isActive": "Активен",
       "stockTracking": "Учёт остатков"
     },
@@ -676,7 +758,9 @@
       "editTitle": "Редактирование: {name}",
       "nameSkuRequired": "Название и SKU обязательны",
       "priceInvalid": "Цена должна быть неотрицательным числом",
+      "costInvalid": "Себестоимость должна быть неотрицательным числом",
       "taxInvalid": "НДС должен быть от 0 до 100",
+      "marginHint": "Маржа: {pct}%",
       "saveFailed": "Не удалось сохранить товар"
     },
     "toasts": {
@@ -694,9 +778,26 @@
     "emptyHint": "Строки склада создаются автоматически при первом движении.",
     "adjust": "Движение",
     "lowStockCount": "{count} ниже минимума",
+    "lowChip": "Низкий",
     "filters": {
       "all": "Все",
       "low": "Только низкий остаток"
+    },
+    "history": {
+      "short": "История",
+      "title": "Движения: {name}",
+      "loading": "Загрузка движений…",
+      "empty": "Движений нет",
+      "date": "Дата",
+      "type": "Тип",
+      "quantity": "Количество",
+      "reason": "Причина"
+    },
+    "reconciliation": {
+      "run": "Сверка",
+      "clean": "Склад синхронизирован",
+      "fixed": "Исправлено расхождений: {count}",
+      "failed": "Сверка не удалась"
     },
     "table": {
       "product": "Товар",
@@ -704,6 +805,7 @@
       "onHand": "В наличии",
       "reserved": "Зарезервировано",
       "available": "Доступно",
+      "level": "Уровень",
       "minimum": "Мин",
       "lastMovement": "Последнее движение",
       "actions": "Действия"
@@ -732,5 +834,228 @@
       "loadFailed": "Не удалось загрузить склад",
       "created": "Движение записано"
     }
+  },
+  "payments": {
+    "pageTitle": "Платежи",
+    "pageSubtitle": "Отслеживание платежей по счетам.",
+    "record": "Записать платёж",
+    "void": "Аннулировать",
+    "confirmVoid": "Аннулировать платёж? Баланс счёта будет пересчитан.",
+    "empty": "Платежей пока нет",
+    "emptyHint": "Запишите платёж по выставленному счёту.",
+    "table": {
+      "date": "Дата",
+      "invoice": "Счёт",
+      "company": "Компания",
+      "method": "Способ",
+      "amount": "Сумма",
+      "status": "Статус",
+      "actions": "Действия"
+    },
+    "status": {
+      "unpaid": "Не оплачен",
+      "partial": "Частично",
+      "paid": "Оплачен",
+      "overdue": "Просрочен"
+    },
+    "recordStatus": {
+      "posted": "Проведён",
+      "voided": "Аннулирован"
+    },
+    "methods": {
+      "cash": "Наличные",
+      "bank_transfer": "Банковский перевод",
+      "credit_card": "Кредитная карта",
+      "check": "Чек",
+      "other": "Другое"
+    },
+    "modal": {
+      "title": "Записать платёж",
+      "post": "Провести платёж",
+      "invoice": "Счёт",
+      "selectInvoice": "Выберите счёт…",
+      "invoiceRequired": "Выберите счёт",
+      "outstanding": "Остаток",
+      "outstandingHint": "Остаток: {amount}",
+      "amount": "Сумма",
+      "amountInvalid": "Сумма должна быть положительным числом",
+      "method": "Способ оплаты",
+      "externalRef": "Внешняя ссылка",
+      "externalRefPlaceholder": "ID перевода, номер чека…",
+      "notes": "Заметки",
+      "failed": "Не удалось провести платёж"
+    },
+    "toasts": {
+      "loadFailed": "Не удалось загрузить платежи",
+      "voided": "Платёж аннулирован",
+      "voidFailed": "Не удалось аннулировать платёж"
+    }
+  },
+  "shipments": {
+    "title": "Отгрузки",
+    "new": "Новая отгрузка",
+    "empty": "Отгрузок пока нет",
+    "courier": "Курьер",
+    "tracking": "Трек-номер",
+    "shippedAt": "Отправлено",
+    "deliveredAt": "Доставлено",
+    "status": {
+      "pending": "Ожидает",
+      "shipped": "Отправлено",
+      "in_transit": "В пути",
+      "delivered": "Доставлено",
+      "cancelled": "Отменено"
+    },
+    "modal": {
+      "title": "Новая отгрузка",
+      "courierPlaceholder": "DHL, местный курьер…"
+    },
+    "toasts": {
+      "created": "Отгрузка создана",
+      "createFailed": "Не удалось создать отгрузку",
+      "updated": "Отгрузка обновлена",
+      "updateFailed": "Не удалось обновить отгрузку"
+    }
+  },
+  "suppliers": {
+    "pageTitle": "Поставщики",
+    "pageSubtitle": "Управление поставщиками и их каталогом.",
+    "new": "Новый поставщик",
+    "searchPlaceholder": "Поиск поставщиков…",
+    "empty": "Поставщиков пока нет",
+    "emptyHint": "Добавьте поставщика, чтобы создавать заказы на закупку.",
+    "active": "Активен",
+    "inactive": "Неактивен",
+    "fields": {
+      "name": "Название",
+      "contactName": "Контактное лицо",
+      "email": "Email",
+      "phone": "Телефон",
+      "city": "Город",
+      "address": "Адрес",
+      "vatNumber": "ИНН / VAT"
+    },
+    "table": {
+      "name": "Поставщик",
+      "contact": "Контакт",
+      "phone": "Телефон",
+      "status": "Статус",
+      "actions": "Действия"
+    },
+    "modal": {
+      "createTitle": "Новый поставщик",
+      "editTitle": "Редактировать поставщика",
+      "nameRequired": "Название обязательно",
+      "failed": "Не удалось сохранить поставщика"
+    },
+    "detail": {
+      "back": "К поставщикам",
+      "loading": "Загрузка поставщика…",
+      "notFound": "Поставщик не найден",
+      "info": "Информация",
+      "notes": "Заметки",
+      "notePlaceholder": "Добавить заметку…",
+      "notesEmpty": "Заметок пока нет",
+      "products": "Связанные товары",
+      "productsEmpty": "Нет товаров, связанных с этим поставщиком",
+      "product": "Товар",
+      "sku": "SKU",
+      "price": "Цена",
+      "cost": "Себестоимость",
+      "status": "Статус"
+    },
+    "toasts": {
+      "loadFailed": "Не удалось загрузить поставщиков",
+      "created": "Поставщик создан",
+      "updated": "Поставщик обновлён",
+      "updateFailed": "Не удалось обновить поставщика",
+      "noteAdded": "Заметка добавлена"
+    }
+  },
+  "purchaseOrders": {
+    "pageTitle": "Заказы на закупку",
+    "pageSubtitle": "Пополнение склада у поставщиков.",
+    "new": "Новый заказ на закупку",
+    "empty": "Заказов на закупку пока нет",
+    "emptyHint": "Создайте заказ на закупку, чтобы пополнить склад.",
+    "filters": {
+      "allStatuses": "Все статусы"
+    },
+    "status": {
+      "draft": "Черновик",
+      "ordered": "Заказан",
+      "partially_received": "Частично получен",
+      "received": "Получен",
+      "cancelled": "Отменён"
+    },
+    "table": {
+      "poNumber": "№ заказа",
+      "supplier": "Поставщик",
+      "items": "Позиции",
+      "total": "Итого",
+      "status": "Статус",
+      "created": "Создан",
+      "actions": "Действия"
+    },
+    "modal": {
+      "title": "Новый заказ на закупку",
+      "supplier": "Поставщик",
+      "selectSupplier": "Выберите поставщика…",
+      "supplierRequired": "Выберите поставщика",
+      "items": "Позиции",
+      "addLine": "Добавить строку",
+      "removeLine": "Удалить строку",
+      "selectProduct": "Выберите товар…",
+      "qty": "Кол-во",
+      "unitCost": "Цена за ед.",
+      "notes": "Заметки",
+      "total": "Итого",
+      "noItems": "Добавьте хотя бы одну позицию",
+      "lineInvalid": "В каждой строке нужны корректные количество и цена",
+      "failed": "Не удалось создать заказ на закупку"
+    },
+    "detail": {
+      "title": "Заказ",
+      "back": "К заказам на закупку",
+      "loading": "Загрузка заказа…",
+      "notFound": "Заказ на закупку не найден",
+      "items": "Позиции",
+      "product": "Товар",
+      "ordered": "Заказано",
+      "received": "Получено",
+      "outstanding": "Остаток",
+      "unitCost": "Цена за ед.",
+      "receiveNow": "Принять",
+      "receiveStock": "Принять на склад",
+      "nothingToReceive": "Укажите количество для приёмки",
+      "complete": "Завершено",
+      "markOrdered": "Отметить заказанным",
+      "cancel": "Отменить заказ",
+      "summary": "Сводка",
+      "supplier": "Поставщик",
+      "totalCost": "Общая стоимость",
+      "created": "Создан",
+      "receivedAt": "Получен",
+      "timeline": "Хронология",
+      "timelineEmpty": "Событий пока нет"
+    },
+    "toasts": {
+      "loadFailed": "Не удалось загрузить заказы на закупку",
+      "created": "Заказ на закупку создан",
+      "updated": "Заказ на закупку обновлён",
+      "updateFailed": "Не удалось обновить заказ на закупку",
+      "received": "Товар принят",
+      "receiveFailed": "Не удалось принять товар"
+    }
+  },
+  "profitability": {
+    "title": "Прибыльность",
+    "revenue": "Выручка",
+    "cogs": "Себестоимость",
+    "grossProfit": "Валовая прибыль",
+    "margin": "Маржа",
+    "topProducts": "Топ товаров по прибыли",
+    "topCustomers": "Топ клиентов по прибыли",
+    "noData": "Данных пока нет"
   }
 }

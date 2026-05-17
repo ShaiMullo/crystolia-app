@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
-import { AlertTriangle, Boxes, History, RefreshCw } from "lucide-react";
+import { AlertTriangle, Boxes, History, Pencil, RefreshCw, ScanLine } from "lucide-react";
 import {
     Badge,
     Button,
@@ -19,11 +19,31 @@ import {
     TR,
 } from "@/components/ui";
 import { InventoryMovementModal } from "@/components/inventory/InventoryMovementModal";
+import { MovementHistoryModal } from "@/components/inventory/MovementHistoryModal";
 import { useAdminI18n } from "@/i18n/I18nProvider";
 import { formatDateTime } from "@/lib/format";
-import { createMovement, listInventory, type MovementPayload } from "@/lib/inventoryApi";
+import {
+    createMovement,
+    listInventory,
+    runReconciliation,
+    type MovementPayload,
+} from "@/lib/inventoryApi";
 import type { Locale } from "@/i18n";
 import type { InventoryRow } from "@/types";
+import { cn } from "@/lib/cn";
+
+// Small horizontal bar: available (emerald) + reserved (amber) within on-hand.
+function StockBar({ row }: { row: InventoryRow }) {
+    const total = Math.max(row.quantity, 1);
+    const reservedPct = Math.min(100, (row.reservedQuantity / total) * 100);
+    const availablePct = Math.min(100, (row.availableQuantity / total) * 100);
+    return (
+        <div className="h-1.5 w-24 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800 flex">
+            <span className="block h-full bg-emerald-500" style={{ width: `${availablePct}%` }} />
+            <span className="block h-full bg-amber-400" style={{ width: `${reservedPct}%` }} />
+        </div>
+    );
+}
 
 export default function InventoryPage() {
     const { t, locale } = useAdminI18n();
@@ -31,7 +51,10 @@ export default function InventoryPage() {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<"all" | "low">("all");
     const [adjustingRow, setAdjustingRow] = useState<InventoryRow | null>(null);
+    const [historyRow, setHistoryRow] = useState<InventoryRow | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
+    const [historyOpen, setHistoryOpen] = useState(false);
+    const [reconciling, setReconciling] = useState(false);
 
     const fetchList = useCallback(async () => {
         setLoading(true);
@@ -57,6 +80,11 @@ export default function InventoryPage() {
         setModalOpen(true);
     };
 
+    const openHistory = (row: InventoryRow) => {
+        setHistoryRow(row);
+        setHistoryOpen(true);
+    };
+
     const handleMovement = async (payload: MovementPayload) => {
         try {
             await createMovement(payload);
@@ -67,15 +95,44 @@ export default function InventoryPage() {
         }
     };
 
+    const handleReconcile = async () => {
+        setReconciling(true);
+        try {
+            const result = await runReconciliation(true, true);
+            if (result.discrepancies.length === 0) {
+                toast.success(t("inventory.reconciliation.clean"));
+            } else {
+                toast.success(t("inventory.reconciliation.fixed", { count: result.discrepancies.length }));
+            }
+            await fetchList();
+        } catch (err: unknown) {
+            const e = err as { response?: { data?: { error?: string; message?: string } } };
+            toast.error(e.response?.data?.error || e.response?.data?.message || t("inventory.reconciliation.failed"));
+        } finally {
+            setReconciling(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <PageHeader
                 title={t("inventory.pageTitle")}
                 description={t("inventory.pageSubtitle")}
                 actions={
-                    <Button variant="outline" size="sm" iconStart={<RefreshCw size={14} />} onClick={fetchList}>
-                        {t("common.refresh")}
-                    </Button>
+                    <>
+                        <Button variant="outline" size="sm" iconStart={<RefreshCw size={14} />} onClick={fetchList}>
+                            {t("common.refresh")}
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="secondary"
+                            iconStart={<ScanLine size={14} />}
+                            loading={reconciling}
+                            onClick={handleReconcile}
+                        >
+                            {t("inventory.reconciliation.run")}
+                        </Button>
+                    </>
                 }
             />
 
@@ -100,6 +157,7 @@ export default function InventoryPage() {
                             <TH align="end">{t("inventory.table.onHand")}</TH>
                             <TH align="end">{t("inventory.table.reserved")}</TH>
                             <TH align="end">{t("inventory.table.available")}</TH>
+                            <TH>{t("inventory.table.level")}</TH>
                             <TH align="end">{t("inventory.table.minimum")}</TH>
                             <TH>{t("inventory.table.lastMovement")}</TH>
                             <TH align="end">{t("inventory.table.actions")}</TH>
@@ -107,10 +165,10 @@ export default function InventoryPage() {
                     </THead>
                     <TBody>
                         {loading ? (
-                            <TableSkeleton columns={8} />
+                            <TableSkeleton columns={9} />
                         ) : rows.length === 0 ? (
                             <TR>
-                                <TD colSpan={8}>
+                                <TD colSpan={9}>
                                     <EmptyState
                                         icon={<Boxes size={18} />}
                                         title={t("inventory.empty")}
@@ -124,19 +182,32 @@ export default function InventoryPage() {
                                 return (
                                     <TR key={row._id} className={row.isLowStock ? "bg-amber-50/40 dark:bg-amber-900/10" : ""}>
                                         <TD>
-                                            <div className="font-medium text-gray-900 dark:text-gray-50">{product?.name || "—"}</div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-medium text-gray-900 dark:text-gray-50">{product?.name || "—"}</span>
+                                                {row.isLowStock && (
+                                                    <Badge tone="warning" size="sm">{t("inventory.lowChip")}</Badge>
+                                                )}
+                                            </div>
                                             {product?.sku && <div className="text-xs text-gray-400 font-mono">{product.sku}</div>}
                                         </TD>
                                         <TD muted>{row.location}</TD>
                                         <TD align="end" className="tabular font-medium">{row.quantity}</TD>
                                         <TD align="end" className="tabular text-amber-700 dark:text-amber-300">{row.reservedQuantity}</TD>
-                                        <TD align="end" className="tabular font-semibold">{row.availableQuantity}</TD>
+                                        <TD align="end" className={cn("tabular font-semibold", row.isLowStock && "text-amber-700 dark:text-amber-300")}>
+                                            {row.availableQuantity}
+                                        </TD>
+                                        <TD><StockBar row={row} /></TD>
                                         <TD align="end" muted className="tabular">{row.minimumQuantity}</TD>
                                         <TD muted>{row.lastMovementAt ? formatDateTime(row.lastMovementAt, locale as Locale) : "—"}</TD>
                                         <TD align="end">
-                                            <Button size="sm" variant="outline" iconStart={<History size={14} />} onClick={() => openAdjust(row)}>
-                                                {t("inventory.adjust")}
-                                            </Button>
+                                            <div className="flex items-center justify-end gap-2">
+                                                <Button size="sm" variant="ghost" iconStart={<History size={14} />} onClick={() => openHistory(row)}>
+                                                    {t("inventory.history.short")}
+                                                </Button>
+                                                <Button size="sm" variant="outline" iconStart={<Pencil size={14} />} onClick={() => openAdjust(row)}>
+                                                    {t("inventory.adjust")}
+                                                </Button>
+                                            </div>
                                         </TD>
                                     </TR>
                                 );
@@ -151,6 +222,11 @@ export default function InventoryPage() {
                 onClose={() => setModalOpen(false)}
                 row={adjustingRow}
                 onSubmit={handleMovement}
+            />
+            <MovementHistoryModal
+                isOpen={historyOpen}
+                onClose={() => setHistoryOpen(false)}
+                row={historyRow}
             />
         </div>
     );

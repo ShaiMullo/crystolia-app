@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Building2, Settings, LogOut, Kanban, CheckSquare, Activity, Package, Boxes } from "lucide-react";
+import { LayoutDashboard, Building2, Settings, LogOut, Kanban, CheckSquare, Activity, Package, Boxes, ShoppingCart, Wallet, Factory, PackageOpen } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
 import { useAdminI18n } from "@/i18n/I18nProvider";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
@@ -36,8 +36,12 @@ export default function AdminLayout({
         { href: "/admin", label: t("nav.dashboard"), icon: LayoutDashboard },
         { href: "/admin/pipeline", label: t("nav.pipeline"), icon: Kanban },
         { href: "/admin/customers", label: t("nav.customers"), icon: Building2 },
+        { href: "/admin/orders", label: t("nav.orders"), icon: ShoppingCart },
+        { href: "/admin/payments", label: t("nav.payments"), icon: Wallet },
         { href: "/admin/products", label: t("nav.products"), icon: Package },
         { href: "/admin/inventory", label: t("nav.inventory"), icon: Boxes },
+        { href: "/admin/suppliers", label: t("nav.suppliers"), icon: Factory },
+        { href: "/admin/purchase-orders", label: t("nav.purchaseOrders"), icon: PackageOpen },
         { href: "/admin/tasks", label: t("nav.tasks"), icon: CheckSquare },
         { href: "/admin/activity", label: t("nav.activity"), icon: Activity },
         { href: "/admin/settings", label: t("nav.settings"), icon: Settings },

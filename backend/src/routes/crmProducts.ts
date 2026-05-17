@@ -23,8 +23,14 @@ function pickPayload(body: Record<string, unknown>) {
     if (typeof body.description === 'string') out.description = body.description.trim() || undefined;
     if (typeof body.unit === 'string' && UNITS.has(body.unit)) out.unit = body.unit;
     if (typeof body.price === 'number') out.price = body.price;
+    if (typeof body.costPrice === 'number') out.costPrice = body.costPrice;
     if (typeof body.currency === 'string') out.currency = body.currency.trim().toUpperCase();
     if (typeof body.taxRate === 'number') out.taxRate = body.taxRate;
+    if (typeof body.supplier === 'string') out.supplier = body.supplier.trim() || undefined;
+    if (typeof body.supplierId === 'string') {
+        out.supplierId = body.supplierId.trim() && validate.objectId(body.supplierId) ? body.supplierId : undefined;
+    }
+    if (typeof body.barcode === 'string') out.barcode = body.barcode.trim() || undefined;
     if (typeof body.isActive === 'boolean') out.isActive = body.isActive;
     if (typeof body.stockTrackingEnabled === 'boolean') out.stockTrackingEnabled = body.stockTrackingEnabled;
     if (Array.isArray(body.tags)) out.tags = (body.tags as unknown[]).filter((t) => typeof t === 'string');

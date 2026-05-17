@@ -13,6 +13,8 @@ import { KpiGrid } from "@/components/dashboard/KpiGrid";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { LowStockWidget } from "@/components/dashboard/LowStockWidget";
+import { FinanceWidget } from "@/components/dashboard/FinanceWidget";
+import { ProfitabilityWidget } from "@/components/dashboard/ProfitabilityWidget";
 import { TaskList } from "@/components/tasks/TaskList";
 import { LeadsTab } from "@/components/dashboard/LeadsTab";
 import { CustomersTab } from "@/components/dashboard/CustomersTab";
@@ -350,6 +352,10 @@ export default function AdminDashboard() {
             />
 
             <KpiGrid leads={leads} users={users} orders={orders} invoices={invoices} />
+
+            <FinanceWidget />
+
+            <ProfitabilityWidget />
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                 <div className="lg:col-span-1 space-y-4">

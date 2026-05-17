@@ -26,6 +26,10 @@ export interface IInvoice extends Document {
     providerDocId?: string;
     externalRef?: string;
 
+    // Payment tracking (additive — recomputed by paymentService).
+    amountPaid: number;
+    paymentStatus: 'unpaid' | 'partial' | 'paid' | 'overdue';
+
     createdAt: Date;
     updatedAt: Date;
 }
@@ -90,6 +94,13 @@ const InvoiceSchema = new Schema<IInvoice>(
         },
         providerDocId: { type: String, trim: true, index: true },
         externalRef: { type: String, trim: true },
+        amountPaid: { type: Number, default: 0, min: 0 },
+        paymentStatus: {
+            type: String,
+            enum: ['unpaid', 'partial', 'paid', 'overdue'],
+            default: 'unpaid',
+            index: true,
+        },
     },
     {
         timestamps: true,

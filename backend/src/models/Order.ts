@@ -13,6 +13,14 @@ export interface IOrderItem {
     productName: string;
     quantity: number;
     price: number;
+    taxRate?: number;
+}
+
+export interface IOrderTimelineEvent {
+    type: string;
+    at: Date;
+    actorId?: string;
+    meta?: Record<string, unknown>;
 }
 
 export interface IOrder extends Document {
@@ -20,8 +28,11 @@ export interface IOrder extends Document {
     createdBy: mongoose.Types.ObjectId; // Reference to User
     items: IOrderItem[];
     totalAmount: number;
+    subtotal?: number;
+    taxTotal?: number;
     status: 'pending' | 'approved' | 'shipped' | 'completed' | 'cancelled';
     notes?: string;
+    timeline: IOrderTimelineEvent[];
     createdAt: Date;
     updatedAt: Date;
 }
@@ -49,6 +60,7 @@ const OrderSchema = new Schema<IOrder>(
                 productName: { type: String, required: true },
                 quantity: { type: Number, required: true, min: 1 },
                 price: { type: Number, required: true, min: 0 },
+                taxRate: { type: Number, min: 0, max: 100 },
             },
         ],
         totalAmount: {
@@ -56,6 +68,8 @@ const OrderSchema = new Schema<IOrder>(
             required: true,
             min: 0,
         },
+        subtotal: { type: Number, min: 0 },
+        taxTotal: { type: Number, min: 0 },
         status: {
             type: String,
             enum: ['pending', 'approved', 'shipped', 'completed', 'cancelled'],
@@ -66,6 +80,12 @@ const OrderSchema = new Schema<IOrder>(
             type: String,
             trim: true,
         },
+        timeline: [{
+            type: { type: String, required: true },
+            at: { type: Date, default: Date.now },
+            actorId: { type: String },
+            meta: { type: Schema.Types.Mixed },
+        }],
     },
     {
         timestamps: true,

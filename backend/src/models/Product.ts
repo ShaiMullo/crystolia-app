@@ -16,8 +16,12 @@ export interface IProduct extends Document {
     description?: string;
     unit: ProductUnit;
     price: number;
+    costPrice?: number;       // optional — unlocks margin reporting
     currency: string;
     taxRate: number;          // e.g. 17 for 17% (Israel default), 0 for tax-exempt
+    supplier?: string;
+    supplierId?: mongoose.Types.ObjectId;
+    barcode?: string;
     isActive: boolean;
     stockTrackingEnabled: boolean;
     tags: string[];
@@ -40,8 +44,12 @@ const ProductSchema = new Schema<IProduct>(
             default: 'unit',
         },
         price: { type: Number, required: true, min: 0, default: 0 },
+        costPrice: { type: Number, min: 0 },
         currency: { type: String, default: 'ILS', uppercase: true, maxlength: 6 },
         taxRate: { type: Number, default: 17, min: 0, max: 100 },
+        supplier: { type: String, trim: true, maxlength: 160 },
+        supplierId: { type: Schema.Types.ObjectId, ref: 'Supplier', index: true },
+        barcode: { type: String, trim: true, maxlength: 80, index: true },
         isActive: { type: Boolean, default: true, index: true },
         stockTrackingEnabled: { type: Boolean, default: true },
         tags: { type: [String], default: [] },

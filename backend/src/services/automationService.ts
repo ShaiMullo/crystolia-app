@@ -207,6 +207,69 @@ const DEFAULT_RULES: Array<Pick<IAutomationRule, 'name' | 'description' | 'trigg
         enabled: true,
         isSystem: true,
     },
+    {
+        name: 'payment_received_notify',
+        description: 'Notify the actor when a payment is posted.',
+        trigger: 'payment.received',
+        conditions: [],
+        actions: [
+            {
+                type: 'create_notification',
+                params: {
+                    recipientPath: 'actorId',
+                    notificationType: 'invoice_issued',
+                    title: 'Payment received: {invoiceNumber}',
+                    body: 'Amount {amount}. Invoice status: {paymentStatus}.',
+                    link: '/admin/payments',
+                    icon: 'Wallet',
+                },
+            },
+        ],
+        enabled: true,
+        isSystem: true,
+    },
+    {
+        name: 'shipment_delivered_notify',
+        description: 'Notify the actor when a shipment is delivered.',
+        trigger: 'shipment.delivered',
+        conditions: [],
+        actions: [
+            {
+                type: 'create_notification',
+                params: {
+                    recipientPath: 'actorId',
+                    notificationType: 'generic',
+                    title: 'Shipment delivered',
+                    body: 'Tracking {trackingNumber} was delivered.',
+                    link: '/admin/orders/{orderId}',
+                    icon: 'Truck',
+                },
+            },
+        ],
+        enabled: true,
+        isSystem: true,
+    },
+    {
+        name: 'low_stock_escalation',
+        description: 'Notify the actor when a product crosses its low-stock threshold.',
+        trigger: 'inventory.low_stock',
+        conditions: [],
+        actions: [
+            {
+                type: 'create_notification',
+                params: {
+                    recipientPath: 'actorId',
+                    notificationType: 'generic',
+                    title: 'Low stock: {productName}',
+                    body: 'Available {available}, minimum {minimum}.',
+                    link: '/admin/inventory',
+                    icon: 'AlertTriangle',
+                },
+            },
+        ],
+        enabled: true,
+        isSystem: true,
+    },
 ];
 
 export async function seedDefaultRules(): Promise<void> {

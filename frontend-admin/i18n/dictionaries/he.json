@@ -56,8 +56,12 @@
     "crm": "CRM",
     "pipeline": "פייפליין",
     "customers": "לקוחות",
+    "orders": "הזמנות",
+    "payments": "תשלומים",
     "products": "מוצרים",
     "inventory": "מלאי",
+    "suppliers": "ספקים",
+    "purchaseOrders": "הזמנות רכש",
     "tasks": "משימות",
     "activity": "פעילות",
     "settings": "הגדרות",
@@ -120,6 +124,21 @@
       "emptyHint": "הגדר כמות מינימום לקבלת התראות כאן.",
       "min": "מינ׳",
       "viewAll": "הצג הכל"
+    },
+    "finance": {
+      "title": "סקירה פיננסית",
+      "viewOrders": "צפה בהזמנות",
+      "monthRevenue": "הכנסה (החודש)",
+      "ordersCount": "{count} הזמנות",
+      "paidInvoices": "חשבוניות ששולמו",
+      "inventoryValue": "שווי מלאי",
+      "retailValue": "קמעונאי: {amount}",
+      "outstanding": "ממתין לתשלום",
+      "overdueCount": "{count} באיחור",
+      "recentOrders": "הזמנות אחרונות",
+      "noOrders": "אין עדיין הזמנות",
+      "overdueInvoices": "חשבוניות באיחור",
+      "noOverdue": "אין חשבוניות באיחור"
     }
   },
   "leads": {
@@ -295,25 +314,85 @@
       "actions": "פעולות"
     },
     "empty": "לא נמצאו הזמנות.",
+    "emptyHint": "צור הזמנה כדי להתחיל את התהליך.",
     "itemsSuffix": "פריטים",
     "itemSuffix": "פריט",
+    "pageTitle": "הזמנות",
+    "pageSubtitle": "יצירה וניהול של הזמנות לקוחות.",
+    "new": "הזמנה חדשה",
+    "filters": {
+      "allStatuses": "כל הסטטוסים"
+    },
     "toasts": {
       "loadFailed": "טעינת ההזמנות נכשלה",
-      "updated": "סטטוס ההזמנה עודכן",
-      "updateFailed": "עדכון סטטוס ההזמנה נכשל"
+      "updated": "ההזמנה עודכנה",
+      "updateFailed": "עדכון סטטוס ההזמנה נכשל",
+      "created": "ההזמנה נוצרה",
+      "statusUpdated": "סטטוס ההזמנה עודכן",
+      "statusFailed": "עדכון הסטטוס נכשל"
+    },
+    "modal": {
+      "createTitle": "הזמנה חדשה",
+      "editTitle": "עריכת הזמנה",
+      "customer": "לקוח",
+      "selectCustomer": "בחר לקוח…",
+      "customerRequired": "יש לבחור לקוח",
+      "unknownCompany": "חברה לא ידועה",
+      "items": "פריטים",
+      "addLine": "הוסף שורה",
+      "removeLine": "הסר שורה",
+      "customLine": "שורה חופשית",
+      "itemName": "שם פריט",
+      "qty": "כמות",
+      "price": "מחיר",
+      "taxRate": "מע\"מ %",
+      "notes": "הערות",
+      "subtotal": "סה\"כ ביניים",
+      "tax": "מע\"מ",
+      "total": "סה\"כ",
+      "noItems": "יש להוסיף לפחות פריט אחד",
+      "lineInvalid": "כל שורה דורשת כמות ומחיר תקינים",
+      "saveFailed": "שמירת ההזמנה נכשלה",
+      "lockedHint": "ההזמנה כבר אינה ממתינה — לא ניתן לערוך פריטים.",
+      "availableStock": "{count} זמינים",
+      "notTracked": "המלאי לא במעקב"
+    },
+    "timelineEvents": {
+      "order_created": "ההזמנה נוצרה",
+      "order_items_updated": "הפריטים עודכנו",
+      "status_changed": "הסטטוס שונה"
     },
     "detail": {
       "titlePrefix": "הזמנה",
+      "title": "הזמנה",
+      "back": "חזרה להזמנות",
+      "loading": "טוען הזמנה…",
+      "notFound": "ההזמנה לא נמצאה",
       "company": "חברה",
+      "customer": "לקוח",
+      "openCustomer": "פתח לקוח",
       "date": "תאריך",
       "status": "סטטוס",
+      "statusHint": "שינוי סטטוס מפעיל שריון מלאי.",
       "total": "סה\"כ",
+      "subtotal": "סה\"כ ביניים",
+      "taxTotal": "מע\"מ",
+      "tax": "מע\"מ",
+      "lineTotal": "סה\"כ שורה",
       "items": "פריטים",
       "product": "מוצר",
       "qty": "כמות",
       "unitPrice": "מחיר ליחידה",
-      "subtotal": "סה\"כ ביניים",
-      "notes": "הערות"
+      "notes": "הערות",
+      "timeline": "ציר זמן",
+      "timelineEmpty": "אין עדיין אירועים",
+      "invoices": "חשבוניות",
+      "invoicesEmpty": "אין חשבוניות מקושרות",
+      "fulfilment": "אספקה",
+      "shipmentPlaceholder": "מעקב משלוח — בקרוב",
+      "paymentPlaceholder": "סטטוס תשלום — בקרוב",
+      "paid": "שולם",
+      "recordPayment": "רישום תשלום"
     }
   },
   "invoices": {
@@ -648,8 +727,11 @@
       "description": "תיאור",
       "unit": "יחידה",
       "price": "מחיר",
+      "costPrice": "מחיר עלות",
       "currency": "מטבע",
       "taxRate": "מע״מ %",
+      "supplier": "ספק",
+      "barcode": "ברקוד",
       "isActive": "פעיל",
       "stockTracking": "מעקב מלאי"
     },
@@ -676,7 +758,9 @@
       "editTitle": "עריכה: {name}",
       "nameSkuRequired": "שם ומק״ט הם שדות חובה",
       "priceInvalid": "המחיר חייב להיות מספר אי-שלילי",
+      "costInvalid": "מחיר העלות חייב להיות מספר אי-שלילי",
       "taxInvalid": "מע״מ חייב להיות בין 0 ל-100",
+      "marginHint": "רווחיות: {pct}%",
       "saveFailed": "שמירת המוצר נכשלה"
     },
     "toasts": {
@@ -694,6 +778,7 @@
     "emptyHint": "שורות מלאי נוצרות אוטומטית בתנועה הראשונה.",
     "adjust": "תנועה",
     "lowStockCount": "{count} נמוכים",
+    "lowChip": "נמוך",
     "filters": {
       "all": "הכל",
       "low": "מלאי נמוך בלבד"
@@ -704,9 +789,26 @@
       "onHand": "במלאי",
       "reserved": "משוריין",
       "available": "זמין",
+      "level": "רמה",
       "minimum": "מינ׳",
       "lastMovement": "תנועה אחרונה",
       "actions": "פעולות"
+    },
+    "history": {
+      "short": "היסטוריה",
+      "title": "תנועות: {name}",
+      "loading": "טוען תנועות…",
+      "empty": "אין תנועות רשומות",
+      "date": "תאריך",
+      "type": "סוג",
+      "quantity": "כמות",
+      "reason": "סיבה"
+    },
+    "reconciliation": {
+      "run": "התאמת מלאי",
+      "clean": "המלאי מסונכרן",
+      "fixed": "תוקנו {count} אי-התאמות",
+      "failed": "התאמת המלאי נכשלה"
     },
     "types": {
       "in": "כניסה",
@@ -732,5 +834,228 @@
       "loadFailed": "טעינת המלאי נכשלה",
       "created": "התנועה נרשמה"
     }
+  },
+  "payments": {
+    "pageTitle": "תשלומים",
+    "pageSubtitle": "מעקב אחר תשלומים שנרשמו כנגד חשבוניות.",
+    "record": "רישום תשלום",
+    "void": "ביטול",
+    "confirmVoid": "לבטל את התשלום? יתרת החשבונית תחושב מחדש.",
+    "empty": "אין עדיין תשלומים",
+    "emptyHint": "רשום תשלום כנגד חשבונית שהונפקה.",
+    "table": {
+      "date": "תאריך",
+      "invoice": "חשבונית",
+      "company": "חברה",
+      "method": "אמצעי",
+      "amount": "סכום",
+      "status": "סטטוס",
+      "actions": "פעולות"
+    },
+    "status": {
+      "unpaid": "לא שולם",
+      "partial": "חלקי",
+      "paid": "שולם",
+      "overdue": "באיחור"
+    },
+    "recordStatus": {
+      "posted": "נרשם",
+      "voided": "בוטל"
+    },
+    "methods": {
+      "cash": "מזומן",
+      "bank_transfer": "העברה בנקאית",
+      "credit_card": "כרטיס אשראי",
+      "check": "צ׳ק",
+      "other": "אחר"
+    },
+    "modal": {
+      "title": "רישום תשלום",
+      "post": "רשום תשלום",
+      "invoice": "חשבונית",
+      "selectInvoice": "בחר חשבונית…",
+      "invoiceRequired": "יש לבחור חשבונית",
+      "outstanding": "יתרה",
+      "outstandingHint": "יתרה: {amount}",
+      "amount": "סכום",
+      "amountInvalid": "הסכום חייב להיות מספר חיובי",
+      "method": "אמצעי תשלום",
+      "externalRef": "אסמכתא חיצונית",
+      "externalRefPlaceholder": "מזהה העברה, מספר צ׳ק…",
+      "notes": "הערות",
+      "failed": "רישום התשלום נכשל"
+    },
+    "toasts": {
+      "loadFailed": "טעינת התשלומים נכשלה",
+      "voided": "התשלום בוטל",
+      "voidFailed": "ביטול התשלום נכשל"
+    }
+  },
+  "shipments": {
+    "title": "משלוחים",
+    "new": "משלוח חדש",
+    "empty": "אין עדיין משלוחים",
+    "courier": "שליח",
+    "tracking": "מעקב",
+    "shippedAt": "נשלח",
+    "deliveredAt": "נמסר",
+    "status": {
+      "pending": "ממתין",
+      "shipped": "נשלח",
+      "in_transit": "בדרך",
+      "delivered": "נמסר",
+      "cancelled": "בוטל"
+    },
+    "modal": {
+      "title": "משלוח חדש",
+      "courierPlaceholder": "DHL, שליח מקומי…"
+    },
+    "toasts": {
+      "created": "המשלוח נוצר",
+      "createFailed": "יצירת המשלוח נכשלה",
+      "updated": "המשלוח עודכן",
+      "updateFailed": "עדכון המשלוח נכשל"
+    }
+  },
+  "suppliers": {
+    "pageTitle": "ספקים",
+    "pageSubtitle": "ניהול ספקים והקטלוג שלהם.",
+    "new": "ספק חדש",
+    "searchPlaceholder": "חיפוש ספקים…",
+    "empty": "אין עדיין ספקים",
+    "emptyHint": "הוסף ספק כדי להתחיל ליצור הזמנות רכש.",
+    "active": "פעיל",
+    "inactive": "לא פעיל",
+    "fields": {
+      "name": "שם",
+      "contactName": "איש קשר",
+      "email": "אימייל",
+      "phone": "טלפון",
+      "city": "עיר",
+      "address": "כתובת",
+      "vatNumber": "מספר עוסק"
+    },
+    "table": {
+      "name": "ספק",
+      "contact": "איש קשר",
+      "phone": "טלפון",
+      "status": "סטטוס",
+      "actions": "פעולות"
+    },
+    "modal": {
+      "createTitle": "ספק חדש",
+      "editTitle": "עריכת ספק",
+      "nameRequired": "שם הוא שדה חובה",
+      "failed": "שמירת הספק נכשלה"
+    },
+    "detail": {
+      "back": "חזרה לספקים",
+      "loading": "טוען ספק…",
+      "notFound": "הספק לא נמצא",
+      "info": "פרטים",
+      "notes": "הערות",
+      "notePlaceholder": "הוסף הערה…",
+      "notesEmpty": "אין עדיין הערות",
+      "products": "מוצרים מקושרים",
+      "productsEmpty": "אין מוצרים מקושרים לספק זה",
+      "product": "מוצר",
+      "sku": "מק״ט",
+      "price": "מחיר",
+      "cost": "עלות",
+      "status": "סטטוס"
+    },
+    "toasts": {
+      "loadFailed": "טעינת הספקים נכשלה",
+      "created": "הספק נוצר",
+      "updated": "הספק עודכן",
+      "updateFailed": "עדכון הספק נכשל",
+      "noteAdded": "ההערה נוספה"
+    }
+  },
+  "purchaseOrders": {
+    "pageTitle": "הזמנות רכש",
+    "pageSubtitle": "חידוש מלאי מספקים.",
+    "new": "הזמנת רכש חדשה",
+    "empty": "אין עדיין הזמנות רכש",
+    "emptyHint": "צור הזמנת רכש כדי לחדש מלאי.",
+    "filters": {
+      "allStatuses": "כל הסטטוסים"
+    },
+    "status": {
+      "draft": "טיוטה",
+      "ordered": "הוזמן",
+      "partially_received": "התקבל חלקית",
+      "received": "התקבל",
+      "cancelled": "בוטל"
+    },
+    "table": {
+      "poNumber": "מס׳ הזמנה",
+      "supplier": "ספק",
+      "items": "פריטים",
+      "total": "סה\"כ",
+      "status": "סטטוס",
+      "created": "נוצר",
+      "actions": "פעולות"
+    },
+    "modal": {
+      "title": "הזמנת רכש חדשה",
+      "supplier": "ספק",
+      "selectSupplier": "בחר ספק…",
+      "supplierRequired": "יש לבחור ספק",
+      "items": "פריטים",
+      "addLine": "הוסף שורה",
+      "removeLine": "הסר שורה",
+      "selectProduct": "בחר מוצר…",
+      "qty": "כמות",
+      "unitCost": "עלות ליחידה",
+      "notes": "הערות",
+      "total": "סה\"כ",
+      "noItems": "יש להוסיף לפחות פריט אחד",
+      "lineInvalid": "כל שורה דורשת כמות ועלות תקינות",
+      "failed": "יצירת הזמנת הרכש נכשלה"
+    },
+    "detail": {
+      "title": "הזמנת רכש",
+      "back": "חזרה להזמנות רכש",
+      "loading": "טוען הזמנת רכש…",
+      "notFound": "הזמנת הרכש לא נמצאה",
+      "items": "פריטים",
+      "product": "מוצר",
+      "ordered": "הוזמן",
+      "received": "התקבל",
+      "outstanding": "יתרה",
+      "unitCost": "עלות ליחידה",
+      "receiveNow": "קבלה",
+      "receiveStock": "קבל מלאי",
+      "nothingToReceive": "הזן כמויות לקבלה",
+      "complete": "הושלם",
+      "markOrdered": "סמן כהוזמן",
+      "cancel": "בטל הזמנה",
+      "summary": "סיכום",
+      "supplier": "ספק",
+      "totalCost": "עלות כוללת",
+      "created": "נוצר",
+      "receivedAt": "התקבל",
+      "timeline": "ציר זמן",
+      "timelineEmpty": "אין עדיין אירועים"
+    },
+    "toasts": {
+      "loadFailed": "טעינת הזמנות הרכש נכשלה",
+      "created": "הזמנת הרכש נוצרה",
+      "updated": "הזמנת הרכש עודכנה",
+      "updateFailed": "עדכון הזמנת הרכש נכשל",
+      "received": "המלאי התקבל",
+      "receiveFailed": "קבלת המלאי נכשלה"
+    }
+  },
+  "profitability": {
+    "title": "רווחיות",
+    "revenue": "הכנסות",
+    "cogs": "עלות מכר",
+    "grossProfit": "רווח גולמי",
+    "margin": "מרווח",
+    "topProducts": "מוצרים מובילים ברווח",
+    "topCustomers": "לקוחות מובילים ברווח",
+    "noData": "אין עדיין נתונים"
   }
 }
