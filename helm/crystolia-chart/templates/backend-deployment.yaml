@@ -6,6 +6,7 @@ metadata:
     app: backend
 spec:
   replicas: {{ .Values.backend.replicaCount }}
+  revisionHistoryLimit: {{ .Values.backend.revisionHistoryLimit | default 5 }}
   selector:
     matchLabels:
       app: backend
@@ -50,6 +51,12 @@ spec:
               value: "4000"
             - name: NODE_ENV
               value: "production"
+            # Scheduler runs on exactly one pod. With >1 replica, set
+            # backend.env.ENABLE_SCHEDULER="false" on the chart and run a
+            # single dedicated scheduler replica, OR leave default until
+            # leader-election lands (see docs/deployment/README.md).
+            - name: ENABLE_SCHEDULER
+              value: "{{ .Values.backend.env.ENABLE_SCHEDULER | default "true" }}"
             # Core
             - name: MONGO_URI
               valueFrom:

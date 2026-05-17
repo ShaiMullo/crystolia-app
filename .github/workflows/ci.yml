@@ -1,0 +1,137 @@
+# =============================================================================
+# CI Quality Gate
+# =============================================================================
+# Runs on every PR and on push to main. Verifies the code compiles, lints
+# and builds BEFORE any image is built or shipped. The staging pipeline
+# (staging.yml) depends on this workflow's checks via branch protection
+# and an explicit `ci-passed` gate job.
+#
+# No AWS access, no secrets — pure verification.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same ref to save runner minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: 🔍 Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      admin: ${{ steps.filter.outputs.admin }}
+      client: ${{ steps.filter.outputs.client }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - '.github/workflows/ci.yml'
+            admin:
+              - 'frontend-admin/**'
+              - '.github/workflows/ci.yml'
+            client:
+              - 'frontend-client/**'
+              - '.github/workflows/ci.yml'
+
+  backend:
+    name: 🧩 Backend — typecheck + lint
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+      - name: Install (deterministic)
+        run: npm ci
+      - name: TypeScript check
+        run: npm run typecheck
+      # Backend lint carries pre-Phase-9 `no-explicit-any` debt — advisory
+      # until cleared. typecheck above is the hard gate. See Phase 9 report.
+      - name: Lint (advisory)
+        run: npm run lint
+        continue-on-error: true
+
+  frontend-admin:
+    name: 🧩 Frontend Admin — typecheck + lint + build
+    needs: changes
+    if: ${{ needs.changes.outputs.admin == 'true' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend-admin
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend-admin/package-lock.json
+      - name: Install (deterministic)
+        run: npm ci
+      - name: TypeScript check
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build
+
+  frontend-client:
+    name: 🧩 Frontend Client — lint + build
+    needs: changes
+    if: ${{ needs.changes.outputs.client == 'true' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend-client
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend-client/package-lock.json
+      - name: Install (deterministic)
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build
+
+  # Single required status check — green when every triggered job passed
+  # (skipped jobs count as success, so unchanged areas don't block).
+  ci-passed:
+    name: ✅ CI Passed
+    needs: [backend, frontend-admin, frontend-client]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify no upstream failures
+        run: |
+          if [ "${{ contains(needs.*.result, 'failure') }}" == "true" ] || \
+             [ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]; then
+            echo "❌ One or more CI checks failed."
+            exit 1
+          fi
+          echo "✅ All CI checks passed."

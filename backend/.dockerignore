@@ -1,7 +1,16 @@
+# Build context exclusions — keep the image build deterministic and lean.
+node_modules
 dist
-npm-debug.log
+coverage
+npm-debug.log*
+yarn-error.log*
 .git
 .gitignore
 *.md
-.env*
-.env.example
+.env
+.env.*
+!.env.example
+.vscode
+.idea
+.DS_Store
+*.swp

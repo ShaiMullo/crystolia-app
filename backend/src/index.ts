@@ -216,9 +216,15 @@ async function startServer(): Promise<void> {
         // Seed default automation rules (idempotent — safe to run every boot)
         await seedDefaultRules();
 
-        // Seed scheduled jobs and start the in-process scheduler
+        // Seed scheduled jobs. The in-process scheduler is opt-out via
+        // ENABLE_SCHEDULER=false — set it on extra replicas so jobs run on
+        // exactly one pod (the scheduler is single-process by design).
         await seedScheduledJobs();
-        startScheduler();
+        if (process.env.ENABLE_SCHEDULER !== 'false') {
+            startScheduler();
+        } else {
+            console.log('⏰ Scheduler disabled (ENABLE_SCHEDULER=false)');
+        }
 
         // Start HTTP server
         server = app.listen(config.port, () => {

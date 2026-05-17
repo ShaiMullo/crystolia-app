@@ -6,6 +6,7 @@ metadata:
     app: frontend-admin
 spec:
   replicas: {{ .Values.frontendAdmin.replicaCount }}
+  revisionHistoryLimit: {{ .Values.frontendAdmin.revisionHistoryLimit | default 5 }}
   selector:
     matchLabels:
       app: frontend-admin

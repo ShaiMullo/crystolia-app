@@ -12,6 +12,13 @@ frontend:
     type: ClusterIP
     port: 3000
   replicaCount: 2
+  revisionHistoryLimit: 5
+  # Opt-in HPA — requires metrics-server. Disabled by default.
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
   resources:
     requests:
       cpu: "100m"
@@ -51,6 +58,13 @@ backend:
     type: ClusterIP
     port: 4000
   replicaCount: 2
+  revisionHistoryLimit: 5
+  # Opt-in HPA — requires metrics-server. Disabled by default.
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
   env:
     # MONGO_URI injected via K8s Secret (crystolia-backend-secret)
     FRONTEND_URL: "https://crystolia.com"
@@ -58,6 +72,9 @@ backend:
     # JWT_SECRET injected via K8s Secret (crystolia-backend-secret)
     # GOOGLE_CLIENT_ID injected via K8s Secret
     # GOOGLE_CLIENT_SECRET injected via K8s Secret
+    # In-process scheduler. Keep "true" for single-replica; with HPA/>1
+    # replica, see docs/deployment/README.md (scheduler section).
+    ENABLE_SCHEDULER: "true"
   resources:
     requests:
       cpu: "100m"
