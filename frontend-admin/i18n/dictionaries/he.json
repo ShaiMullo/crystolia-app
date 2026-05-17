@@ -56,6 +56,8 @@
     "crm": "CRM",
     "pipeline": "פייפליין",
     "customers": "לקוחות",
+    "products": "מוצרים",
+    "inventory": "מלאי",
     "tasks": "משימות",
     "activity": "פעילות",
     "settings": "הגדרות",
@@ -111,6 +113,13 @@
     },
     "myTasks": {
       "title": "המשימות שלי"
+    },
+    "lowStock": {
+      "title": "מלאי נמוך",
+      "empty": "כל המוצרים מעל הסף",
+      "emptyHint": "הגדר כמות מינימום לקבלת התראות כאן.",
+      "min": "מינ׳",
+      "viewAll": "הצג הכל"
     }
   },
   "leads": {
@@ -621,5 +630,107 @@
     "loading": "טוען פעילות…",
     "empty": "עדיין אין פעילות",
     "allEntities": "כל הישויות"
+  },
+  "products": {
+    "pageTitle": "מוצרים",
+    "pageSubtitle": "קטלוג מוצרים למכירה.",
+    "new": "מוצר חדש",
+    "searchPlaceholder": "חיפוש לפי שם, מק״ט, קטגוריה…",
+    "empty": "אין עדיין מוצרים",
+    "emptyHint": "צור מוצר ראשון כדי לעקוב אחרי מלאי ותמחור.",
+    "active": "פעיל",
+    "inactive": "לא פעיל",
+    "confirmDelete": "למחוק את המוצר \"{name}\"?",
+    "fields": {
+      "name": "שם",
+      "sku": "מק״ט",
+      "category": "קטגוריה",
+      "description": "תיאור",
+      "unit": "יחידה",
+      "price": "מחיר",
+      "currency": "מטבע",
+      "taxRate": "מע״מ %",
+      "isActive": "פעיל",
+      "stockTracking": "מעקב מלאי"
+    },
+    "units": {
+      "unit": "יחידה",
+      "box": "ארגז",
+      "liter": "ליטר",
+      "kg": "ק״ג",
+      "gram": "גרם",
+      "package": "חבילה"
+    },
+    "table": {
+      "name": "מוצר",
+      "sku": "מק״ט",
+      "category": "קטגוריה",
+      "price": "מחיר",
+      "tax": "מע״מ",
+      "tracking": "מעקב",
+      "status": "סטטוס",
+      "actions": "פעולות"
+    },
+    "modal": {
+      "createTitle": "מוצר חדש",
+      "editTitle": "עריכה: {name}",
+      "nameSkuRequired": "שם ומק״ט הם שדות חובה",
+      "priceInvalid": "המחיר חייב להיות מספר אי-שלילי",
+      "taxInvalid": "מע״מ חייב להיות בין 0 ל-100",
+      "saveFailed": "שמירת המוצר נכשלה"
+    },
+    "toasts": {
+      "loadFailed": "טעינת המוצרים נכשלה",
+      "created": "המוצר נוצר",
+      "updated": "המוצר עודכן",
+      "deleted": "המוצר נמחק",
+      "deleteFailed": "מחיקת המוצר נכשלה"
+    }
+  },
+  "inventory": {
+    "pageTitle": "מלאי",
+    "pageSubtitle": "רמות מלאי, שריונים ותנועות.",
+    "empty": "אין נתוני מלאי",
+    "emptyHint": "שורות מלאי נוצרות אוטומטית בתנועה הראשונה.",
+    "adjust": "תנועה",
+    "lowStockCount": "{count} נמוכים",
+    "filters": {
+      "all": "הכל",
+      "low": "מלאי נמוך בלבד"
+    },
+    "table": {
+      "product": "מוצר",
+      "location": "מיקום",
+      "onHand": "במלאי",
+      "reserved": "משוריין",
+      "available": "זמין",
+      "minimum": "מינ׳",
+      "lastMovement": "תנועה אחרונה",
+      "actions": "פעולות"
+    },
+    "types": {
+      "in": "כניסה",
+      "out": "יציאה",
+      "adjustment": "הגדרת כמות",
+      "reserved": "שריון",
+      "released": "שחרור"
+    },
+    "modal": {
+      "title": "תנועה: {name}",
+      "type": "סוג",
+      "quantity": "כמות",
+      "onHand": "במלאי",
+      "reserved": "משוריין",
+      "available": "זמין",
+      "reason": "סיבה",
+      "reasonPlaceholder": "מילוי מלאי, ספירה, העברה…",
+      "adjustmentHint": "קובע את הכמות החדשה במלאי במדויק.",
+      "quantityInvalid": "הכמות חייבת להיות מספר אי-שלילי",
+      "failed": "רישום התנועה נכשל"
+    },
+    "toasts": {
+      "loadFailed": "טעינת המלאי נכשלה",
+      "created": "התנועה נרשמה"
+    }
   }
 }

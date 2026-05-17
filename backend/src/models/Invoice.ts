@@ -19,6 +19,13 @@ export interface IInvoice extends Document {
     notes?: string;
     pdfUrl?: string;           // Set when issued via Green Invoice
     greenInvoiceDocId?: string; // Green Invoice document ID
+
+    // Provider-agnostic metadata (additive — Green Invoice remains the only
+    // implemented provider; Rivhit will plug in here without schema migrations).
+    provider?: 'green_invoice' | 'rivhit' | 'manual';
+    providerDocId?: string;
+    externalRef?: string;
+
     createdAt: Date;
     updatedAt: Date;
 }
@@ -77,6 +84,12 @@ const InvoiceSchema = new Schema<IInvoice>(
             type: String,
             trim: true,
         },
+        provider: {
+            type: String,
+            enum: ['green_invoice', 'rivhit', 'manual'],
+        },
+        providerDocId: { type: String, trim: true, index: true },
+        externalRef: { type: String, trim: true },
     },
     {
         timestamps: true,

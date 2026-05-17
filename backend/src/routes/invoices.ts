@@ -181,6 +181,8 @@ router.post('/:id/issue', authorize('admin', 'agent'), async (req: Request, res:
 
         invoice.pdfUrl = pdfUrl;
         invoice.greenInvoiceDocId = greenInvoiceDocId;
+        invoice.provider = 'green_invoice';
+        invoice.providerDocId = greenInvoiceDocId;
         invoice.status = 'issued';
         invoice.issuedAt = issueDate;
         await invoice.save();

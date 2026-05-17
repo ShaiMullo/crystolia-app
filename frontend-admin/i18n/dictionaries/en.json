@@ -56,6 +56,8 @@
     "crm": "CRM",
     "pipeline": "Pipeline",
     "customers": "Customers",
+    "products": "Products",
+    "inventory": "Inventory",
     "tasks": "Tasks",
     "activity": "Activity",
     "settings": "Settings",
@@ -111,6 +113,13 @@
     },
     "myTasks": {
       "title": "My tasks"
+    },
+    "lowStock": {
+      "title": "Low stock",
+      "empty": "All stock above threshold",
+      "emptyHint": "Set minimum thresholds on inventory rows to get alerts here.",
+      "min": "min",
+      "viewAll": "View all"
     }
   },
   "leads": {
@@ -621,5 +630,107 @@
     "loading": "Loading activity…",
     "empty": "No activity recorded yet",
     "allEntities": "All entities"
+  },
+  "products": {
+    "pageTitle": "Products",
+    "pageSubtitle": "Catalog of sellable items.",
+    "new": "New product",
+    "searchPlaceholder": "Search name, SKU, category…",
+    "empty": "No products yet",
+    "emptyHint": "Create your first product to start tracking inventory and pricing.",
+    "active": "Active",
+    "inactive": "Inactive",
+    "confirmDelete": "Delete product \"{name}\"?",
+    "fields": {
+      "name": "Name",
+      "sku": "SKU",
+      "category": "Category",
+      "description": "Description",
+      "unit": "Unit",
+      "price": "Price",
+      "currency": "Currency",
+      "taxRate": "Tax %",
+      "isActive": "Active",
+      "stockTracking": "Track stock"
+    },
+    "units": {
+      "unit": "unit",
+      "box": "box",
+      "liter": "liter",
+      "kg": "kg",
+      "gram": "g",
+      "package": "package"
+    },
+    "table": {
+      "name": "Product",
+      "sku": "SKU",
+      "category": "Category",
+      "price": "Price",
+      "tax": "Tax",
+      "tracking": "Tracked",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "modal": {
+      "createTitle": "New product",
+      "editTitle": "Edit: {name}",
+      "nameSkuRequired": "Name and SKU are required",
+      "priceInvalid": "Price must be a non-negative number",
+      "taxInvalid": "Tax rate must be between 0 and 100",
+      "saveFailed": "Failed to save product"
+    },
+    "toasts": {
+      "loadFailed": "Failed to load products",
+      "created": "Product created",
+      "updated": "Product updated",
+      "deleted": "Product deleted",
+      "deleteFailed": "Failed to delete product"
+    }
+  },
+  "inventory": {
+    "pageTitle": "Inventory",
+    "pageSubtitle": "Stock levels, reservations, and movements.",
+    "empty": "No stock data",
+    "emptyHint": "Stock rows are created automatically with the first movement.",
+    "adjust": "Adjust",
+    "lowStockCount": "{count} low",
+    "filters": {
+      "all": "All",
+      "low": "Low stock only"
+    },
+    "table": {
+      "product": "Product",
+      "location": "Location",
+      "onHand": "On hand",
+      "reserved": "Reserved",
+      "available": "Available",
+      "minimum": "Min",
+      "lastMovement": "Last movement",
+      "actions": "Actions"
+    },
+    "types": {
+      "in": "Stock in",
+      "out": "Stock out",
+      "adjustment": "Set quantity",
+      "reserved": "Reserve",
+      "released": "Release"
+    },
+    "modal": {
+      "title": "Movement: {name}",
+      "type": "Type",
+      "quantity": "Quantity",
+      "onHand": "On hand",
+      "reserved": "Reserved",
+      "available": "Available",
+      "reason": "Reason",
+      "reasonPlaceholder": "Restock, count, transfer…",
+      "adjustmentHint": "Sets the new on-hand quantity exactly.",
+      "quantityInvalid": "Quantity must be a non-negative number",
+      "failed": "Failed to record movement"
+    },
+    "toasts": {
+      "loadFailed": "Failed to load inventory",
+      "created": "Movement recorded"
+    }
   }
 }

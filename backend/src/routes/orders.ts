@@ -10,6 +10,7 @@ import User from '../models/User.js'; // Needed if we want to double-check user 
 import Settings from '../models/Settings.js';
 import { AppError } from '../utils/validation.js';
 import { logAudit } from '../services/auditService.js';
+import { reserveForOrder, releaseForOrder, shipForOrder } from '../services/inventoryService.js';
 
 const router = Router();
 
@@ -137,8 +138,24 @@ router.patch('/:id', authorize('admin', 'agent'), async (req: Request, res: Resp
             return next(new AppError('Order not found', 404));
         }
 
+        const previousStatus = order.status;
         order.status = status;
         await order.save();
+
+        // ━━━ Inventory side-effects (best-effort, never block response) ━━━
+        const orderItems = (order.items || []).map((it) => ({
+            productId: it.productId?.toString(),
+            quantity: it.quantity,
+        }));
+        const actorId = req.user?._id?.toString();
+
+        if (status === 'approved' && previousStatus !== 'approved') {
+            await reserveForOrder(order._id, orderItems, actorId);
+        } else if (status === 'cancelled' && previousStatus === 'approved') {
+            await releaseForOrder(order._id, orderItems, actorId);
+        } else if (status === 'shipped' && previousStatus !== 'shipped' && previousStatus !== 'completed') {
+            await shipForOrder(order._id, orderItems, actorId);
+        }
 
         await logAudit({
             action: 'UPDATE',

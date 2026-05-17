@@ -19,6 +19,8 @@ import crmCustomersRouter from './routes/crmCustomers.js';
 import crmTasksRouter from './routes/crmTasks.js';
 import crmNotificationsRouter from './routes/crmNotifications.js';
 import crmAnalyticsRouter from './routes/crmAnalytics.js';
+import crmProductsRouter from './routes/crmProducts.js';
+import crmInventoryRouter from './routes/crmInventory.js';
 
 import authRouter from './routes/auth.js';
 import usersRouter from './routes/users.js';
@@ -135,6 +137,8 @@ app.use('/api/crm/customers', crmCustomersRouter);
 app.use('/api/crm/tasks', crmTasksRouter);
 app.use('/api/crm/notifications', crmNotificationsRouter);
 app.use('/api/crm/analytics', crmAnalyticsRouter);
+app.use('/api/crm/products', crmProductsRouter);
+app.use('/api/crm/inventory', crmInventoryRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/customers', customersRouter);

@@ -109,6 +109,62 @@ export interface Order {
     createdBy?: { _id: string; name?: string; email: string } | string;
 }
 
+export type ProductUnit = 'unit' | 'box' | 'liter' | 'kg' | 'gram' | 'package';
+
+export interface Product {
+    _id: string;
+    name: string;
+    sku: string;
+    category?: string;
+    description?: string;
+    unit: ProductUnit;
+    price: number;
+    currency: string;
+    taxRate: number;
+    isActive: boolean;
+    stockTrackingEnabled: boolean;
+    tags: string[];
+    createdAt: string;
+    updatedAt: string;
+}
+
+export type InventoryMovementType = 'in' | 'out' | 'adjustment' | 'reserved' | 'released';
+
+export interface InventoryProductRef {
+    _id: string;
+    name: string;
+    sku: string;
+    unit?: ProductUnit;
+    category?: string;
+    isActive?: boolean;
+    stockTrackingEnabled?: boolean;
+}
+
+export interface InventoryRow {
+    _id: string;
+    product: InventoryProductRef | string;
+    location: string;
+    quantity: number;
+    reservedQuantity: number;
+    minimumQuantity: number;
+    availableQuantity: number;
+    isLowStock: boolean;
+    lastMovementAt?: string;
+    updatedAt: string;
+}
+
+export interface InventoryMovementRecord {
+    _id: string;
+    product: InventoryProductRef | string;
+    location: string;
+    type: InventoryMovementType;
+    quantity: number;
+    reason?: string;
+    relatedOrder?: string;
+    createdBy?: { _id: string; name?: string; email: string } | string;
+    createdAt: string;
+}
+
 export type TaskStatus = 'open' | 'in_progress' | 'done' | 'cancelled';
 export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent';
 export type TaskRelatedType = 'Lead' | 'Customer' | 'Invoice' | 'Order' | 'None';

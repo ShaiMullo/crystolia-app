@@ -12,6 +12,7 @@ import UserActionModal from "@/components/users/UserActionModal";
 import { KpiGrid } from "@/components/dashboard/KpiGrid";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
+import { LowStockWidget } from "@/components/dashboard/LowStockWidget";
 import { TaskList } from "@/components/tasks/TaskList";
 import { LeadsTab } from "@/components/dashboard/LeadsTab";
 import { CustomersTab } from "@/components/dashboard/CustomersTab";
@@ -370,7 +371,10 @@ export default function AdminDashboard() {
                         </div>
                     </Card>
                 </div>
-                <div className="lg:col-span-2"><RecentActivity logs={auditLogs} /></div>
+                <div className="lg:col-span-2 space-y-4">
+                    <RecentActivity logs={auditLogs} />
+                    <LowStockWidget />
+                </div>
             </div>
 
             <div className="space-y-4">
