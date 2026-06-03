@@ -8,6 +8,7 @@ import Hero from "@/components/Hero";
 import Features from "@/components/Features";
 import Products from "@/components/Products";
 import About from "@/components/About";
+import Brand from "@/components/Brand";
 import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
 import StructuredData from "@/components/StructuredData";
@@ -90,6 +91,7 @@ export default async function LandingPage({ params }: PageProps) {
         <Features dict={dict} locale={locale} />
         <Products dict={dict} locale={locale} />
         <About dict={dict} locale={locale} />
+        <Brand dict={dict} locale={locale} />
         <Contact dict={dict} locale={locale} />
       </main>
       <Footer dict={dict} locale={locale} />

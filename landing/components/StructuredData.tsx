@@ -2,7 +2,12 @@ import { SITE_URL, BRAND, LOGO, OG_IMAGE } from "@/i18n/site";
 import type { Locale } from "@/i18n/config";
 
 interface Dict {
-  seo: { description: string };
+  seo: {
+    description: string;
+    keywords: string;
+    alternateName: string;
+    productAlt: { sunflower: string; canola: string };
+  };
   products: {
     items: Array<{ title: string; description: string }>;
   };
@@ -30,10 +35,12 @@ export default function StructuredData({
     "@type": "Organization",
     "@id": `${SITE_URL}/#organization`,
     name: BRAND,
+    alternateName: dict.seo.alternateName,
     url: SITE_URL,
     logo: logoUrl,
     image: imageUrl,
     description: dict.seo.description,
+    keywords: dict.seo.keywords,
     contactPoint: {
       "@type": "ContactPoint",
       telephone: "+972546970555",
@@ -58,7 +65,8 @@ export default function StructuredData({
     "@context": "https://schema.org",
     "@type": "Product",
     name: "Crystolia Sunflower Oil",
-    brand: { "@type": "Brand", name: BRAND },
+    alternateName: dict.seo.productAlt.sunflower,
+    brand: { "@type": "Brand", name: BRAND, alternateName: dict.seo.alternateName },
     category: "Cooking Oil",
     image: `${SITE_URL}/bottle-5l.png`,
     description: dict.products.items?.[0]?.description ?? dict.seo.description,
@@ -68,7 +76,8 @@ export default function StructuredData({
     "@context": "https://schema.org",
     "@type": "Product",
     name: "Crystolia Canola Oil",
-    brand: { "@type": "Brand", name: BRAND },
+    alternateName: dict.seo.productAlt.canola,
+    brand: { "@type": "Brand", name: BRAND, alternateName: dict.seo.alternateName },
     category: "Cooking Oil",
     image: `${SITE_URL}/bottle-10l.png`,
     description: dict.products.items?.[1]?.description ?? dict.seo.description,
