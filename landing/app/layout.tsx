@@ -1,14 +1,34 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import { SITE_URL, BRAND } from "@/i18n/site";
 
 export const metadata: Metadata = {
-  title: "Crystolia – Premium Sunflower Oil",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "Crystolia | Quality Canola and Sunflower Cooking Oils",
+    template: `%s | ${BRAND}`,
+  },
   description:
-    "Import and distribution of premium quality sunflower oil. Quality without compromise.",
+    "Crystolia provides quality canola and sunflower cooking oils for households, restaurants, catering businesses and retailers.",
+  applicationName: BRAND,
   icons: {
-    icon: "/crystolia-logo.png",
-    shortcut: "/crystolia-logo.png",
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/crystolia-logo.png", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
     apple: "/crystolia-logo.png",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
   },
 };
 

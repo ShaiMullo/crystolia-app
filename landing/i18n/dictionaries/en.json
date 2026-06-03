@@ -1,6 +1,12 @@
 {
+  "seo": {
+    "title": "Crystolia | Quality Canola and Sunflower Cooking Oils",
+    "description": "Crystolia provides quality canola and sunflower cooking oils for households, restaurants, catering businesses and retailers.",
+    "keywords": "Crystolia, Crystolia oil, Crystolia canola oil, Crystolia sunflower oil, canola oil, sunflower oil, quality cooking oil, food oil brand, cooking oil for restaurants, catering oil, reliable oil supply",
+    "ogAlt": "Crystolia canola and sunflower cooking oils"
+  },
   "welcomeTitle": "Welcome to Crystolia",
-  "welcomeSubtitle": "High-quality sunflower oil import and distribution — fast and reliable",
+  "welcomeSubtitle": "High-quality canola and sunflower oil import and distribution — fast and reliable",
   "nav": {
     "home": "Home",
     "products": "Products",
@@ -9,9 +15,9 @@
     "contact": "Contact"
   },
   "hero": {
-    "title": "Premium Sunflower Oil",
-    "subtitle": "Premium Quality",
-    "description": "Import and distribution of premium quality sunflower oil. Quality without compromise.",
+    "title": "Quality Canola & Sunflower Oils",
+    "subtitle": "Quality Cooking Oils",
+    "description": "Crystolia supplies quality canola and sunflower cooking oils for households, restaurants, catering businesses and retailers.",
     "whatsapp": "Message on WhatsApp",
     "whatsappMessage": "Hi, I'd like to get details and a quote for sunflower / canola oil.",
     "contactNow": "Contact Now",
@@ -81,10 +87,11 @@
   },
   "about": {
     "title": "About Crystolia",
-    "imageCaption": "Premium Quality",
+    "imageCaption": "Quality Cooking Oils",
     "content": [
-      "Crystolia specializes in importing and distributing premium quality sunflower oil. We are committed to providing you with the best product at a fair price.",
-      "Our products undergo rigorous testing to ensure excellent quality. We are proud to be your partner for the perfect kitchen."
+      "Crystolia is a food oil brand focused on canola oil and sunflower oil for households, restaurants, catering businesses and retailers.",
+      "We import and distribute quality canola and sunflower cooking oils, working directly with the source to provide a consistent product at a fair price for retailers, restaurants, catering businesses and private customers.",
+      "Quality control is applied across the supply chain, from source to customer. That is our commitment: consistent quality, reliable supply and dependable service."
     ]
   },
   "contact": {
@@ -107,7 +114,7 @@
   },
   "footer": {
     "brand": "Crystolia",
-    "tagline": "Premium Sunflower Oil",
+    "tagline": "Quality Canola & Sunflower Oils",
     "rights": "All rights reserved",
     "developerCredit": "All rights reserved to Shai Mullokandov"
   }
