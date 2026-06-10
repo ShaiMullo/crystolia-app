@@ -1,23 +1,28 @@
-"use client";
-
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import type { Metadata } from "next";
+import { SITE_URL } from "@/i18n/site";
 import { i18n } from "@/i18n/config";
+import RootRedirect from "@/components/RootRedirect";
+
+// The root "/" is a language gateway: it client-redirects visitors to
+// their locale, and gives crawlers a canonical URL, hreflang alternates
+// and static links to every language version.
+export const metadata: Metadata = {
+  title: "Crystolia | Quality Canola and Sunflower Cooking Oils",
+  description:
+    "Crystolia (קריסטוליה) is a food oil brand: quality canola oil and sunflower oil for households, restaurants, catering and the food industry. Available in Hebrew, English and Russian.",
+  alternates: {
+    canonical: SITE_URL,
+    languages: {
+      "x-default": SITE_URL,
+      ...Object.fromEntries(i18n.locales.map((l) => [l, `${SITE_URL}/${l}`])),
+    },
+  },
+};
 
 export default function RootPage() {
-  const router = useRouter();
-
-  useEffect(() => {
-    const browserLang = navigator.language?.slice(0, 2);
-    const supported = i18n.locales as readonly string[];
-    const locale = supported.includes(browserLang) ? browserLang : i18n.defaultLocale;
-    router.replace(`/${locale}`);
-  }, [router]);
-
-  // Static fallback links so crawlers and no-JS clients hitting "/" can
-  // still discover every language version of the site.
   return (
     <main style={{ padding: "2rem", fontFamily: "sans-serif" }}>
+      <RootRedirect />
       <h1>Crystolia — Quality Canola &amp; Sunflower Cooking Oils</h1>
       <p>
         Crystolia is a food oil brand: canola oil and sunflower oil for

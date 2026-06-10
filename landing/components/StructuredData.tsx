@@ -1,4 +1,4 @@
-import { SITE_URL, BRAND, LOGO, OG_IMAGE } from "@/i18n/site";
+import { SITE_URL, BRAND, LOGO, OG_IMAGE, SOCIAL_PROFILES } from "@/i18n/site";
 import type { Locale } from "@/i18n/config";
 
 interface Dict {
@@ -37,6 +37,11 @@ export default function StructuredData({
 
   // Standalone Brand entity — referenced by Organization and both Products,
   // so search/AI engines resolve "Crystolia" / "קריסטוליה" to one entity.
+  // sameAs links the brand entity to its official external profiles
+  // (social networks, Google Business Profile, etc.) — only emitted
+  // when profiles actually exist in i18n/site.ts.
+  const sameAs = SOCIAL_PROFILES.length > 0 ? { sameAs: SOCIAL_PROFILES } : {};
+
   const brand = {
     "@context": "https://schema.org",
     "@type": "Brand",
@@ -46,6 +51,7 @@ export default function StructuredData({
     url: SITE_URL,
     logo: logoUrl,
     description: dict.seo.description,
+    ...sameAs,
   };
 
   const organization = {
@@ -70,6 +76,7 @@ export default function StructuredData({
       "food industry oil supply",
     ],
     areaServed: { "@type": "Country", name: "Israel" },
+    ...sameAs,
     contactPoint: {
       "@type": "ContactPoint",
       telephone: "+972546970555",
