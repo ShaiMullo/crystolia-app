@@ -13,6 +13,7 @@ interface HeaderProps {
       products: string;
       features: string;
       about: string;
+      faq: string;
       contact: string;
     };
   };
@@ -117,10 +118,10 @@ export default function Header({ locale, dict }: HeaderProps) {
 
           {/* Navigation Links - Desktop */}
           <div className="hidden md:flex items-center gap-10">
-            {(["home", "products", "features", "about", "contact"] as const).map((key) => (
+            {(["home", "products", "features", "about", "faq", "contact"] as const).map((key) => (
               <a
                 key={key}
-                href={`#${key}`}
+                href={key === "faq" ? `/${locale}/faq` : `/${locale}#${key}`}
                 className="text-base font-medium tracking-wide transition-all duration-300 hover:scale-105"
                 style={{
                   color: scrollProgress > 0.5 ? '#3D2914' : 'rgba(255,255,255,0.9)',

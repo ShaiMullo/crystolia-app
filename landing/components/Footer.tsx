@@ -2,10 +2,18 @@
 
 import type { Locale } from "../i18n/config";
 import Image from "next/image";
+import Link from "next/link";
 
 interface FooterProps {
   locale: Locale;
   dict: {
+    nav: {
+      home: string;
+      products: string;
+      about: string;
+      faq: string;
+      contact: string;
+    };
     footer: {
       brand: string;
       tagline: string;
@@ -62,8 +70,27 @@ export default function Footer({ locale, dict }: FooterProps) {
           </div>
         </div>
 
+        {/* Site Links */}
+        <nav className="mt-8 pt-6 border-t border-white/10 flex flex-wrap items-center justify-center gap-x-8 gap-y-2">
+          <Link href={`/${locale}`} className="text-sm text-white/70 hover:text-[#F5C542] transition-colors">
+            {dict.nav.home}
+          </Link>
+          <Link href={`/${locale}#products`} className="text-sm text-white/70 hover:text-[#F5C542] transition-colors">
+            {dict.nav.products}
+          </Link>
+          <Link href={`/${locale}/about`} className="text-sm text-white/70 hover:text-[#F5C542] transition-colors">
+            {dict.nav.about}
+          </Link>
+          <Link href={`/${locale}/faq`} className="text-sm text-white/70 hover:text-[#F5C542] transition-colors">
+            {dict.nav.faq}
+          </Link>
+          <Link href={`/${locale}#contact`} className="text-sm text-white/70 hover:text-[#F5C542] transition-colors">
+            {dict.nav.contact}
+          </Link>
+        </nav>
+
         {/* Developer Credit */}
-        <div className="mt-8 pt-6 border-t border-white/10 text-center">
+        <div className="mt-6 text-center">
           <p className="text-xs font-light text-white/50">
             &copy; {year} {dict.footer.developerCredit}
           </p>

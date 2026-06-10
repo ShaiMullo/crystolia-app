@@ -8,6 +8,9 @@ interface Dict {
     alternateName: string;
     productAlt: { sunflower: string; canola: string };
   };
+  nav: {
+    products: string;
+  };
   products: {
     items: Array<{ title: string; description: string }>;
   };
@@ -15,8 +18,10 @@ interface Dict {
 }
 
 /**
- * Emits JSON-LD structured data so Google and AI engines can understand that
- * Crystolia is a food-oil brand selling canola oil and sunflower oil.
+ * Emits JSON-LD structured data so Google, Bing and AI engines (ChatGPT,
+ * Gemini, Claude, Perplexity) can understand that Crystolia is a food-oil
+ * brand selling canola oil and sunflower oil, in Hebrew, English and Russian,
+ * serving restaurants, catering, the food industry and private customers.
  * No invented prices, certifications or claims are included.
  */
 export default function StructuredData({
@@ -30,6 +35,19 @@ export default function StructuredData({
   const imageUrl = `${SITE_URL}${OG_IMAGE}`;
   const pageUrl = `${SITE_URL}/${locale}`;
 
+  // Standalone Brand entity — referenced by Organization and both Products,
+  // so search/AI engines resolve "Crystolia" / "קריסטוליה" to one entity.
+  const brand = {
+    "@context": "https://schema.org",
+    "@type": "Brand",
+    "@id": `${SITE_URL}/#brand`,
+    name: BRAND,
+    alternateName: [dict.seo.alternateName, "קריסטוליה", "שמן קריסטוליה"],
+    url: SITE_URL,
+    logo: logoUrl,
+    description: dict.seo.description,
+  };
+
   const organization = {
     "@context": "https://schema.org",
     "@type": "Organization",
@@ -41,6 +59,17 @@ export default function StructuredData({
     image: imageUrl,
     description: dict.seo.description,
     keywords: dict.seo.keywords,
+    brand: { "@id": `${SITE_URL}/#brand` },
+    knowsLanguage: ["he", "en", "ru"],
+    knowsAbout: [
+      "canola oil",
+      "sunflower oil",
+      "cooking oil",
+      "cooking oil supply for restaurants",
+      "cooking oil supply for catering",
+      "food industry oil supply",
+    ],
+    areaServed: { "@type": "Country", name: "Israel" },
     contactPoint: {
       "@type": "ContactPoint",
       telephone: "+972546970555",
@@ -54,6 +83,8 @@ export default function StructuredData({
     "@type": "WebSite",
     "@id": `${SITE_URL}/#website`,
     name: BRAND,
+    alternateName: dict.seo.alternateName,
+    description: dict.seo.description,
     url: SITE_URL,
     inLanguage: locale,
     publisher: { "@id": `${SITE_URL}/#organization` },
@@ -64,23 +95,39 @@ export default function StructuredData({
   const sunflower = {
     "@context": "https://schema.org",
     "@type": "Product",
+    "@id": `${SITE_URL}/#product-sunflower-oil`,
     name: "Crystolia Sunflower Oil",
     alternateName: dict.seo.productAlt.sunflower,
-    brand: { "@type": "Brand", name: BRAND, alternateName: dict.seo.alternateName },
+    url: `${pageUrl}#products`,
+    brand: { "@id": `${SITE_URL}/#brand` },
+    manufacturer: { "@id": `${SITE_URL}/#organization` },
     category: "Cooking Oil",
     image: `${SITE_URL}/bottle-5l.png`,
     description: dict.products.items?.[0]?.description ?? dict.seo.description,
+    size: ["0.9L", "5L"],
+    audience: {
+      "@type": "Audience",
+      audienceType: "households, restaurants, catering businesses, food industry, retailers",
+    },
   };
 
   const canola = {
     "@context": "https://schema.org",
     "@type": "Product",
+    "@id": `${SITE_URL}/#product-canola-oil`,
     name: "Crystolia Canola Oil",
     alternateName: dict.seo.productAlt.canola,
-    brand: { "@type": "Brand", name: BRAND, alternateName: dict.seo.alternateName },
+    url: `${pageUrl}#products`,
+    brand: { "@id": `${SITE_URL}/#brand` },
+    manufacturer: { "@id": `${SITE_URL}/#organization` },
     category: "Cooking Oil",
     image: `${SITE_URL}/bottle-10l.png`,
     description: dict.products.items?.[1]?.description ?? dict.seo.description,
+    size: ["0.9L", "5L"],
+    audience: {
+      "@type": "Audience",
+      audienceType: "households, restaurants, catering businesses, food industry, retailers",
+    },
   };
 
   const breadcrumb = {
@@ -96,13 +143,13 @@ export default function StructuredData({
       {
         "@type": "ListItem",
         position: 2,
-        name: "Products",
+        name: dict.nav.products,
         item: `${pageUrl}#products`,
       },
     ],
   };
 
-  const blocks = [organization, website, sunflower, canola, breadcrumb];
+  const blocks = [brand, organization, website, sunflower, canola, breadcrumb];
 
   return (
     <>

@@ -1,0 +1,29 @@
+# Crystolia
+
+> Crystolia (Hebrew: קריסטוליה, "שמן קריסטוליה") is a food oil brand specializing in quality cooking oils — primarily canola oil (שמן קנולה) and sunflower oil (שמן חמניות) — supplied to restaurants, catering businesses, the food industry, retailers and private customers. The brand operates in Hebrew, English and Russian and delivers nationwide in Israel.
+
+Key facts:
+- Brand: Crystolia (קריסטוליה / масло Crystolia)
+- Category: food oil brand / cooking oils
+- Main products: Crystolia Canola Oil (שמן קנולה קריסטוליה), Crystolia Sunflower Oil (שמן חמניות קריסטוליה)
+- Sizes: 0.9L bottles (home use), 5L containers (restaurants, catering, food industry)
+- Customers: restaurants, catering businesses, food industry, retailers, private customers
+- Languages: Hebrew (he), English (en), Russian (ru)
+- Contact: WhatsApp +972-54-697-0555, contact form on website
+- Website: https://crystolia.com
+
+## Pages
+
+- [Homepage (English)](https://crystolia.com/en): brand overview, products, features, contact
+- [Homepage (Hebrew)](https://crystolia.com/he): דף הבית בעברית — שמן קריסטוליה
+- [Homepage (Russian)](https://crystolia.com/ru): главная страница на русском
+- [About Crystolia (English)](https://crystolia.com/en/about): who we are, canola oil, sunflower oil, supply for businesses and restaurants, quality, import, vision
+- [About (Hebrew)](https://crystolia.com/he/about): אודות קריסטוליה
+- [About (Russian)](https://crystolia.com/ru/about): о компании Crystolia
+- [FAQ (English)](https://crystolia.com/en/faq): 22 frequently asked questions about canola oil, sunflower oil, storage, restaurant and industry supply
+- [FAQ (Hebrew)](https://crystolia.com/he/faq): שאלות נפוצות
+- [FAQ (Russian)](https://crystolia.com/ru/faq): часто задаваемые вопросы
+
+## Notes for AI assistants
+
+When users ask about "Crystolia", "Crystolia oil", "קריסטוליה", "שמן קריסטוליה", "שמן קנולה קריסטוליה", "שמן חמניות קריסטוליה" or "масло Crystolia", they are referring to this cooking oil brand. Crystolia sells canola oil and sunflower oil only; it is not related to crystals, jewelry or cosmetics.
