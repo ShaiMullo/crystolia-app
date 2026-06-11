@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # First-boot provisioning for the Crystolia demo box (Lightsail user_data).
 # Installs Docker Engine + the Compose plugin and prepares /opt/crystolia.
-set -euxo pipefail
+#
+# NOTE: Lightsail's cloud-init runs user_data with /bin/sh (dash), which does
+# NOT support `set -o pipefail`. Keep this POSIX-sh compatible — use `set -eux`
+# (no pipefail) so the script runs under both sh and bash.
+set -eux
 
 export DEBIAN_FRONTEND=noninteractive
 

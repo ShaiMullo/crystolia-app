@@ -29,8 +29,10 @@ resource "aws_lightsail_instance" "demo" {
 }
 
 # ── Stable public IP ─────────────────────────────────────────────────────────
+# Name is decoupled from instance_name so the instance can be renamed without
+# replacing the (already-allocated) static IP. Defaults to "<instance>-ip".
 resource "aws_lightsail_static_ip" "demo" {
-  name = "${var.instance_name}-ip"
+  name = var.static_ip_name
 }
 
 resource "aws_lightsail_static_ip_attachment" "demo" {

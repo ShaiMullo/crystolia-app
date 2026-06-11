@@ -17,7 +17,13 @@ variable "availability_zone" {
 variable "instance_name" {
   description = "Name of the Lightsail instance."
   type        = string
-  default     = "crystolia-demo"
+  default     = "crystolia-prod"
+}
+
+variable "static_ip_name" {
+  description = "Name of the Lightsail static IP (decoupled from instance_name so the instance can be renamed without replacing the IP)."
+  type        = string
+  default     = "crystolia-demo-ip"
 }
 
 variable "blueprint_id" {
