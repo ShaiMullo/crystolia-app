@@ -1,5 +1,6 @@
 import { SITE_URL, BRAND, LOGO, OG_IMAGE, SOCIAL_PROFILES } from "@/i18n/site";
 import type { Locale } from "@/i18n/config";
+import { getProductsByOilType, type OilType } from "@/i18n/products";
 
 interface Dict {
   seo: {
@@ -10,9 +11,6 @@ interface Dict {
   };
   nav: {
     products: string;
-  };
-  products: {
-    items: Array<{ title: string; description: string }>;
   };
   about: { content: string[] };
 }
@@ -97,45 +95,33 @@ export default function StructuredData({
     publisher: { "@id": `${SITE_URL}/#organization` },
   };
 
-  // Two product types Crystolia sells. Descriptions come from the localized
-  // dictionary; brand only — no prices or unverified claims.
-  const sunflower = {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    "@id": `${SITE_URL}/#product-sunflower-oil`,
-    name: "Crystolia Sunflower Oil",
-    alternateName: dict.seo.productAlt.sunflower,
-    url: `${pageUrl}#products`,
-    brand: { "@id": `${SITE_URL}/#brand` },
-    manufacturer: { "@id": `${SITE_URL}/#organization` },
-    category: "Cooking Oil",
-    image: `${SITE_URL}/bottle-5l.png`,
-    description: dict.products.items?.[0]?.description ?? dict.seo.description,
-    size: ["0.9L", "5L"],
-    audience: {
-      "@type": "Audience",
-      audienceType: "households, restaurants, catering businesses, food industry, retailers",
-    },
+  // Two product lines Crystolia sells, built from the real product catalog
+  // (i18n/products.ts): real photos, real sizes (0.9L / 5L) — no prices,
+  // ratings or unverified claims.
+  const productBlock = (oilType: OilType) => {
+    const items = getProductsByOilType(oilType);
+    return {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      "@id": `${SITE_URL}/#product-${oilType}-oil`,
+      name: `Crystolia ${oilType === "canola" ? "Canola" : "Sunflower"} Oil`,
+      alternateName: dict.seo.productAlt[oilType],
+      url: `${SITE_URL}/${locale}/${oilType}-oil`,
+      brand: { "@id": `${SITE_URL}/#brand` },
+      manufacturer: { "@id": `${SITE_URL}/#organization` },
+      category: "Cooking Oil",
+      image: [...new Set(items.map((p) => `${SITE_URL}${p.image}`))],
+      description: items[0]?.description[locale] ?? dict.seo.description,
+      size: items.map((p) => p.size),
+      audience: {
+        "@type": "Audience",
+        audienceType: "households, restaurants, catering businesses, food industry, retailers",
+      },
+    };
   };
 
-  const canola = {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    "@id": `${SITE_URL}/#product-canola-oil`,
-    name: "Crystolia Canola Oil",
-    alternateName: dict.seo.productAlt.canola,
-    url: `${pageUrl}#products`,
-    brand: { "@id": `${SITE_URL}/#brand` },
-    manufacturer: { "@id": `${SITE_URL}/#organization` },
-    category: "Cooking Oil",
-    image: `${SITE_URL}/bottle-10l.png`,
-    description: dict.products.items?.[1]?.description ?? dict.seo.description,
-    size: ["0.9L", "5L"],
-    audience: {
-      "@type": "Audience",
-      audienceType: "households, restaurants, catering businesses, food industry, retailers",
-    },
-  };
+  const sunflower = productBlock("sunflower");
+  const canola = productBlock("canola");
 
   const breadcrumb = {
     "@context": "https://schema.org",

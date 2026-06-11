@@ -61,32 +61,8 @@
     "subtitle": "Premium sunflower and canola oil — sized for every need",
     "badge": "Premium Collection",
     "whatsappMessage": "Hi, I'd like to get details and a quote for sunflower / canola oil.",
-    "items": [
-      {
-        "title": "Sunflower Oil 0.9L",
-        "description": "Pure sunflower oil in a compact bottle, perfect for everyday cooking at home.",
-        "label": "Sunflower",
-        "whatsapp": "Details & Order"
-      },
-      {
-        "title": "Canola Oil 0.9L",
-        "description": "Refined canola oil with a delicate taste, ideal for light frying and baking.",
-        "label": "Canola",
-        "whatsapp": "Details & Order"
-      },
-      {
-        "title": "Sunflower Oil 5L",
-        "description": "Family-size premium sunflower oil, maximum savings for regular consumption.",
-        "label": "Sunflower",
-        "whatsapp": "Details & Order"
-      },
-      {
-        "title": "Canola Oil 5L",
-        "description": "Large-format canola oil, suited for restaurants, catering, and large households.",
-        "label": "Canola",
-        "whatsapp": "Details & Order"
-      }
-    ]
+    "cta": "Details & Order",
+    "learnMore": "Learn more"
   },
   "about": {
     "title": "About Crystolia",

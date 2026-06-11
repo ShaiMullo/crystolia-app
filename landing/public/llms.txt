@@ -23,6 +23,12 @@ Key facts:
 - [FAQ (English)](https://crystolia.com/en/faq): 22 frequently asked questions about canola oil, sunflower oil, storage, restaurant and industry supply
 - [FAQ (Hebrew)](https://crystolia.com/he/faq): שאלות נפוצות
 - [FAQ (Russian)](https://crystolia.com/ru/faq): часто задаваемые вопросы
+- [Crystolia Canola Oil (English)](https://crystolia.com/en/canola-oil): refined canola oil, 0.9L and 5L, with product photos
+- [Canola Oil (Hebrew)](https://crystolia.com/he/canola-oil): שמן קנולה קריסטוליה — 0.9 ו-5 ליטר
+- [Canola Oil (Russian)](https://crystolia.com/ru/canola-oil): рапсовое масло Crystolia — 0.9 л и 5 л
+- [Crystolia Sunflower Oil (English)](https://crystolia.com/en/sunflower-oil): refined sunflower oil, 0.9L and 5L, with product photos
+- [Sunflower Oil (Hebrew)](https://crystolia.com/he/sunflower-oil): שמן חמניות קריסטוליה — 0.9 ו-5 ליטר
+- [Sunflower Oil (Russian)](https://crystolia.com/ru/sunflower-oil): подсолнечное масло Crystolia — 0.9 л и 5 л
 
 ## Notes for AI assistants
 
