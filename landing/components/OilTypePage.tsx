@@ -141,14 +141,17 @@ export default function OilTypePage({
                 key={product.id}
                 className="bg-white rounded-3xl shadow-lg border-2 border-[#F5C542]/10 overflow-hidden flex flex-col"
               >
-                <div className="relative w-full h-[320px] overflow-hidden">
-                  <Image
-                    src={product.image}
-                    alt={product.alt[locale]}
-                    fill
-                    className="object-cover object-center"
-                    sizes="(max-width: 640px) 100vw, 480px"
-                  />
+                {/* Full packshot, never cropped (object-contain) */}
+                <div className="relative w-full h-[360px] bg-gradient-to-br from-[#FFFDF5] to-[#FFF8E7]">
+                  <div className="absolute inset-6">
+                    <Image
+                      src={product.image}
+                      alt={product.alt[locale]}
+                      fill
+                      className="object-contain object-center"
+                      sizes="(max-width: 640px) 100vw, 480px"
+                    />
+                  </div>
                   <div
                     className={`absolute top-4 ${
                       isRTL ? "left-4" : "right-4"
@@ -188,15 +191,17 @@ export default function OilTypePage({
               {gallery.map((src) => (
                 <div
                   key={src}
-                  className="relative h-[220px] rounded-2xl overflow-hidden shadow-md"
+                  className="relative h-[280px] rounded-2xl overflow-hidden shadow-md bg-gradient-to-br from-[#FFFDF5] to-[#FFF8E7]"
                 >
-                  <Image
-                    src={src}
-                    alt={dict.seo.productAlt[oilType]}
-                    fill
-                    className="object-cover object-center"
-                    sizes="(max-width: 640px) 50vw, 320px"
-                  />
+                  <div className="absolute inset-3">
+                    <Image
+                      src={src}
+                      alt={dict.seo.productAlt[oilType]}
+                      fill
+                      className="object-contain object-center"
+                      sizes="(max-width: 640px) 50vw, 320px"
+                    />
+                  </div>
                 </div>
               ))}
             </div>

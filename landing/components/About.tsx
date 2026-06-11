@@ -9,6 +9,7 @@ interface AboutProps {
     about: {
       title: string;
       imageCaption: string;
+      imageAlt: string;
       content: string[];
     };
   };
@@ -45,27 +46,20 @@ export default function About({ locale, dict }: AboutProps) {
             </div>
           </div>
 
-          {/* Image Area */}
+          {/* Image Area — real photo of both Crystolia sunflower bottles
+              (0.9L + 5L), shown in full with object-contain */}
           <div className="relative">
-            <div className="relative aspect-[4/3] rounded-3xl overflow-hidden shadow-2xl">
-              <div className="absolute inset-0 bg-gradient-to-br from-[#F5C542]/10 to-[#F5C542]/5" />
-
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="w-32 h-32 mx-auto mb-4 rounded-full bg-[#F5C542]/20 flex items-center justify-center">
-                    <Image
-                      src="/bottle-20l.png"
-                      alt="Crystolia Product"
-                      width={120}
-                      height={120}
-                      className="object-contain"
-                    />
-                  </div>
-                  <p className="text-sm font-light text-gray-500">
-                    {dict.about.imageCaption}
-                  </p>
-                </div>
-              </div>
+            <div className="relative rounded-3xl overflow-hidden shadow-2xl bg-gradient-to-br from-[#FFFDF5] to-[#FFF8E7] p-8">
+              <Image
+                src="/products/crystolia/sunflower/crystolia-sunflower-0.9l-and-5l.jpeg"
+                alt={dict.about.imageAlt}
+                width={1067}
+                height={1600}
+                className="relative z-10 w-auto h-auto max-h-[540px] mx-auto object-contain rounded-2xl"
+              />
+              <p className="relative z-10 mt-5 text-center text-sm font-light text-gray-500">
+                {dict.about.imageCaption}
+              </p>
 
               {/* Decorative Elements */}
               <div className="absolute top-4 right-4 w-20 h-20 bg-[#F5C542]/10 rounded-full blur-2xl" />

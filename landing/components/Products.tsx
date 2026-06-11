@@ -91,15 +91,18 @@ export default function Products({ locale, dict }: ProductsProps) {
                   key={product.id}
                   className="group relative bg-white rounded-3xl shadow-lg hover:shadow-2xl hover:shadow-[#F5C542]/15 transition-all duration-500 hover:-translate-y-2 border-2 border-[#F5C542]/10 hover:border-[#F5C542]/40 flex flex-col sm:flex-row overflow-hidden"
                 >
-                  {/* Image Side — real product photo */}
-                  <div className="relative w-full sm:w-2/5 min-h-[260px] sm:min-h-[300px] overflow-hidden">
-                    <Image
-                      src={product.image}
-                      alt={product.alt[locale]}
-                      fill
-                      className="object-cover object-center transition-transform duration-700 group-hover:scale-105"
-                      sizes="(max-width: 640px) 100vw, 280px"
-                    />
+                  {/* Image Side — real packshot, always shown in full
+                      (object-contain, never cropped: cap to base) */}
+                  <div className="relative w-full sm:w-2/5 h-[300px] sm:h-auto sm:min-h-[320px] bg-gradient-to-br from-[#FFFDF5] to-[#FFF8E7]">
+                    <div className="absolute inset-5">
+                      <Image
+                        src={product.image}
+                        alt={product.alt[locale]}
+                        fill
+                        className="object-contain object-center transition-transform duration-700 group-hover:scale-105"
+                        sizes="(max-width: 640px) 100vw, 280px"
+                      />
+                    </div>
                     <div
                       className={`absolute top-4 ${
                         isRTL ? "left-4" : "right-4"

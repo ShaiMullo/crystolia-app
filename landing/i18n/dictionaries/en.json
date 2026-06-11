@@ -4,7 +4,10 @@
     "description": "Crystolia provides quality canola and sunflower cooking oils for households, restaurants, catering businesses and retailers.",
     "keywords": "Crystolia, Crystolia oil, Crystolia canola oil, Crystolia sunflower oil, canola oil, sunflower oil, quality cooking oil, food oil brand, cooking oil for restaurants, catering oil, reliable oil supply",
     "alternateName": "Crystolia Oil",
-    "productAlt": { "sunflower": "Crystolia Sunflower Oil", "canola": "Crystolia Canola Oil" },
+    "productAlt": {
+      "sunflower": "Crystolia Sunflower Oil",
+      "canola": "Crystolia Canola Oil"
+    },
     "ogAlt": "Crystolia canola and sunflower cooking oils"
   },
   "welcomeTitle": "Welcome to Crystolia",
@@ -67,6 +70,7 @@
   "about": {
     "title": "About Crystolia",
     "imageCaption": "Quality Cooking Oils",
+    "imageAlt": "Crystolia Sunflower Oil 0.9L and 5L bottles",
     "content": [
       "Crystolia is a food oil brand focused on canola oil and sunflower oil for households, restaurants, catering businesses and retailers.",
       "We import and distribute quality canola and sunflower cooking oils, working directly with the source to provide a consistent product at a fair price for retailers, restaurants, catering businesses and private customers.",
