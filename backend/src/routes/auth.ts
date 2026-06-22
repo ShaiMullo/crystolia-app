@@ -11,6 +11,7 @@ import { AppError } from '../utils/validation.js';
 import { config } from '../config/index.js';
 import passport from 'passport';
 import { authLimiter } from '../middleware/rateLimiter.js';
+import { logAudit } from '../services/auditService.js';
 
 const router = Router();
 
@@ -36,7 +37,7 @@ router.get(
             const hasCompany = !!user.company;
 
             // Generate Token
-            const token = signToken(user._id, user.role);
+            const token = signToken(user._id, user.role, user.tokenVersion ?? 0);
 
             // Set Cookie
             const cookieOptions = {
@@ -67,16 +68,17 @@ router.get(
 
 const { jwtSecret, jwtExpiresIn, cookieExpiresIn } = config;
 
-// Helper to sign JWT
-const signToken = (id: string, role: string) => {
-    return jwt.sign({ id, role }, jwtSecret, {
+// Helper to sign JWT. `tokenVersion` is embedded so sessions can be invalidated
+// on password change / forced logout. Defaults to 0 for safety.
+const signToken = (id: string, role: string, tokenVersion: number = 0) => {
+    return jwt.sign({ id, role, tokenVersion }, jwtSecret, {
         expiresIn: jwtExpiresIn,
     });
 };
 
 // Helper to send token response
 const createSendToken = (user: any, statusCode: number, res: Response) => {
-    const token = signToken(user._id, user.role);
+    const token = signToken(user._id, user.role, user.tokenVersion ?? 0);
 
     // 🚀 SECURITY: Cookie Options
     // Must match frontend expectation exactly.
@@ -214,6 +216,62 @@ router.post('/logout', (req: Request, res: Response) => {
 
     res.cookie('auth_token', 'loggedout', cookieOptions);
     res.status(200).json({ status: 'success' });
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// POST /api/auth/change-password (self-service)
+// 🔒 Authenticated. Requires the current password.
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+router.post('/change-password', authLimiter, protect, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            return next(new AppError('Please provide your current and a new password', 400));
+        }
+
+        // Reload WITH the hash (protect's req.user has password de-selected).
+        const user = await User.findById(req.user?._id).select('+password');
+        if (!user) {
+            return next(new AppError('User not found', 404));
+        }
+
+        // 1. Verify the current password.
+        if (!(await user.comparePassword(currentPassword))) {
+            return next(new AppError('Current password is incorrect', 401));
+        }
+
+        // 2. Reject a no-op change.
+        if (currentPassword === newPassword) {
+            return next(new AppError('New password must be different from the current password', 400));
+        }
+
+        // 3. Set the new password — the schema validator (min length, uppercase,
+        //    number) and the pre-save bcrypt hook run on save().
+        user.password = newPassword;
+
+        // 4. Invalidate other active sessions that carry a tokenVersion.
+        user.tokenVersion = (user.tokenVersion || 0) + 1;
+
+        await user.save();
+
+        // 5. Audit (never record the password/hash).
+        await logAudit({
+            action: 'UPDATE',
+            entity: 'User',
+            entityId: user._id.toString(),
+            req,
+            details: { field: 'password' },
+            severity: 'warning',
+        });
+
+        // 6. Re-issue the cookie for THIS session (createSendToken strips the
+        //    password and returns the user). The new token carries the bumped
+        //    tokenVersion so the current session stays valid.
+        createSendToken(user, 200, res);
+    } catch (error) {
+        next(error);
+    }
 });
 
 export default router;

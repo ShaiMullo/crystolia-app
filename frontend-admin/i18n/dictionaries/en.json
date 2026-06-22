@@ -67,9 +67,42 @@
     "system": "System",
     "integrations": "Integrations",
     "more": "More",
+    "myAccount": "My Account",
     "settings": "Settings",
     "logout": "Logout",
     "administratorFallback": "Administrator"
+  },
+  "account": {
+    "title": "My Account",
+    "subtitle": "View your profile and change your password.",
+    "profile": {
+      "title": "Profile",
+      "name": "Name",
+      "email": "Email",
+      "role": "Role"
+    },
+    "roles": {
+      "admin": "Administrator",
+      "agent": "Agent",
+      "customer": "Customer"
+    },
+    "password": {
+      "title": "Change password",
+      "hint": "At least 8 characters, one uppercase letter and one number.",
+      "current": "Current password",
+      "new": "New password",
+      "confirm": "Confirm new password",
+      "submit": "Update password",
+      "success": "Password updated successfully.",
+      "errors": {
+        "required": "Please fill in all password fields.",
+        "mismatch": "New password and confirmation do not match.",
+        "weak": "Password must be at least 8 characters and include an uppercase letter and a number.",
+        "currentIncorrect": "Current password is incorrect.",
+        "sameAsCurrent": "New password must be different from the current password.",
+        "generic": "Could not update password. Please try again."
+      }
+    }
   },
   "comax": {
     "title": "Comax Integration",
