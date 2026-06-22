@@ -3,6 +3,7 @@
 // ===============================================
 
 import mongoose, { Document, Schema } from 'mongoose';
+import { withSyncableFields, type ISyncable } from './shared/syncableFields.js';
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 📦 Interface
@@ -23,7 +24,7 @@ export interface IOrderTimelineEvent {
     meta?: Record<string, unknown>;
 }
 
-export interface IOrder extends Document {
+export interface IOrder extends Document, ISyncable {
     company: mongoose.Types.ObjectId; // Reference to Company
     createdBy: mongoose.Types.ObjectId; // Reference to User
     items: IOrderItem[];
@@ -91,6 +92,9 @@ const OrderSchema = new Schema<IOrder>(
         timestamps: true,
     }
 );
+
+// Additive ERP-sync metadata (optional fields; no index — see syncableFields.ts)
+withSyncableFields(OrderSchema);
 
 export const Order = mongoose.model<IOrder>('Order', OrderSchema);
 export default Order;

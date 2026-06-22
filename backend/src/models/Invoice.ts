@@ -3,12 +3,13 @@
 // ===============================================
 
 import mongoose, { Document, Schema } from 'mongoose';
+import { withSyncableFields, type ISyncable } from './shared/syncableFields.js';
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 📦 Interface
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-export interface IInvoice extends Document {
+export interface IInvoice extends Document, ISyncable {
     company: mongoose.Types.ObjectId; // Reference to Company
     order?: mongoose.Types.ObjectId; // Optional Reference to Order
     invoiceNumber: string;
@@ -106,6 +107,9 @@ const InvoiceSchema = new Schema<IInvoice>(
         timestamps: true,
     }
 );
+
+// Additive ERP-sync metadata (optional fields; no index — see syncableFields.ts)
+withSyncableFields(InvoiceSchema);
 
 export const Invoice = mongoose.model<IInvoice>('Invoice', InvoiceSchema);
 export default Invoice;

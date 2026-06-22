@@ -65,9 +65,53 @@
     "tasks": "משימות",
     "activity": "פעילות",
     "system": "מערכת",
+    "integrations": "אינטגרציות",
     "settings": "הגדרות",
     "logout": "התנתק",
     "administratorFallback": "מנהל"
+  },
+  "comax": {
+    "title": "אינטגרציית Comax",
+    "subtitle": "סנכרון ERP — הכנה בלבד",
+    "backToSystem": "חזרה למערכת",
+    "notConnectedBanner": "לא מחובר — ממתין לתיעוד API רשמי של Comax. מסך זה הוא תצוגה מקדימה; כל הפעולות מושבתות.",
+    "docsNote": "המימוש מחכה לתיעוד API רשמי של Comax (שיטת אימות, נקודות קצה, מבני נתונים). ראו docs/integrations/comax-research.md.",
+    "connection": {
+      "title": "חיבור",
+      "status": "סטטוס",
+      "notConnected": "לא מחובר",
+      "health": "תקינות",
+      "disabled": "מושבת",
+      "lastSync": "סנכרון אחרון",
+      "lastError": "שגיאה אחרונה",
+      "never": "אף פעם",
+      "none": "אין"
+    },
+    "about": {
+      "title": "אודות האינטגרציה",
+      "body": "Crystolia מוכנה ל-Comax באמצעות שכבת ERP גנרית ובלתי תלויה בספק. מחבר ה-Comax הוא שלד שאינו פעיל עד לקבלת תיעוד API רשמי."
+    },
+    "entities": {
+      "title": "היסטוריית סנכרון",
+      "entity": "ישות",
+      "lastSync": "סנכרון אחרון",
+      "status": "סטטוס",
+      "records": "רשומות",
+      "action": "פעולה",
+      "products": "מוצרים",
+      "customers": "לקוחות",
+      "inventory": "מלאי",
+      "orders": "הזמנות",
+      "invoices": "חשבוניות"
+    },
+    "status": {
+      "never": "לא סונכרן"
+    },
+    "actions": {
+      "manualSync": "סנכרון ידני",
+      "sync": "סנכרון",
+      "disabledHint": "מושבת עד להגדרת אינטגרציית Comax"
+    }
   },
   "dashboard": {
     "title": "לוח בקרה",

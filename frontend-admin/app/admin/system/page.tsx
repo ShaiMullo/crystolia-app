@@ -10,6 +10,7 @@ import {
     Database,
     FileWarning,
     Play,
+    PlugZap,
     RefreshCw,
     ShieldCheck,
     Wallet,
@@ -137,6 +138,11 @@ export default function SystemPage() {
                         <Link href="/admin/system/backups">
                             <Button variant="outline" size="sm" iconStart={<Database size={14} />}>
                                 {t("backups.title")}
+                            </Button>
+                        </Link>
+                        <Link href="/admin/system/integrations/comax">
+                            <Button variant="outline" size="sm" iconStart={<PlugZap size={14} />}>
+                                {t("nav.integrations")}
                             </Button>
                         </Link>
                     </>

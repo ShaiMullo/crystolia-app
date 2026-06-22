@@ -6,10 +6,11 @@
 // warehouses without duplicating the catalog row.
 
 import mongoose, { Document, Schema } from 'mongoose';
+import { withSyncableFields, type ISyncable } from './shared/syncableFields.js';
 
 export type ProductUnit = 'unit' | 'box' | 'liter' | 'kg' | 'gram' | 'package';
 
-export interface IProduct extends Document {
+export interface IProduct extends Document, ISyncable {
     name: string;
     sku: string;
     category?: string;
@@ -62,6 +63,9 @@ const ProductSchema = new Schema<IProduct>(
 
 ProductSchema.index({ isDeleted: 1, isActive: 1, name: 1 });
 ProductSchema.index({ name: 'text', sku: 'text', category: 'text' });
+
+// Additive ERP-sync metadata (optional fields; no index — see syncableFields.ts)
+withSyncableFields(ProductSchema);
 
 export const Product = mongoose.model<IProduct>('Product', ProductSchema);
 export default Product;

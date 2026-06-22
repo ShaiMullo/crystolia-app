@@ -3,6 +3,7 @@
 // ===============================================
 
 import mongoose, { Document, Schema } from 'mongoose';
+import { withSyncableFields, type ISyncable } from './shared/syncableFields.js';
 
 export interface ISupplierNote {
     text: string;
@@ -10,7 +11,7 @@ export interface ISupplierNote {
     actorId?: string;
 }
 
-export interface ISupplier extends Document {
+export interface ISupplier extends Document, ISyncable {
     name: string;
     contactName?: string;
     email?: string;
@@ -50,6 +51,9 @@ const SupplierSchema = new Schema<ISupplier>(
 );
 
 SupplierSchema.index({ name: 'text' });
+
+// Additive ERP-sync metadata (optional fields; no index — see syncableFields.ts)
+withSyncableFields(SupplierSchema);
 
 export const Supplier = mongoose.model<ISupplier>('Supplier', SupplierSchema);
 export default Supplier;
