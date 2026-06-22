@@ -1,5 +1,7 @@
 // Central site constants used for SEO metadata, canonical URLs,
 // hreflang alternates, sitemap and structured data.
+import type { Locale } from "./config";
+
 export const SITE_URL = "https://crystolia.com";
 export const BRAND = "Crystolia";
 export const OG_IMAGE = "/crystolia-bg.png";
@@ -25,3 +27,17 @@ export const OG_LOCALE: Record<string, string> = {
 //   "https://www.linkedin.com/company/crystolia",
 //   "https://maps.google.com/?cid=<google-business-profile-id>",
 export const SOCIAL_PROFILES: string[] = [];
+
+// WhatsApp business number per locale (digits only — no "+", as wa.me expects).
+// Hebrew and English route to the Israeli line; Russian routes to the Russian line.
+// Single source of truth for every WhatsApp CTA and the contact schema.
+export const WHATSAPP_NUMBERS: Record<Locale, string> = {
+  he: "972544936067",
+  en: "972544936067",
+  ru: "79253031442",
+};
+
+/** WhatsApp number (digits, no "+") for a locale; falls back to the IL line. */
+export function whatsappNumber(locale: Locale): string {
+  return WHATSAPP_NUMBERS[locale] ?? WHATSAPP_NUMBERS.he;
+}

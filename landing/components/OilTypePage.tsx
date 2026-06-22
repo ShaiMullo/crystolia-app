@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { i18n, type Locale } from "@/i18n/config";
-import { SITE_URL, BRAND, OG_LOCALE } from "@/i18n/site";
+import { SITE_URL, BRAND, OG_LOCALE, whatsappNumber } from "@/i18n/site";
 import { getDictionary } from "@/i18n/getDictionary";
 import { getProductsByOilType, type OilType } from "@/i18n/products";
 import { oilPagesContent } from "@/i18n/pages/oil-pages";
@@ -67,7 +67,7 @@ export default function OilTypePage({
   const isRTL = locale === "he";
   const pageUrl = `${SITE_URL}/${locale}/${oilType}-oil`;
 
-  const whatsappHref = `https://wa.me/972546970555?text=${encodeURIComponent(
+  const whatsappHref = `https://wa.me/${whatsappNumber(locale)}?text=${encodeURIComponent(
     dict.products.whatsappMessage
   )}`;
 
