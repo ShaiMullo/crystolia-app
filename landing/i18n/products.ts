@@ -59,10 +59,7 @@ export const PRODUCTS: Product[] = [
     brand: "Crystolia",
     oilType: "canola",
     size: "5L",
-    // TODO: no photo of the 5L canola container exists yet. The 0.9L bottle
-    // is used as a temporary representative image — replace with
-    // crystolia-canola-5l-front.jpeg once it is shot (see products/_review/README.md).
-    image: `${IMG}/canola/crystolia-canola-0.9l-front.jpeg`,
+    image: `${IMG}/canola/crystolia-canola5L.jpg`,
     gallery: [],
     name: {
       en: "Crystolia Canola Oil 5L",
@@ -75,9 +72,9 @@ export const PRODUCTS: Product[] = [
       ru: "Рапсовое масло Crystolia в формате 5 л — для ресторанов, кейтеринга и больших семей.",
     },
     alt: {
-      en: "Crystolia canola oil bottle",
-      he: "בקבוק שמן קנולה קריסטוליה",
-      ru: "Бутылка рапсового масла Crystolia",
+      en: "Crystolia canola oil 5L bottle, front view",
+      he: "בקבוק שמן קנולה קריסטוליה 5 ליטר — מבט קדמי",
+      ru: "Бутылка рапсового масла Crystolia 5 л — вид спереди",
     },
   },
   {
