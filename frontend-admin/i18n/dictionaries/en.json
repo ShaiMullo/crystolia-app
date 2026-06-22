@@ -65,6 +65,7 @@
     "tasks": "Tasks",
     "activity": "Activity",
     "system": "System",
+    "users": "Users",
     "integrations": "Integrations",
     "more": "More",
     "myAccount": "My Account",
@@ -351,9 +352,42 @@
       "name": "Name",
       "email": "Email",
       "role": "Role",
+      "company": "Company",
       "status": "Status",
+      "lastLogin": "Last Login",
+      "createdAt": "Created",
+      "never": "Never",
       "actions": "Actions"
     },
+    "page": {
+      "title": "User Management",
+      "subtitle": "Manage admin, employee and customer accounts."
+    },
+    "tabs": {
+      "admins": "Admins",
+      "employees": "Employees",
+      "customers": "Customers"
+    },
+    "search": {
+      "placeholder": "Search by name or email"
+    },
+    "filters": {
+      "status": "Status",
+      "statusAll": "All statuses",
+      "statusActive": "Active",
+      "statusInactive": "Inactive",
+      "company": "Company",
+      "companyAll": "All companies"
+    },
+    "actions": {
+      "view": "View details",
+      "edit": "Edit user",
+      "resetPassword": "Reset password",
+      "deactivate": "Deactivate",
+      "activate": "Activate",
+      "comingSoon": "Coming soon"
+    },
+    "emptyFiltered": "No users match your filters.",
     "active": "Active",
     "inactive": "Inactive",
     "empty": "No users yet",

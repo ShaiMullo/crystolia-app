@@ -65,6 +65,7 @@
     "tasks": "משימות",
     "activity": "פעילות",
     "system": "מערכת",
+    "users": "משתמשים",
     "integrations": "אינטגרציות",
     "more": "עוד",
     "myAccount": "החשבון שלי",
@@ -351,9 +352,42 @@
       "name": "שם",
       "email": "אימייל",
       "role": "תפקיד",
+      "company": "חברה",
       "status": "סטטוס",
+      "lastLogin": "כניסה אחרונה",
+      "createdAt": "נוצר",
+      "never": "אף פעם",
       "actions": "פעולות"
     },
+    "page": {
+      "title": "ניהול משתמשים",
+      "subtitle": "ניהול חשבונות מנהלים, עובדים ולקוחות."
+    },
+    "tabs": {
+      "admins": "מנהלים",
+      "employees": "עובדים",
+      "customers": "לקוחות"
+    },
+    "search": {
+      "placeholder": "חיפוש לפי שם או אימייל"
+    },
+    "filters": {
+      "status": "סטטוס",
+      "statusAll": "כל הסטטוסים",
+      "statusActive": "פעיל",
+      "statusInactive": "לא פעיל",
+      "company": "חברה",
+      "companyAll": "כל החברות"
+    },
+    "actions": {
+      "view": "צפייה בפרטים",
+      "edit": "עריכת משתמש",
+      "resetPassword": "איפוס סיסמה",
+      "deactivate": "השבתה",
+      "activate": "הפעלה",
+      "comingSoon": "בקרוב"
+    },
+    "emptyFiltered": "לא נמצאו משתמשים התואמים לסינון.",
     "active": "פעיל",
     "inactive": "לא פעיל",
     "empty": "אין עדיין משתמשים",
