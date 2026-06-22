@@ -66,6 +66,7 @@
     "activity": "Activity",
     "system": "System",
     "integrations": "Integrations",
+    "more": "More",
     "settings": "Settings",
     "logout": "Logout",
     "administratorFallback": "Administrator"
