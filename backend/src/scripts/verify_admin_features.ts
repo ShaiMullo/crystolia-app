@@ -1,10 +1,16 @@
 
 import axios from 'axios';
 import 'dotenv/config';
+import {
+    resolveSeedPassword,
+    SEED_ADMIN_PASSWORD_VAR,
+    SEED_AGENT_PASSWORD_VAR,
+} from '../utils/seedCredentials.js';
 
 const API_URL = 'http://localhost:4000/api';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@crystolia.com';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+const ADMIN_PASSWORD = resolveSeedPassword(SEED_ADMIN_PASSWORD_VAR);
+const TEST_AGENT_PASSWORD = resolveSeedPassword(SEED_AGENT_PASSWORD_VAR);
 
 async function runVerification() {
     try {
@@ -27,7 +33,7 @@ async function runVerification() {
         const createRes = await axios.post(`${API_URL}/users`, {
             name: 'Test Agent',
             email: agentEmail,
-            password: 'password123',
+            password: TEST_AGENT_PASSWORD,
             role: 'agent'
         }, { headers });
         const newAgent = createRes.data.data;

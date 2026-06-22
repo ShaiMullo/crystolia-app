@@ -50,6 +50,13 @@ data/mongodb/
 cookies*.txt
 
 ########################
+# Cookie jars / saved sessions (never commit auth cookies)
+########################
+*.cookies
+admin.cookies
+cookies.txt
+
+########################
 # Terraform / Infra
 ########################
 **/.terraform/
