@@ -8,6 +8,7 @@ import {
   getProductsByOilType,
   type OilType,
 } from "../i18n/products";
+import { whatsappNumber } from "../i18n/site";
 
 interface ProductsProps {
   locale: Locale;
@@ -34,7 +35,7 @@ export default function Products({ locale, dict }: ProductsProps) {
   const isRTL = locale === "he";
 
   const handleWhatsApp = () => {
-    const phone = "972546970555";
+    const phone = whatsappNumber(locale);
     const message = encodeURIComponent(dict.products.whatsappMessage);
     window.open(`https://wa.me/${phone}?text=${message}`, "_blank");
   };

@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from "react";
 import type { Locale } from "../i18n/config";
+import { whatsappNumber } from "../i18n/site";
 
 interface ContactProps {
   locale: Locale;
@@ -69,7 +70,7 @@ export default function Contact({ locale, dict }: ContactProps) {
   };
 
   const handleWhatsApp = () => {
-    const phone = "972546970555";
+    const phone = whatsappNumber(locale);
     const lines = [dict.contact.whatsappIntro, ""];
     if (formData.name) lines.push(`${dict.contact.form.name}: ${formData.name}`);
     if (formData.phone) lines.push(`${dict.contact.form.phone}: ${formData.phone}`);

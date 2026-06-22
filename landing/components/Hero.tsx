@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import type { Locale } from "../i18n/config";
+import { whatsappNumber } from "../i18n/site";
 
 interface HeroProps {
   locale: Locale;
@@ -24,7 +25,7 @@ export default function Hero({ locale, dict }: HeroProps) {
   const handleWhatsApp = () => {
     const message = encodeURIComponent(dict.hero.whatsappMessage);
     window.open(
-      `https://wa.me/972546970555?text=${message}`,
+      `https://wa.me/${whatsappNumber(locale)}?text=${message}`,
       "_blank"
     );
   };

@@ -1,4 +1,4 @@
-import { SITE_URL, BRAND, LOGO, OG_IMAGE, SOCIAL_PROFILES } from "@/i18n/site";
+import { SITE_URL, BRAND, LOGO, OG_IMAGE, SOCIAL_PROFILES, whatsappNumber } from "@/i18n/site";
 import type { Locale } from "@/i18n/config";
 import { getProductsByOilType, type OilType } from "@/i18n/products";
 
@@ -77,7 +77,8 @@ export default function StructuredData({
     ...sameAs,
     contactPoint: {
       "@type": "ContactPoint",
-      telephone: "+972546970555",
+      // Locale-specific WhatsApp/contact number (he/en → IL line, ru → RU line).
+      telephone: `+${whatsappNumber(locale)}`,
       contactType: "sales",
       availableLanguage: ["he", "en", "ru"],
     },
