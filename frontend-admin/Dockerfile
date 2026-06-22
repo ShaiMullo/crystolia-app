@@ -41,6 +41,10 @@ ENV NODE_ENV=production
 # Build the application
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+# Next bakes the next.config rewrite destination at build time; provide the
+# backend URL so /api/* proxies to the compose service (not localhost).
+ARG BACKEND_URL=http://backend:4000
+ENV BACKEND_URL=$BACKEND_URL
 RUN npm run build
 
 # -----------------------------------------
