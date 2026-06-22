@@ -10,9 +10,15 @@ interface PageProps {
     params: Promise<{ locale: string; id: string }> | { locale: string; id: string };
 }
 
+interface OrderData {
+    _id: string;
+    finalPrice?: number;
+    totalAmount?: number;
+}
+
 export default function OrderPaymentPage({ params }: PageProps) {
     const router = useRouter();
-    const [order, setOrder] = useState<any>(null);
+    const [order, setOrder] = useState<OrderData | null>(null);
     const [loading, setLoading] = useState(true);
     const [locale, setLocale] = useState("he");
 

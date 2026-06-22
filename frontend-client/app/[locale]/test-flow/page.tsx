@@ -41,6 +41,7 @@ export default function TestFlowPage() {
     };
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- async polling fetch; intentional initial load, behavior preserved
         fetchOrders();
 
         // Polling every 3 seconds for real-time updates

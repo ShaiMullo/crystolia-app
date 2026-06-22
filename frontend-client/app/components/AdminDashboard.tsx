@@ -1351,7 +1351,7 @@ export default function AdminDashboard({ locale }: AdminDashboardProps) {
 
                         {/* Total calculation */}
                         <div className="flex justify-between p-4 bg-emerald-900/20 rounded-xl border border-emerald-700/30 mb-6">
-                            <span className="text-emerald-400">סה"כ הצעת מחיר</span>
+                            <span className="text-emerald-400">סה&quot;כ הצעת מחיר</span>
                             <span className="text-emerald-400 text-xl font-medium">
                                 ₪{selectedOrder.items.reduce((sum, item, i) => sum + (itemPrices[i] || 0) * item.quantity, 0).toLocaleString()}
                             </span>

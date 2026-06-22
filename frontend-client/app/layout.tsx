@@ -28,6 +28,7 @@ export default function RootLayout({
   return (
     <html lang={i18n.defaultLocale} dir={defaultDir} suppressHydrationWarning>
       <body suppressHydrationWarning>
+        {/* eslint-disable-next-line @next/next/no-sync-scripts -- must load synchronously before React hydration to set runtime env/lang+dir */}
         <script src="/env-config.js" />
         {/* Blocking script to set correct lang/dir from URL - runs before React hydration */}
         <script

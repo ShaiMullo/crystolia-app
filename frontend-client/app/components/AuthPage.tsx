@@ -163,6 +163,7 @@ export default function AuthPage({ locale }: AuthPageProps) {
             }
             setStatus("success");
             // Redirect happens in AuthContext
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic axios error shape; preserved as-is to avoid changing error handling
         } catch (err: any) {
             console.error('Full Auth Error:', err);
             setStatus("error");

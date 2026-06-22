@@ -151,6 +151,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
         };
 
         if (user) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetch on user change; behavior preserved
             fetchOrders();
             fetchInvoices();
             fetchProfile();
