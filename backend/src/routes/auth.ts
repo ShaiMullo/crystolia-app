@@ -178,6 +178,12 @@ router.post('/login', authLimiter, async (req: Request, res: Response, next: Nex
             return next(new AppError('Incorrect email or password', 401));
         }
 
+        // 2b. Deactivated or soft-deleted accounts cannot obtain a token.
+        //     Keep the message generic so it doesn't reveal account state.
+        if (!user.isActive || user.isDeleted) {
+            return next(new AppError('Incorrect email or password', 401));
+        }
+
         // 3. Update last login
         user.lastLogin = new Date();
         await user.save({ validateBeforeSave: false });

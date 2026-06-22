@@ -18,6 +18,7 @@ export interface IUser extends Document {
 
     // Profile
     avatar?: string;
+    phone?: string;
     googleId?: string;
 
     // Company Relation
@@ -25,6 +26,9 @@ export interface IUser extends Document {
     isCompanyOwner: boolean;
 
     isActive: boolean;
+    isDeleted: boolean;
+    deletedAt?: Date;
+    mustChangePassword: boolean;
     tokenVersion: number;
     lastLogin?: Date;
     createdAt: Date;
@@ -77,6 +81,10 @@ const UserSchema = new Schema<IUser>(
         avatar: {
             type: String,
         },
+        phone: {
+            type: String,
+            trim: true,
+        },
         googleId: {
             type: String,
             unique: true,
@@ -115,6 +123,23 @@ const UserSchema = new Schema<IUser>(
         isActive: {
             type: Boolean,
             default: true,
+        },
+        // Soft delete — records are excluded from listings instead of removed,
+        // preserving audit history and referential integrity.
+        isDeleted: {
+            type: Boolean,
+            default: false,
+            index: true,
+        },
+        deletedAt: {
+            type: Date,
+        },
+        // Set when an admin resets/changes a user's password; a later phase will
+        // force a change on next login. Defaults false for all existing users —
+        // no behavior change until enforcement (3e) ships.
+        mustChangePassword: {
+            type: Boolean,
+            default: false,
         },
         // Bumped on password change / forced logout. New JWTs carry this value;
         // `protect` rejects tokens whose tokenVersion no longer matches. Tokens

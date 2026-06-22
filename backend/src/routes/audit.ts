@@ -17,14 +17,20 @@ router.get('/', protect, authorize('admin'), async (req: Request, res: Response,
         const page = parseInt(req.query.page as string) || 1;
         const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
 
-        const logs = await AuditLog.find()
+        // Optional filtering — e.g. ?entity=User&entityId=<id> for one user's
+        // activity timeline. No params → all logs (unchanged behavior).
+        const filter: Record<string, unknown> = {};
+        if (req.query.entity) filter.entity = req.query.entity as string;
+        if (req.query.entityId) filter.entityId = req.query.entityId as string;
+
+        const logs = await AuditLog.find(filter)
             .sort({ createdAt: -1 })
             .skip((page - 1) * limit)
             .limit(limit)
             .populate('performedBy', 'name email role') // Get user details
             .lean();
 
-        const total = await AuditLog.countDocuments();
+        const total = await AuditLog.countDocuments(filter);
 
         res.json({
             success: true,
