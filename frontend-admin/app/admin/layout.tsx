@@ -94,14 +94,19 @@ export default function AdminLayout({
                     <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                         <NotificationsBell />
                         <LanguageSwitcher />
-                        <div className="flex items-center gap-2 rounded-full bg-gray-100 dark:bg-gray-800 ps-1 pe-3 py-1">
+                        <Link
+                            href="/admin/account"
+                            title={t("nav.myAccount")}
+                            aria-label={t("nav.myAccount")}
+                            className="flex items-center gap-2 rounded-full bg-gray-100 dark:bg-gray-800 ps-1 pe-3 py-1 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700"
+                        >
                             <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-yellow-500 text-xs font-semibold text-white">
                                 {initials}
                             </span>
                             <span className="hidden sm:inline text-xs text-gray-700 dark:text-gray-200 truncate max-w-[8rem]">
                                 {user.name || t("nav.administratorFallback")}
                             </span>
-                        </div>
+                        </Link>
                         <button
                             onClick={logout}
                             className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-red-600 dark:text-gray-300 dark:hover:bg-gray-800"

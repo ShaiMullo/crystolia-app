@@ -16,6 +16,7 @@ declare global {
 interface JwtPayload {
     id: string;
     role: string;
+    tokenVersion?: number; // Absent on tokens issued before this field existed.
 }
 
 
@@ -47,6 +48,16 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
         // 4. Check if user is active
         if (!currentUser.isActive) {
             return next(new AppError('User account is deactivated', 403));
+        }
+
+        // 5. Session invalidation (backward compatible): only enforce when the
+        //    token actually carries a tokenVersion. Tokens issued before this
+        //    field existed have no tokenVersion and are accepted until expiry.
+        if (
+            decoded.tokenVersion !== undefined &&
+            decoded.tokenVersion !== (currentUser.tokenVersion ?? 0)
+        ) {
+            return next(new AppError('Session expired. Please log in again.', 401));
         }
 
         // Grant access

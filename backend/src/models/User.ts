@@ -25,6 +25,7 @@ export interface IUser extends Document {
     isCompanyOwner: boolean;
 
     isActive: boolean;
+    tokenVersion: number;
     lastLogin?: Date;
     createdAt: Date;
     updatedAt: Date;
@@ -114,6 +115,14 @@ const UserSchema = new Schema<IUser>(
         isActive: {
             type: Boolean,
             default: true,
+        },
+        // Bumped on password change / forced logout. New JWTs carry this value;
+        // `protect` rejects tokens whose tokenVersion no longer matches. Tokens
+        // issued before this field existed have no tokenVersion and are
+        // grandfathered (accepted until they expire).
+        tokenVersion: {
+            type: Number,
+            default: 0,
         },
         lastLogin: {
             type: Date,
