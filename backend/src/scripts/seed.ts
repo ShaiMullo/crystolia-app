@@ -13,6 +13,11 @@ import mongoose from 'mongoose';
 import 'dotenv/config';
 import User from '../models/User.js';
 import { connectDatabase, disconnectDatabase } from '../db/connection.js';
+import {
+    resolveSeedPassword,
+    SEED_ADMIN_PASSWORD_VAR,
+    SEED_AGENT_PASSWORD_VAR,
+} from '../utils/seedCredentials.js';
 
 const seedUsers = async () => {
     try {
@@ -24,7 +29,7 @@ const seedUsers = async () => {
             {
                 name: "Admin",
                 email: "admin@crystolia.com",
-                password: "Admin123!",
+                password: resolveSeedPassword(SEED_ADMIN_PASSWORD_VAR),
                 role: "admin",
                 company: null, // Explicit null
                 isActive: true
@@ -32,7 +37,7 @@ const seedUsers = async () => {
             {
                 name: "Agent",
                 email: "agent@crystolia.com",
-                password: "Agent123!",
+                password: resolveSeedPassword(SEED_AGENT_PASSWORD_VAR),
                 role: "agent",
                 company: null, // Explicit null
                 isActive: true

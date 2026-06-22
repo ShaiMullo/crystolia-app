@@ -12,13 +12,14 @@ if (process.env.NODE_ENV !== 'development') {
 import 'dotenv/config';
 import User from '../models/User.js';
 import { connectDatabase } from '../db/connection.js';
+import { resolveSeedPassword, SEED_AGENT_PASSWORD_VAR } from '../utils/seedCredentials.js';
 
 const recreateAgent = async () => {
     try {
         await connectDatabase();
 
         const agentEmail = process.env.APP_USER_EMAIL || 'agent@crystolia.com';
-        const agentPassword = process.env.APP_USER_PASSWORD || 'agent123';
+        const agentPassword = resolveSeedPassword(SEED_AGENT_PASSWORD_VAR);
 
         await User.deleteOne({ email: agentEmail });
         console.log(`🗑️  Deleted existing agent: ${agentEmail}`);

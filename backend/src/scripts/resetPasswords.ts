@@ -13,16 +13,21 @@ import mongoose from 'mongoose';
 import 'dotenv/config';
 import User from '../models/User.js';
 import { connectDatabase, disconnectDatabase } from '../db/connection.js';
+import {
+    resolveSeedPassword,
+    SEED_ADMIN_PASSWORD_VAR,
+    SEED_AGENT_PASSWORD_VAR,
+} from '../utils/seedCredentials.js';
 
 const resetPasswords = async () => {
     try {
         await connectDatabase();
 
         const adminEmail = process.env.ADMIN_EMAIL || 'admin@crystolia.com';
-        const adminPassword = process.env.ADMIN_PASSWORD || 'Admin123!';
+        const adminPassword = resolveSeedPassword(SEED_ADMIN_PASSWORD_VAR);
 
         const agentEmail = process.env.APP_USER_EMAIL || 'agent@crystolia.com';
-        const agentPassword = process.env.APP_USER_PASSWORD || 'Agent123!';
+        const agentPassword = resolveSeedPassword(SEED_AGENT_PASSWORD_VAR);
 
         // Update Admin
         const admin = await User.findOne({ email: adminEmail });

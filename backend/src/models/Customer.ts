@@ -6,6 +6,7 @@
 // reference Company directly — Customer never replaces that relationship.
 
 import mongoose, { Document, Schema } from 'mongoose';
+import { withSyncableFields, type ISyncable } from './shared/syncableFields.js';
 
 export type CustomerStatus = 'active' | 'inactive' | 'on-hold' | 'archived';
 
@@ -22,7 +23,7 @@ export interface ICustomerTimelineEvent {
     meta?: Record<string, unknown>;
 }
 
-export interface ICustomer extends Document {
+export interface ICustomer extends Document, ISyncable {
     company: mongoose.Types.ObjectId;            // Required link to Company (billing identity)
     contactName?: string;
     contactEmail?: string;
@@ -106,6 +107,9 @@ const CustomerSchema = new Schema<ICustomer>(
 
 // Compound index for the common admin list query
 CustomerSchema.index({ isDeleted: 1, status: 1, createdAt: -1 });
+
+// Additive ERP-sync metadata (optional fields; no index — see syncableFields.ts)
+withSyncableFields(CustomerSchema);
 
 export const Customer = mongoose.model<ICustomer>('Customer', CustomerSchema);
 export default Customer;

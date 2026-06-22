@@ -7,6 +7,7 @@
 import User from '../models/User.js';
 import Settings from '../models/Settings.js';
 import { config } from '../config/index.js';
+import { getSeedPasswordOrNull, SEED_ADMIN_PASSWORD_VAR } from '../utils/seedCredentials.js';
 
 export async function seedAdmin(): Promise<void> {
     if (config.nodeEnv !== 'development') {
@@ -21,15 +22,26 @@ export async function seedAdmin(): Promise<void> {
             return;
         }
 
+        // No hardcoded password: require an explicit env var. If it is not set,
+        // skip auto-seeding (do NOT crash the dev server, do NOT use a default).
+        const adminPassword = getSeedPasswordOrNull(SEED_ADMIN_PASSWORD_VAR);
+        if (!adminPassword) {
+            console.warn(
+                `🌱 Skipping admin auto-seed: ${SEED_ADMIN_PASSWORD_VAR} is not set. ` +
+                    `Set it to create the initial admin (no default password is used).`,
+            );
+            return;
+        }
+
         await User.create({
             name: 'Admin',
             email: 'admin@crystolia.com',
-            password: 'Admin123!', // Hashed by User pre-save hook
+            password: adminPassword, // Hashed by User pre-save hook
             role: 'admin',
             isActive: true,
         });
 
-        console.log('🌱 Admin seeded (admin@crystolia.com / Admin123!)');
+        console.log('🌱 Admin seeded (admin@crystolia.com)');
     } catch (error) {
         console.error('❌ Admin seed failed:', error);
         // Non-critical — don't crash the server

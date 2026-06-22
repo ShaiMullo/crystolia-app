@@ -65,9 +65,53 @@
     "tasks": "Tasks",
     "activity": "Activity",
     "system": "System",
+    "integrations": "Integrations",
     "settings": "Settings",
     "logout": "Logout",
     "administratorFallback": "Administrator"
+  },
+  "comax": {
+    "title": "Comax Integration",
+    "subtitle": "ERP synchronization — preparation only",
+    "backToSystem": "Back to System",
+    "notConnectedBanner": "Not connected — waiting for official Comax API documentation. This screen is a preview; all actions are disabled.",
+    "docsNote": "Implementation is blocked on official Comax API docs (auth scheme, endpoints, payloads). See docs/integrations/comax-research.md.",
+    "connection": {
+      "title": "Connection",
+      "status": "Status",
+      "notConnected": "Not connected",
+      "health": "Health",
+      "disabled": "Disabled",
+      "lastSync": "Last sync",
+      "lastError": "Last error",
+      "never": "Never",
+      "none": "None"
+    },
+    "about": {
+      "title": "About this integration",
+      "body": "Crystolia is prepared for Comax via a generic, provider-agnostic ERP layer. The Comax connector is a non-executing stub until official API documentation is provided."
+    },
+    "entities": {
+      "title": "Sync history",
+      "entity": "Entity",
+      "lastSync": "Last sync",
+      "status": "Status",
+      "records": "Records",
+      "action": "Action",
+      "products": "Products",
+      "customers": "Customers",
+      "inventory": "Inventory",
+      "orders": "Orders",
+      "invoices": "Invoices"
+    },
+    "status": {
+      "never": "Never synced"
+    },
+    "actions": {
+      "manualSync": "Manual sync",
+      "sync": "Sync",
+      "disabledHint": "Disabled until Comax integration is configured"
+    }
   },
   "dashboard": {
     "title": "Dashboard",

@@ -9,9 +9,11 @@
 //
 // Exit code 0 = all passed, 1 = any failure.
 
+import { resolveSeedPassword, SEED_ADMIN_PASSWORD_VAR } from '../../utils/seedCredentials.js';
+
 const BASE = process.env.SMOKE_BASE_URL || 'http://localhost:4000';
 const ADMIN_EMAIL = process.env.SMOKE_ADMIN_EMAIL || 'admin@crystolia.com';
-const ADMIN_PASSWORD = process.env.SMOKE_ADMIN_PASSWORD || 'Admin123!';
+const ADMIN_PASSWORD = resolveSeedPassword(SEED_ADMIN_PASSWORD_VAR);
 
 let cookie = '';
 let passed = 0;

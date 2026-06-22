@@ -4,8 +4,9 @@
 // One row per (product, location). availableQuantity = quantity - reservedQuantity.
 
 import mongoose, { Document, Schema } from 'mongoose';
+import { withSyncableFields, type ISyncable } from './shared/syncableFields.js';
 
-export interface IInventory extends Document {
+export interface IInventory extends Document, ISyncable {
     product: mongoose.Types.ObjectId;
     location: string;             // 'main' for now; future-proof for multi-warehouse
     quantity: number;             // on-hand
@@ -29,6 +30,9 @@ const InventorySchema = new Schema<IInventory>(
 );
 
 InventorySchema.index({ product: 1, location: 1 }, { unique: true });
+
+// Additive ERP-sync metadata (optional fields; no index — see syncableFields.ts)
+withSyncableFields(InventorySchema);
 
 export const Inventory = mongoose.model<IInventory>('Inventory', InventorySchema);
 export default Inventory;
