@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Building2, Settings, LogOut, Kanban, CheckSquare, Activity, Package, Boxes, ShoppingCart, Wallet, Factory, PackageOpen, ServerCog } from "lucide-react";
+import { LayoutDashboard, Building2, Settings, LogOut, Kanban, CheckSquare, Activity, Package, Boxes, ShoppingCart, Wallet, Factory, PackageOpen, ServerCog, Users } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
 import { useAdminI18n } from "@/i18n/I18nProvider";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
@@ -49,6 +49,7 @@ export default function AdminLayout({
         { href: "/admin/tasks", label: t("nav.tasks"), icon: CheckSquare, primary: false },
         { href: "/admin/activity", label: t("nav.activity"), icon: Activity, primary: false },
         { href: "/admin/system", label: t("nav.system"), icon: ServerCog, primary: false },
+        { href: "/admin/users", label: t("nav.users"), icon: Users, primary: false },
         { href: "/admin/settings", label: t("nav.settings"), icon: Settings, primary: false },
     ];
     const primaryItems = navItems.filter((i) => i.primary);
