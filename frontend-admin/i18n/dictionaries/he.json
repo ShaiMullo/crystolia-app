@@ -385,7 +385,9 @@
       "resetPassword": "איפוס סיסמה",
       "deactivate": "השבתה",
       "activate": "הפעלה",
-      "comingSoon": "בקרוב"
+      "comingSoon": "בקרוב",
+      "delete": "מחיקה",
+      "selfHint": "לא ניתן לבצע פעולה זו על החשבון שלך"
     },
     "emptyFiltered": "לא נמצאו משתמשים התואמים לסינון.",
     "active": "פעיל",
@@ -401,7 +403,11 @@
       "actionFailed": "הפעולה נכשלה",
       "created": "המשתמש נוצר בהצלחה",
       "updated": "המשתמש עודכן בהצלחה",
-      "saveFailed": "שמירת המשתמש נכשלה"
+      "saveFailed": "שמירת המשתמש נכשלה",
+      "passwordReset": "הסיסמה אופסה",
+      "resetFailed": "איפוס הסיסמה נכשל",
+      "deleted": "המשתמש נמחק",
+      "deleteFailed": "מחיקת המשתמש נכשלה"
     },
     "modal": {
       "createTitle": "יצירת משתמש חדש",
@@ -414,6 +420,40 @@
       "submitCreate": "צור משתמש",
       "submitUpdate": "עדכן משתמש",
       "submitting": "מבצע…"
+    },
+    "newUser": "משתמש חדש",
+    "confirm": {
+      "deleteTitle": "מחיקת משתמש",
+      "deleteMessage": "למחוק את {name}? המשתמש יוסר מכל הרשימות וייחסם מהתחברות. לא ניתן לבטל פעולה זו מממשק הניהול.",
+      "deactivateTitle": "השבתת משתמש",
+      "deactivateMessage": "להשבית את {name}? המשתמש ינותק ולא יוכל להתחבר עד להפעלה מחדש.",
+      "activateTitle": "הפעלת משתמש",
+      "activateMessage": "להפעיל מחדש את {name}? המשתמש יוכל להתחבר שוב."
+    },
+    "form": {
+      "viewTitle": "פרטי משתמש: {label}",
+      "phone": "טלפון",
+      "company": "חברה",
+      "companyNone": "— ללא חברה —",
+      "optional": "אופציונלי",
+      "mustChangePassword": "חייב להחליף סיסמה בהתחברות הראשונה",
+      "passwordHint": "לפחות 8 תווים",
+      "passwordEditHint": "השאר ריק כדי לשמור. סיסמה חדשה תנתק את המשתמש ותחייב החלפה.",
+      "emailEditHint": "לא ניתן לשנות אימייל לאחר היצירה",
+      "errNameRequired": "יש להזין שם",
+      "errEmailRequired": "יש להזין אימייל",
+      "errEmailInvalid": "יש להזין כתובת אימייל תקינה",
+      "errPasswordRequired": "יש להזין סיסמה",
+      "errPasswordMin": "לפחות 8 תווים"
+    },
+    "reset": {
+      "confirmTitle": "איפוס סיסמה",
+      "confirmMessage": "לאפס את הסיסמה של {name}? הסיסמה הנוכחית תפסיק לעבוד מיד, כל ההתחברויות ינותקו, ותקבל סיסמה זמנית חד-פעמית לשיתוף מאובטח.",
+      "confirm": "איפוס סיסמה",
+      "revealTitle": "סיסמה זמנית",
+      "revealIntro": "שתף את הסיסמה החד-פעמית עם {name} באופן מאובטח. הוא יידרש להחליף אותה בהתחברות הבאה.",
+      "warning": "הסיסמה לא תוצג שוב.",
+      "copied": "הועתק"
     }
   },
   "orders": {
