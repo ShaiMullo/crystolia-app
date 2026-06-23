@@ -49,3 +49,51 @@ export async function listUsers(params: ListUsersParams = {}): Promise<ListUsers
     const res = await api.get("/users", { params });
     return { data: res.data?.data ?? [], pagination: res.data?.pagination };
 }
+
+// ── Mutations (3a backend; guards enforced server-side) ──────────────────────
+
+export interface CreateUserPayload {
+    name: string;
+    email: string;
+    password: string;
+    role: UserRole;
+    phone?: string;
+    /** Company ObjectId — applied by the backend only when role === "customer". */
+    company?: string | null;
+    mustChangePassword?: boolean;
+}
+
+export interface UpdateUserPayload {
+    name?: string;
+    email?: string;
+    password?: string;
+    role?: UserRole;
+    phone?: string;
+    company?: string | null;
+    isActive?: boolean;
+}
+
+export interface ResetPasswordResult {
+    /** One-time temporary password — shown to the admin once, never re-fetchable. */
+    tempPassword: string;
+}
+
+export async function createUser(payload: CreateUserPayload): Promise<AdminUser> {
+    const res = await api.post("/users", payload);
+    return res.data?.data ?? res.data;
+}
+
+export async function updateUser(id: string, payload: UpdateUserPayload): Promise<AdminUser> {
+    const res = await api.patch(`/users/${id}`, payload);
+    return res.data?.data ?? res.data;
+}
+
+export async function deleteUser(id: string): Promise<{ id: string; isDeleted: boolean }> {
+    const res = await api.delete(`/users/${id}`);
+    return res.data?.data ?? res.data;
+}
+
+export async function resetUserPassword(id: string): Promise<ResetPasswordResult> {
+    const res = await api.post(`/users/${id}/reset-password`);
+    return res.data?.data ?? res.data;
+}

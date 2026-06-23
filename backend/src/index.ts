@@ -34,6 +34,7 @@ import usersRouter from './routes/users.js';
 import auditRouter from './routes/audit.js';
 import ordersRouter from './routes/orders.js';
 import customersRouter from './routes/customers.js';
+import companiesRouter from './routes/companies.js';
 import invoicesRouter from './routes/invoices.js';
 import settingsRouter from './routes/settings.js';
 import { errorHandler } from './middleware/errorHandler.js';
@@ -157,6 +158,7 @@ app.use('/api/crm/exports', crmExportsRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/customers', customersRouter);
+app.use('/api/companies', companiesRouter);
 app.use('/api/invoices', invoicesRouter);
 app.use('/api/settings', settingsRouter);
 
