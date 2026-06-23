@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import { SITE_URL, BRAND } from "@/i18n/site";
+import ChosenMarker from "@/components/ChosenMarker";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -40,6 +41,8 @@ export default function RootLayout({
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
       <body suppressHydrationWarning>
+        {/* Persist an explicit language choice (?chosen=1) + clean the URL. */}
+        <ChosenMarker />
         {/* Set correct lang/dir from URL before React hydration */}
         <script
           dangerouslySetInnerHTML={{

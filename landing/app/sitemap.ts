@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { SITE_URL } from "@/i18n/site";
+import { localeUrl, hreflangAlternates } from "@/i18n/site";
 import { i18n } from "@/i18n/config";
 
 export const dynamic = "force-static";
@@ -11,12 +11,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = new Date();
 
   return routes.flatMap((route) => {
-    const languages = Object.fromEntries(
-      i18n.locales.map((l) => [l, `${SITE_URL}/${l}${route}`])
-    );
+    // Per-domain hreflang (en→.com, he→.co.il, ru→.ru, x-default→.com) — matches <head>.
+    const languages = hreflangAlternates(route);
 
     return i18n.locales.map((locale) => ({
-      url: `${SITE_URL}/${locale}${route}`,
+      url: localeUrl(locale, route),
       lastModified,
       changeFrequency: route === "" ? ("weekly" as const) : ("monthly" as const),
       priority:

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { getDictionary } from "@/i18n/getDictionary";
 import { Locale, i18n } from "@/i18n/config";
-import { SITE_URL, BRAND, OG_IMAGE, OG_LOCALE } from "@/i18n/site";
+import { BRAND, OG_IMAGE, OG_LOCALE, localeUrl } from "@/i18n/site";
+import AlternateLinks from "@/components/AlternateLinks";
 
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
@@ -30,15 +31,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const title = dict.seo.title;
   const description = dict.seo.description;
-  const url = `${SITE_URL}/${locale}`;
-
-  // hreflang alternates for every locale + x-default.
-  const languages: Record<string, string> = {
-    "x-default": `${SITE_URL}/${i18n.defaultLocale}`,
-  };
-  for (const l of i18n.locales) {
-    languages[l] = `${SITE_URL}/${l}`;
-  }
+  // Homepage canonicalizes to the locale's bare apex domain (en→.com, he→.co.il, ru→.ru).
+  const url = localeUrl(locale);
 
   return {
     title: { absolute: title },
@@ -46,7 +40,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     keywords: dict.seo.keywords,
     alternates: {
       canonical: url,
-      languages,
     },
     openGraph: {
       type: "website",
@@ -84,6 +77,7 @@ export default async function LandingPage({ params }: PageProps) {
 
   return (
     <>
+      <AlternateLinks subPath="" />
       <StructuredData locale={locale} dict={dict} />
       <Header dict={dict} locale={locale} />
       <main>

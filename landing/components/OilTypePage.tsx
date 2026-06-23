@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { i18n, type Locale } from "@/i18n/config";
-import { SITE_URL, BRAND, OG_LOCALE, whatsappNumber } from "@/i18n/site";
+import { SITE_URL, BRAND, OG_LOCALE, whatsappNumber, localeUrl } from "@/i18n/site";
+import AlternateLinks from "@/components/AlternateLinks";
 import { getDictionary } from "@/i18n/getDictionary";
 import { getProductsByOilType, type OilType } from "@/i18n/products";
 import { oilPagesContent } from "@/i18n/pages/oil-pages";
@@ -20,20 +21,13 @@ export function resolveLocale(rawLocale: string): Locale {
 export function buildOilPageMetadata(oilType: OilType, locale: Locale): Metadata {
   const content = oilPagesContent[oilType][locale];
   const products = getProductsByOilType(oilType);
-  const url = `${SITE_URL}/${locale}/${oilType}-oil`;
+  const url = localeUrl(locale, `/${oilType}-oil`);
   const ogImage = products[0]?.image ?? "/crystolia-bg.png";
-
-  const languages: Record<string, string> = {
-    "x-default": `${SITE_URL}/${i18n.defaultLocale}/${oilType}-oil`,
-  };
-  for (const l of i18n.locales) {
-    languages[l] = `${SITE_URL}/${l}/${oilType}-oil`;
-  }
 
   return {
     title: { absolute: content.metaTitle },
     description: content.metaDescription,
-    alternates: { canonical: url, languages },
+    alternates: { canonical: url },
     openGraph: {
       type: "website",
       siteName: BRAND,
@@ -105,6 +99,7 @@ export default function OilTypePage({
 
   return (
     <>
+      <AlternateLinks subPath={`/${oilType}-oil`} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
