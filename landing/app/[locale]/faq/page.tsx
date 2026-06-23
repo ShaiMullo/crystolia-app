@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getDictionary } from "@/i18n/getDictionary";
 import { Locale, i18n } from "@/i18n/config";
-import { SITE_URL, BRAND, OG_IMAGE, OG_LOCALE } from "@/i18n/site";
+import { SITE_URL, BRAND, OG_IMAGE, OG_LOCALE, localeUrl } from "@/i18n/site";
+import AlternateLinks from "@/components/AlternateLinks";
 import { faqContent } from "@/i18n/pages/faq";
 
 import Header from "@/components/Header";
@@ -26,19 +27,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { locale: rawLocale } = await params;
   const locale = resolveLocale(rawLocale);
   const content = faqContent[locale];
-  const url = `${SITE_URL}/${locale}/faq`;
-
-  const languages: Record<string, string> = {
-    "x-default": `${SITE_URL}/${i18n.defaultLocale}/faq`,
-  };
-  for (const l of i18n.locales) {
-    languages[l] = `${SITE_URL}/${l}/faq`;
-  }
+  const url = localeUrl(locale, "/faq");
 
   return {
     title: { absolute: content.metaTitle },
     description: content.metaDescription,
-    alternates: { canonical: url, languages },
+    alternates: { canonical: url },
     openGraph: {
       type: "website",
       siteName: BRAND,
@@ -93,6 +87,7 @@ export default async function FaqPage({ params }: PageProps) {
 
   return (
     <>
+      <AlternateLinks subPath="/faq" />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}

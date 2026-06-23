@@ -1,11 +1,53 @@
 // Central site constants used for SEO metadata, canonical URLs,
 // hreflang alternates, sitemap and structured data.
-import type { Locale } from "./config";
+import { i18n, type Locale } from "./config";
 
 export const SITE_URL = "https://crystolia.com";
 export const BRAND = "Crystolia";
 export const OG_IMAGE = "/crystolia-bg.png";
 export const LOGO = "/crystolia-logo.png";
+
+// ── Per-locale canonical domains (apex, no www) ──────────────────────────────
+// Each locale is the canonical owner of its own domain:
+//   en → https://crystolia.com   he → https://crystolia.co.il   ru → https://crystolia.ru
+// Used for <link rel="canonical"> and hreflang alternates so each language maps
+// to its matching domain. x-default points at the global English (.com) home.
+export const LOCALE_SITE_URL: Record<Locale, string> = {
+  en: "https://crystolia.com",
+  he: "https://crystolia.co.il",
+  ru: "https://crystolia.ru",
+};
+
+/** Canonical apex origin for a locale (no trailing slash, no www). */
+export function localeOrigin(locale: Locale): string {
+  return LOCALE_SITE_URL[locale] ?? SITE_URL;
+}
+
+/**
+ * Canonical URL for a locale page.
+ * - Homepage (empty `subPath`) → the bare apex domain for that locale.
+ * - Sub-pages keep the /{locale}/<subPath> structure the static export emits
+ *   (e.g. localeUrl("he", "/faq") → https://crystolia.co.il/he/faq).
+ * `subPath` must start with "/" or be "".
+ */
+export function localeUrl(locale: Locale, subPath: string = ""): string {
+  const origin = localeOrigin(locale);
+  return subPath ? `${origin}/${locale}${subPath}` : origin;
+}
+
+/**
+ * hreflang `alternates.languages` map for a sub-path: one entry per locale
+ * (each on its own domain) plus `x-default` → the English (.com) version.
+ */
+export function hreflangAlternates(subPath: string = ""): Record<string, string> {
+  const languages: Record<string, string> = {
+    "x-default": localeUrl(i18n.defaultLocale as Locale, subPath),
+  };
+  for (const l of i18n.locales) {
+    languages[l] = localeUrl(l, subPath);
+  }
+  return languages;
+}
 
 // Open Graph locale codes per app locale.
 export const OG_LOCALE: Record<string, string> = {

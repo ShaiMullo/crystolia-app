@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { SITE_URL } from "@/i18n/site";
-import { i18n } from "@/i18n/config";
+import { localeOrigin } from "@/i18n/site";
+import { i18n, type Locale } from "@/i18n/config";
 import RootRedirect from "@/components/RootRedirect";
+import AlternateLinks from "@/components/AlternateLinks";
 
 // The root "/" is a language gateway: it client-redirects visitors to
 // their locale, and gives crawlers a canonical URL, hreflang alternates
@@ -11,17 +12,16 @@ export const metadata: Metadata = {
   description:
     "Crystolia (קריסטוליה) is a food oil brand: quality canola oil and sunflower oil for households, restaurants, catering and the food industry. Available in Hebrew, English and Russian.",
   alternates: {
-    canonical: SITE_URL,
-    languages: {
-      "x-default": SITE_URL,
-      ...Object.fromEntries(i18n.locales.map((l) => [l, `${SITE_URL}/${l}`])),
-    },
+    // Root "/" is the global gateway → canonical to the English (.com) home;
+    // hreflang (cross-domain) is emitted via <AlternateLinks/>.
+    canonical: localeOrigin(i18n.defaultLocale as Locale),
   },
 };
 
 export default function RootPage() {
   return (
     <main style={{ padding: "2rem", fontFamily: "sans-serif" }}>
+      <AlternateLinks subPath="" />
       <RootRedirect />
       <h1>Crystolia — Quality Canola &amp; Sunflower Cooking Oils</h1>
       <p>

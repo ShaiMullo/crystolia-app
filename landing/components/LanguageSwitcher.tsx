@@ -1,8 +1,9 @@
 "use client";
 
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useTransition } from "react";
-import type { Locale } from "../i18n/config";
+import { i18n, type Locale } from "../i18n/config";
+import { localeOrigin } from "../i18n/site";
 
 const languages: { code: Locale; flag: string; label: string }[] = [
   { code: "he", flag: "\u{1F1EE}\u{1F1F1}", label: "\u05E2\u05D1\u05E8\u05D9\u05EA" },
@@ -11,16 +12,34 @@ const languages: { code: Locale; flag: string; label: string }[] = [
 ];
 
 export default function LanguageSwitcher() {
-  const router = useRouter();
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
 
-  const currentLocale = (pathname.split("/")[1] || "en") as Locale;
+  const currentLocale = (pathname.split("/")[1] || i18n.defaultLocale) as Locale;
 
   const changeLocale = (locale: Locale) => {
+    if (locale === currentLocale) return;
+
+    // Path after the current locale segment: "" for the homepage, "/faq" etc.
+    const rest = pathname.replace(/^\/(he|en|ru)(?=\/|$)/, "");
+    const sub = rest === "/" ? "" : rest;
+
+    // Match the canonical structure: homepage → bare apex domain;
+    // sub-pages keep /{locale}/<path>.
+    const origin = localeOrigin(locale);
+    const dest = sub ? `${origin}/${locale}${sub}` : origin;
+
+    // Mark this as an explicit choice so the .com CloudFront geo/language
+    // redirect won't override it (loop-safe), and persist it first-party so
+    // returning to this domain won't auto-redirect either.
+    try {
+      document.cookie = "cl_loc=1; path=/; max-age=31536000; samesite=lax";
+    } catch {}
+    const url = `${dest}${dest.includes("?") ? "&" : "?"}chosen=1`;
+
     startTransition(() => {
-      const newPath = pathname.replace(/^\/(he|en|ru)/, `/${locale}`) || `/${locale}`;
-      router.push(newPath);
+      // Cross-domain navigation → full load (router.push is same-origin only).
+      window.location.assign(url);
     });
   };
 
