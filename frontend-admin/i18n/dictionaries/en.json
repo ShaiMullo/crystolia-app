@@ -385,7 +385,9 @@
       "resetPassword": "Reset password",
       "deactivate": "Deactivate",
       "activate": "Activate",
-      "comingSoon": "Coming soon"
+      "comingSoon": "Coming soon",
+      "delete": "Delete",
+      "selfHint": "You can't do this to your own account"
     },
     "emptyFiltered": "No users match your filters.",
     "active": "Active",
@@ -401,7 +403,11 @@
       "actionFailed": "Action failed",
       "created": "User created successfully",
       "updated": "User updated successfully",
-      "saveFailed": "Failed to save user"
+      "saveFailed": "Failed to save user",
+      "passwordReset": "Password reset",
+      "resetFailed": "Failed to reset password",
+      "deleted": "User deleted",
+      "deleteFailed": "Failed to delete user"
     },
     "modal": {
       "createTitle": "Create New User",
@@ -414,6 +420,40 @@
       "submitCreate": "Create User",
       "submitUpdate": "Update User",
       "submitting": "Processing…"
+    },
+    "newUser": "New user",
+    "confirm": {
+      "deleteTitle": "Delete user",
+      "deleteMessage": "Delete {name}? They'll be removed from all lists and blocked from signing in. This can't be undone from the admin UI.",
+      "deactivateTitle": "Deactivate user",
+      "deactivateMessage": "Deactivate {name}? They'll be signed out and unable to log in until reactivated.",
+      "activateTitle": "Activate user",
+      "activateMessage": "Reactivate {name}? They'll be able to log in again."
+    },
+    "form": {
+      "viewTitle": "User details: {label}",
+      "phone": "Phone",
+      "company": "Company",
+      "companyNone": "— No company —",
+      "optional": "optional",
+      "mustChangePassword": "Require password change on first login",
+      "passwordHint": "At least 8 characters",
+      "passwordEditHint": "Leave blank to keep. A new password signs the user out and forces a change.",
+      "emailEditHint": "Email can't be changed after creation",
+      "errNameRequired": "Name is required",
+      "errEmailRequired": "Email is required",
+      "errEmailInvalid": "Enter a valid email address",
+      "errPasswordRequired": "Password is required",
+      "errPasswordMin": "At least 8 characters"
+    },
+    "reset": {
+      "confirmTitle": "Reset password",
+      "confirmMessage": "Reset the password for {name}? Their current password stops working immediately, all their sessions are signed out, and you'll get a one-time temporary password to share securely.",
+      "confirm": "Reset password",
+      "revealTitle": "Temporary password",
+      "revealIntro": "Share this one-time password with {name} securely. They'll be required to change it at next login.",
+      "warning": "This password won't be shown again.",
+      "copied": "Copied"
     }
   },
   "orders": {
