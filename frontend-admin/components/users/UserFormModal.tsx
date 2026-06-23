@@ -132,7 +132,9 @@ export function UserFormModal({
             onSubmit(payload);
         } else {
             const payload: UpdateUserPayload = { name: form.name.trim(), role: form.role };
-            if (cfg.showPhone) payload.phone = form.phone.trim();
+            // Only send phone when non-empty: writing "" would land in the
+            // sparse-unique phone index and collide across all phone-less users.
+            if (cfg.showPhone && form.phone.trim()) payload.phone = form.phone.trim();
             if (cfg.showCompany) payload.company = form.company;
             if (form.password) payload.password = form.password;
             onSubmit(payload);
