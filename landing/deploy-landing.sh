@@ -10,9 +10,14 @@
 
 set -euo pipefail
 
-BUCKET="crystolia-landing-site"
-DOMAIN="crystolia.com"
 cd "$(dirname "$0")"
+
+# Domain + bucket come from the platform manifest (vendored domains.lock.json,
+# market "il-en") instead of duplicated literals. Behaviour is unchanged:
+# this still deploys crystolia.com only. Per-domain deploys (.ru/.co.il) are a
+# separate change (see PR #23) and are intentionally not added here.
+DOMAIN=$(jq -r '.markets[] | select(.id == "il-en") | .domain' domains.lock.json)
+BUCKET=$(jq -r '.markets[] | select(.id == "il-en") | .aws.bucket' domains.lock.json)
 
 if [[ "${1:-}" != "--skip-build" ]]; then
   echo "==> Building static export..."
