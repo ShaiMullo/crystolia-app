@@ -1,33 +1,120 @@
 #!/usr/bin/env bash
-# Deploy the Crystolia landing site to S3 + CloudFront.
+# Deploy the Crystolia landing site for a single target domain.
 #
-# Builds the Next.js static export, syncs ./out to the landing S3 bucket,
-# uploads extensionless copies of every HTML file (so /en, /en/about, /en/faq
-# resolve without a CloudFront URL-rewrite function), and invalidates the
-# CloudFront cache.
+# All per-domain infrastructure data (domain, S3 bucket, SEO host, deploy type,
+# lifecycle status) is read from the platform manifest — the vendored
+# domains.lock.json (canonical source: crystolia-infra/manifest). The script no
+# longer hardcodes any of it.
 #
-# Usage: ./deploy-landing.sh [--skip-build]
+# Markets today (from the manifest):
+#   crystolia.com   (il-en, en)  live        -> S3 crystolia-landing-site + CloudFront
+#   crystolia.ru    (ru-ru, ru)  provisioned -> S3 crystolia-landing-ru   + CloudFront
+#   crystolia.co.il (il-he, he)  planned     -> no bucket yet → build-only, no upload
+#
+# For provisioned S3 markets the script builds the static export, syncs ./out to
+# the bucket, uploads extensionless copies of every HTML file (so /ru, /ru/faq, …
+# resolve as clean URLs without a CloudFront URL-rewrite function), and
+# invalidates the CloudFront cache. A "planned" market (no bucket) or a "vercel"
+# market is built locally only — nothing is uploaded from here.
+#
+# NOTE on NEXT_PUBLIC_SITE_URL: it is set from the market's manifest host for
+# forward-compatibility, but on current main it has NO effect — i18n/site.ts
+# sources SITE_URL from the manifest (not this env var), so robots.txt/metadata
+# are host-independent today. See the PR description.
+#
+# Usage:
+#   ./deploy-landing.sh [domain] [--skip-build]
+#
+#   domain defaults to crystolia.com (backwards compatible). Examples:
+#     ./deploy-landing.sh                      # crystolia.com, build + deploy
+#     ./deploy-landing.sh --skip-build         # crystolia.com, deploy existing ./out
+#     ./deploy-landing.sh crystolia.ru         # crystolia.ru,  build + deploy
 
 set -euo pipefail
-
-BUCKET="crystolia-landing-site"
-DOMAIN="crystolia.com"
 cd "$(dirname "$0")"
 
-if [[ "${1:-}" != "--skip-build" ]]; then
-  echo "==> Building static export..."
-  npm run build
+MANIFEST="domains.lock.json"
+
+# ── Preflight: hard dependencies ──
+command -v jq >/dev/null 2>&1 || {
+  echo "ERROR: jq is required but not installed. Install jq (e.g. 'brew install jq') and retry."
+  exit 1
+}
+[[ -f "$MANIFEST" ]] || {
+  echo "ERROR: manifest '$MANIFEST' not found next to this script."
+  exit 1
+}
+
+# ── Parse args (order-independent; --skip-build keeps the legacy invocation) ──
+DOMAIN="crystolia.com" # default target (backwards compatible); validated below
+SKIP_BUILD=0
+for arg in "$@"; do
+  case "$arg" in
+    --skip-build) SKIP_BUILD=1 ;;
+    https://*)    DOMAIN="${arg#https://}" ;;
+    --*)          echo "ERROR: unknown flag '$arg'"; exit 2 ;;
+    *)            DOMAIN="$arg" ;;
+  esac
+done
+
+# ── Resolve this domain's market from the manifest (single source of truth) ──
+if ! jq -e --arg d "$DOMAIN" '.markets[] | select(.domain == $d)' "$MANIFEST" >/dev/null; then
+  echo "ERROR: '$DOMAIN' is not a market in $MANIFEST."
+  echo "Known domains: $(jq -r '[.markets[].domain] | join(", ")' "$MANIFEST")"
+  exit 2
+fi
+
+# jq -er fails (non-zero) if a required field is missing/empty — never silently
+# yields an empty DOMAIN/host.
+mfield() { jq -er --arg d "$DOMAIN" ".markets[] | select(.domain == \$d) | $1" "$MANIFEST"; }
+
+SITE_URL=$(mfield '.seo.host')        || { echo "ERROR: $DOMAIN has no seo.host in the manifest."; exit 1; }
+STATUS=$(mfield '.status')            || { echo "ERROR: $DOMAIN has no status in the manifest."; exit 1; }
+DEPLOY_TYPE=$(mfield '.deploymentType') || { echo "ERROR: $DOMAIN has no deploymentType in the manifest."; exit 1; }
+# bucket may legitimately be null for a planned market → treat as empty.
+BUCKET=$(jq -r --arg d "$DOMAIN" '.markets[] | select(.domain == $d) | .aws.bucket // ""' "$MANIFEST")
+
+echo "==> Domain:      ${DOMAIN}"
+echo "==> SITE_URL:    ${SITE_URL}"
+echo "==> Status:      ${STATUS}"
+echo "==> Deploy type: ${DEPLOY_TYPE}"
+echo "==> Bucket:      ${BUCKET:-<none>}"
+
+if [[ "$SKIP_BUILD" -eq 0 ]]; then
+  echo "==> Building static export (NEXT_PUBLIC_SITE_URL=${SITE_URL})..."
+  NEXT_PUBLIC_SITE_URL="$SITE_URL" npm run build
 fi
 
 [[ -d out ]] || { echo "ERROR: ./out not found — build failed?"; exit 1; }
 
+# ── Vercel-hosted market: nothing to upload from here ──
+if [[ "$DEPLOY_TYPE" == "vercel" ]]; then
+  cat <<MSG
+==> ${DOMAIN} is deployed via Vercel — no S3 upload.
+    Set NEXT_PUBLIC_SITE_URL=${SITE_URL} in the Vercel project's Environment
+    Variables. The local build above already verifies the output.
+MSG
+  exit 0
+fi
+
+# ── Planned / not-yet-provisioned market (no bucket): build-only ──
+if [[ "$STATUS" == "planned" || -z "$BUCKET" ]]; then
+  cat <<MSG
+==> ${DOMAIN} is status='${STATUS}' with no S3 bucket in the manifest — not
+    provisioned yet, so nothing is uploaded. The local build above verifies the
+    output. Provision the stack (and set aws.bucket in the manifest) to deploy.
+MSG
+  exit 0
+fi
+
+# ── Provisioned S3 + CloudFront market ──
 echo "==> Syncing ./out to s3://${BUCKET}..."
 aws s3 sync out/ "s3://${BUCKET}/" --delete
 
 echo "==> Uploading extensionless HTML copies (clean URLs)..."
 (cd out && find . -name '*.html' ! -name 'index.html' | while read -r f; do
-  key="${f#./}"          # e.g. en/about.html
-  clean="${key%.html}"   # e.g. en/about
+  key="${f#./}"          # e.g. ru/faq.html
+  clean="${key%.html}"   # e.g. ru/faq
   aws s3 cp "$f" "s3://${BUCKET}/${clean}" \
     --content-type "text/html; charset=utf-8" --only-show-errors
   echo "    /${clean}"
@@ -46,4 +133,4 @@ else
     --query 'Invalidation.{Id:Id,Status:Status}' --output table
 fi
 
-echo "==> Done. Live at https://${DOMAIN}"
+echo "==> Done. Live at ${SITE_URL}"
