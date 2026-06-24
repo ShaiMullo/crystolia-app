@@ -135,7 +135,7 @@ export default function Header({ locale, dict }: HeaderProps) {
 
           {/* Language Switcher */}
           <div className="flex items-center gap-4">
-            <LanguageSwitcher />
+            <LanguageSwitcher currentLocale={locale} />
           </div>
         </nav>
       </header>
