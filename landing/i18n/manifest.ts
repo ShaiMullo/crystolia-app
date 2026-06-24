@@ -65,3 +65,19 @@ export function marketForLocale(locale: Locale): Market {
 export function localeHost(locale: Locale): string {
   return marketForLocale(locale).seo.host;
 }
+
+/** Lifecycle status of a locale's market (planned | provisioned | live | retired). */
+export function marketStatus(locale: Locale): string {
+  return marketForLocale(locale).status;
+}
+
+/**
+ * Whether a locale's market is reachable on its own canonical domain.
+ * `live`/`provisioned` markets have a public domain users can be sent to;
+ * `planned` (or other) markets do NOT — callers must keep the user on the
+ * current domain instead of navigating to a non-live host.
+ */
+export function isLocaleLive(locale: Locale): boolean {
+  const status = marketStatus(locale);
+  return status === "live" || status === "provisioned";
+}

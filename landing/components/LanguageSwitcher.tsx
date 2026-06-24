@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useTransition } from "react";
 import { i18n, type Locale } from "../i18n/config";
 import { localeOrigin } from "../i18n/site";
+import { isLocaleLive } from "../i18n/manifest";
 
 const languages: { code: Locale; flag: string; label: string }[] = [
   { code: "he", flag: "\u{1F1EE}\u{1F1F1}", label: "\u05E2\u05D1\u05E8\u05D9\u05EA" },
@@ -11,23 +12,44 @@ const languages: { code: Locale; flag: string; label: string }[] = [
   { code: "ru", flag: "\u{1F1F7}\u{1F1FA}", label: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439" },
 ];
 
-export default function LanguageSwitcher() {
+// Strips a leading "/<locale>" segment from a pathname.
+const LOCALE_PREFIX = new RegExp(`^/(${i18n.locales.join("|")})(?=/|$)`);
+
+export default function LanguageSwitcher({
+  currentLocale,
+}: {
+  currentLocale: Locale;
+}) {
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
 
-  const currentLocale = (pathname.split("/")[1] || i18n.defaultLocale) as Locale;
+  // `currentLocale` is the page's real locale (passed from the server component
+  // via Header) and is authoritative. The URL has no locale segment on a
+  // localized apex (e.g. crystolia.ru/ serves the /ru page), so deriving the
+  // locale from the path there wrongly yields the global default and makes
+  // "switch to English" a no-op — the bug this fixes.
 
   const changeLocale = (locale: Locale) => {
     if (locale === currentLocale) return;
 
-    // Path after the current locale segment: "" for the homepage, "/faq" etc.
-    const rest = pathname.replace(/^\/(he|en|ru)(?=\/|$)/, "");
-    const sub = rest === "/" ? "" : rest;
+    // Path after the locale segment: "" for the homepage, "/faq" etc. On a
+    // localized apex the URL has no locale segment, so this yields "".
+    const rest = pathname.replace(LOCALE_PREFIX, "");
+    const sub = rest === "/" || rest === "" ? "" : rest;
 
-    // Match the canonical structure: homepage → bare apex domain;
-    // sub-pages keep /{locale}/<path>.
-    const origin = localeOrigin(locale);
-    const dest = sub ? `${origin}/${locale}${sub}` : origin;
+    let dest: string;
+    if (isLocaleLive(locale)) {
+      // Live/provisioned market → its own canonical domain (per-domain SEO).
+      // Homepage → bare apex; sub-pages keep /{locale}/<path>.
+      const origin = localeOrigin(locale);
+      dest = sub ? `${origin}/${locale}${sub}` : origin;
+    } else {
+      // Planned/unprovisioned market (e.g. crystolia.co.il while il-he is
+      // status=planned): never send the user to a non-live domain. Stay on the
+      // current domain — the static export deployed here already contains
+      // /<locale>, so it serves that language correctly.
+      dest = `${window.location.origin}/${locale}${sub}`;
+    }
 
     // Mark this as an explicit choice so the .com CloudFront geo/language
     // redirect won't override it (loop-safe), and persist it first-party so
