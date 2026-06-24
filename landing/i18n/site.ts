@@ -1,22 +1,25 @@
 // Central site constants used for SEO metadata, canonical URLs,
 // hreflang alternates, sitemap and structured data.
 import { i18n, type Locale } from "./config";
+import { localeHost } from "./manifest";
 
-export const SITE_URL = "https://crystolia.com";
+// Global site origin = the canonical host of the default (x-default) locale.
+// Sourced from the platform manifest; the choice of default locale stays in
+// i18n/config.ts. (en → https://crystolia.com)
+export const SITE_URL = localeHost(i18n.defaultLocale as Locale);
 export const BRAND = "Crystolia";
 export const OG_IMAGE = "/crystolia-bg.png";
 export const LOGO = "/crystolia-logo.png";
 
 // ── Per-locale canonical domains (apex, no www) ──────────────────────────────
-// Each locale is the canonical owner of its own domain:
-//   en → https://crystolia.com   he → https://crystolia.co.il   ru → https://crystolia.ru
-// Used for <link rel="canonical"> and hreflang alternates so each language maps
-// to its matching domain. x-default points at the global English (.com) home.
-export const LOCALE_SITE_URL: Record<Locale, string> = {
-  en: "https://crystolia.com",
-  he: "https://crystolia.co.il",
-  ru: "https://crystolia.ru",
-};
+// Each locale is the canonical owner of its own domain, sourced from the
+// platform manifest (en → https://crystolia.com, he → https://crystolia.co.il,
+// ru → https://crystolia.ru). Used for <link rel="canonical"> and hreflang
+// alternates so each language maps to its matching domain. x-default points at
+// the global English (.com) home.
+export const LOCALE_SITE_URL: Record<Locale, string> = Object.fromEntries(
+  i18n.locales.map((locale) => [locale, localeHost(locale)]),
+) as Record<Locale, string>;
 
 /** Canonical apex origin for a locale (no trailing slash, no www). */
 export function localeOrigin(locale: Locale): string {
