@@ -39,6 +39,7 @@ import invoicesRouter from './routes/invoices.js';
 import settingsRouter from './routes/settings.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
+import { deprecatedRoute } from './middleware/deprecation.js';
 import { seedAdmin } from './db/seedAdmin.js';
 import { seedDefaultRules } from './services/automationService.js';
 import { seedScheduledJobs, startScheduler, stopScheduler } from './jobs/scheduler.js';
@@ -142,22 +143,29 @@ app.get('/api/live', (_req: Request, res: Response) => {
 app.use('/api/auth', authRouter);
 app.use('/api/leads', leadsRouter);
 app.use('/api/crm', crmRouter);
-app.use('/api/crm/customers', crmCustomersRouter);
-app.use('/api/crm/tasks', crmTasksRouter);
-app.use('/api/crm/notifications', crmNotificationsRouter);
-app.use('/api/crm/analytics', crmAnalyticsRouter);
-app.use('/api/crm/products', crmProductsRouter);
-app.use('/api/crm/inventory', crmInventoryRouter);
-app.use('/api/crm/orders', crmOrdersRouter);
-app.use('/api/crm/payments', crmPaymentsRouter);
-app.use('/api/crm/shipments', crmShipmentsRouter);
-app.use('/api/crm/suppliers', crmSuppliersRouter);
-app.use('/api/crm/purchase-orders', crmPurchaseOrdersRouter);
-app.use('/api/crm/system', crmSystemRouter);
-app.use('/api/crm/exports', crmExportsRouter);
+// Old /api/crm/* surface — DEPRECATED in favour of /api/v1/* (M1/B2). The
+// deprecatedRoute() shim only sets deprecation headers + logs one line, then the
+// SAME router runs unchanged (zero behavior change). The /api/crm meta root above
+// is left as-is (its canonical successor is TBD in M3). Removal of these aliases
+// is B4. See docs/m1-consolidation-plan.md.
+app.use('/api/crm/customers', deprecatedRoute('/api/v1/customers'), crmCustomersRouter);
+app.use('/api/crm/tasks', deprecatedRoute('/api/v1/tasks'), crmTasksRouter);
+app.use('/api/crm/notifications', deprecatedRoute('/api/v1/notifications'), crmNotificationsRouter);
+app.use('/api/crm/analytics', deprecatedRoute('/api/v1/analytics'), crmAnalyticsRouter);
+app.use('/api/crm/products', deprecatedRoute('/api/v1/products'), crmProductsRouter);
+app.use('/api/crm/inventory', deprecatedRoute('/api/v1/inventory'), crmInventoryRouter);
+app.use('/api/crm/orders', deprecatedRoute('/api/v1/orders'), crmOrdersRouter);
+app.use('/api/crm/payments', deprecatedRoute('/api/v1/payments'), crmPaymentsRouter);
+app.use('/api/crm/shipments', deprecatedRoute('/api/v1/shipments'), crmShipmentsRouter);
+app.use('/api/crm/suppliers', deprecatedRoute('/api/v1/suppliers'), crmSuppliersRouter);
+app.use('/api/crm/purchase-orders', deprecatedRoute('/api/v1/purchase-orders'), crmPurchaseOrdersRouter);
+app.use('/api/crm/system', deprecatedRoute('/api/v1/system'), crmSystemRouter);
+app.use('/api/crm/exports', deprecatedRoute('/api/v1/exports'), crmExportsRouter);
 app.use('/api/users', usersRouter);
-app.use('/api/orders', ordersRouter);
-app.use('/api/customers', customersRouter);
+// Legacy DUPLICATE mounts (frontend already calls the crm*/v1 versions) —
+// DEPRECATED; v1 successor is the crm-backed router. Removed in M1/B4.
+app.use('/api/orders', deprecatedRoute('/api/v1/orders'), ordersRouter);
+app.use('/api/customers', deprecatedRoute('/api/v1/customers'), customersRouter);
 app.use('/api/companies', companiesRouter);
 app.use('/api/invoices', invoicesRouter);
 app.use('/api/settings', settingsRouter);
