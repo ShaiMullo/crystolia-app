@@ -3,10 +3,15 @@
 import { i18n, type Locale } from "./config";
 import { localeHost } from "./manifest";
 
-// Global site origin = the canonical host of the default (x-default) locale.
-// Sourced from the platform manifest; the choice of default locale stays in
-// i18n/config.ts. (en → https://crystolia.com)
-export const SITE_URL = localeHost(i18n.defaultLocale as Locale);
+// Global site origin for *this build*. A static export can't know the serving
+// host at runtime, so each domain's deploy passes NEXT_PUBLIC_SITE_URL (e.g.
+// https://crystolia.ru) to get a correct robots.txt `Host:`/`Sitemap:` and
+// metadataBase for that domain. When unset it falls back to the platform
+// manifest's default-locale (x-default) host — en → https://crystolia.com.
+// NOTE: per-locale canonical/hreflang use LOCALE_SITE_URL below and are
+// independent of this value, so they stay correct regardless of build host.
+export const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ?? localeHost(i18n.defaultLocale as Locale);
 export const BRAND = "Crystolia";
 export const OG_IMAGE = "/crystolia-bg.png";
 export const LOGO = "/crystolia-logo.png";
