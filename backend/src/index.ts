@@ -165,6 +165,48 @@ app.use('/api/settings', settingsRouter);
 app.use('/api/audit', auditRouter);
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// /api/v1 — versioned API surface (M1 / B1 dual-mount)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Additive aliases that REUSE the same router instances mounted above, so they
+// behave identically (same global middleware + each router's own protect/
+// authorize). Zero behavior change; nothing above is removed or modified.
+// Canonical map: docs/m1-consolidation-plan.md.
+// Notes:
+//  - customers/orders alias the crm* routers (the live ones). The legacy
+//    /api/customers and /api/orders routers are the deprecated duplicates and
+//    are intentionally NOT given a v1 alias (removed in B4).
+//  - the /api/crm meta root (crmRouter) is not aliased (canonical home TBD, M3).
+//  - deprecation headers on legacy/crm paths are B2; frontend migration is B3.
+// identity
+app.use('/api/v1/auth', authRouter);
+app.use('/api/v1/users', usersRouter);
+// crm
+app.use('/api/v1/customers', crmCustomersRouter);
+app.use('/api/v1/leads', leadsRouter);
+app.use('/api/v1/companies', companiesRouter);
+app.use('/api/v1/tasks', crmTasksRouter);
+app.use('/api/v1/notifications', crmNotificationsRouter);
+// catalog
+app.use('/api/v1/products', crmProductsRouter);
+// inventory
+app.use('/api/v1/inventory', crmInventoryRouter);
+// sales
+app.use('/api/v1/orders', crmOrdersRouter);
+// procurement
+app.use('/api/v1/suppliers', crmSuppliersRouter);
+app.use('/api/v1/purchase-orders', crmPurchaseOrdersRouter);
+app.use('/api/v1/shipments', crmShipmentsRouter);
+// accounting
+app.use('/api/v1/invoices', invoicesRouter);
+app.use('/api/v1/payments', crmPaymentsRouter);
+// platform
+app.use('/api/v1/audit', auditRouter);
+app.use('/api/v1/settings', settingsRouter);
+app.use('/api/v1/analytics', crmAnalyticsRouter);
+app.use('/api/v1/exports', crmExportsRouter);
+app.use('/api/v1/system', crmSystemRouter);
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ⚠️ Error Handler
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 app.use(errorHandler);
