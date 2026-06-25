@@ -72,12 +72,14 @@ export function marketStatus(locale: Locale): string {
 }
 
 /**
- * Whether a locale's market is reachable on its own canonical domain.
- * `live`/`provisioned` markets have a public domain users can be sent to;
- * `planned` (or other) markets do NOT — callers must keep the user on the
- * current domain instead of navigating to a non-live host.
+ * Whether a locale's market is publicly reachable on its own canonical domain.
+ * ONLY `status === "live"` qualifies — i.e. the domain has gone live (apex/www
+ * A-ALIAS records exist, go_live=true). A `provisioned` market has infrastructure
+ * (bucket/CloudFront/cert) but is NOT yet public (no apex/www, go_live=false), so
+ * routing a user to its canonical host would hit a non-resolving domain. Callers
+ * (e.g. the language switcher) must keep the user on the current domain for any
+ * non-`live` market.
  */
 export function isLocaleLive(locale: Locale): boolean {
-  const status = marketStatus(locale);
-  return status === "live" || status === "provisioned";
+  return marketStatus(locale) === "live";
 }
