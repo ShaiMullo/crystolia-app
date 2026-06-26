@@ -110,6 +110,7 @@ export default function OilTypePage({
       />
       <Header dict={dict} locale={locale} />
       <main
+        id="main-content"
         dir={isRTL ? "rtl" : "ltr"}
         className="bg-gradient-to-b from-[#FFF8E7] via-white to-[#FFF8E7] min-h-screen"
       >

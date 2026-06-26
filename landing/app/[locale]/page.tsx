@@ -80,7 +80,7 @@ export default async function LandingPage({ params }: PageProps) {
       <AlternateLinks subPath="" />
       <StructuredData locale={locale} dict={dict} />
       <Header dict={dict} locale={locale} />
-      <main>
+      <main id="main-content">
         <Hero dict={dict} locale={locale} />
         <Features dict={dict} locale={locale} />
         <Products dict={dict} locale={locale} />

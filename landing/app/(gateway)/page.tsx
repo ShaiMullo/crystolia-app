@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 
 export default function RootPage() {
   return (
-    <main style={{ padding: "2rem", fontFamily: "sans-serif" }}>
+    <main id="main-content" style={{ padding: "2rem", fontFamily: "sans-serif" }}>
       <AlternateLinks subPath="" />
       <RootRedirect />
       <h1>Crystolia — Quality Canola &amp; Sunflower Cooking Oils</h1>
