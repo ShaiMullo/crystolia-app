@@ -33,12 +33,12 @@ export async function listCustomers(params: CustomersListParams = {}): Promise<C
     if (params.assignedTo) search.set("assignedTo", params.assignedTo);
     if (params.tags) search.set("tags", params.tags);
     const qs = search.toString();
-    const res = await api.get(`/crm/customers${qs ? `?${qs}` : ""}`);
+    const res = await api.get(`/v1/customers${qs ? `?${qs}` : ""}`);
     return res.data;
 }
 
 export async function getCustomer(id: string): Promise<CustomerDetail> {
-    const res = await api.get(`/crm/customers/${id}`);
+    const res = await api.get(`/v1/customers/${id}`);
     return res.data.data;
 }
 
@@ -59,17 +59,17 @@ export interface CustomerUpsertPayload {
 }
 
 export async function createCustomer(payload: CustomerUpsertPayload): Promise<{ data: Customer; idempotent?: boolean }> {
-    const res = await api.post("/crm/customers", payload);
+    const res = await api.post("/v1/customers", payload);
     return res.data;
 }
 
 export async function updateCustomer(id: string, payload: CustomerUpsertPayload): Promise<Customer> {
-    const res = await api.patch(`/crm/customers/${id}`, payload);
+    const res = await api.patch(`/v1/customers/${id}`, payload);
     return res.data.data;
 }
 
 export async function deleteCustomer(id: string): Promise<void> {
-    await api.delete(`/crm/customers/${id}`);
+    await api.delete(`/v1/customers/${id}`);
 }
 
 export type AgentUser = User;

@@ -100,7 +100,7 @@ export default function AdminDashboard() {
     const fetchUsers = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await api.get("/users");
+            const response = await api.get("/v1/users");
             if (response.data.success || response.data.data) {
                 setUsers(response.data.data || []);
             }
@@ -212,10 +212,10 @@ export default function AdminDashboard() {
     const handleSaveUser = async (data: Partial<User> & { password?: string }) => {
         try {
             if (userModalMode === "create") {
-                await api.post("/users", data);
+                await api.post("/v1/users", data);
                 toast.success(t("users.toasts.created"));
             } else if (currentUser) {
-                await api.patch(`/users/${currentUser._id}`, data);
+                await api.patch(`/v1/users/${currentUser._id}`, data);
                 toast.success(t("users.toasts.updated"));
             }
             fetchUsers();
@@ -229,7 +229,7 @@ export default function AdminDashboard() {
         const confirmMsg = u.isActive ? t("users.confirmToggle") : t("users.confirmActivate");
         if (!confirm(confirmMsg)) return;
         try {
-            await api.patch(`/users/${u._id}`, { isActive: !u.isActive });
+            await api.patch(`/v1/users/${u._id}`, { isActive: !u.isActive });
             toast.success(u.isActive ? t("users.toasts.deactivated") : t("users.toasts.activated"));
             fetchUsers();
         } catch {

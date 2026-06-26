@@ -45,7 +45,7 @@ export interface ListCompaniesResult {
  * `pagination`; otherwise a plain array is returned.
  */
 export async function listCompanies(params: ListCompaniesParams = {}): Promise<ListCompaniesResult> {
-    const res = await api.get("/companies", { params });
+    const res = await api.get("/v1/companies", { params });
     const body = res.data;
     // Tolerate both the wrapped ({ data, pagination }) and bare-array shapes.
     if (Array.isArray(body)) return { data: body };
