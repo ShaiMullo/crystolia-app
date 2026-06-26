@@ -95,49 +95,49 @@ export interface AuditEntry {
 // ── Health + diagnostics ─────────────────────────────────────────────────────
 
 export async function getSystemHealth(): Promise<SystemHealth> {
-    const res = await api.get("/crm/system/health");
+    const res = await api.get("/v1/system/health");
     return res.data.data;
 }
 
 export async function getDiagnostics(): Promise<ReplicaDiagnostics> {
-    const res = await api.get("/crm/system/diagnostics");
+    const res = await api.get("/v1/system/diagnostics");
     return res.data.data;
 }
 
 // ── Jobs ─────────────────────────────────────────────────────────────────────
 
 export async function listJobs(): Promise<ScheduledJobRow[]> {
-    const res = await api.get("/crm/system/jobs");
+    const res = await api.get("/v1/system/jobs");
     return res.data.data;
 }
 
 export async function listJobRuns(key: string): Promise<JobRunRecord[]> {
-    const res = await api.get(`/crm/system/jobs/${key}/runs`);
+    const res = await api.get(`/v1/system/jobs/${key}/runs`);
     return res.data.data;
 }
 
 export async function setJobEnabled(key: string, enabled: boolean): Promise<void> {
-    await api.patch(`/crm/system/jobs/${key}`, { enabled });
+    await api.patch(`/v1/system/jobs/${key}`, { enabled });
 }
 
 export async function runJobNow(key: string): Promise<{ ok: boolean; error?: string; skipped?: boolean }> {
-    const res = await api.post(`/crm/system/jobs/${key}/run`);
+    const res = await api.post(`/v1/system/jobs/${key}/run`);
     return res.data.data;
 }
 
 // ── Backups ──────────────────────────────────────────────────────────────────
 
 export async function listBackups(): Promise<BackupManifestRecord[]> {
-    const res = await api.get("/crm/system/backups");
+    const res = await api.get("/v1/system/backups");
     return res.data.data;
 }
 
 export async function createBackup(label: string): Promise<void> {
-    await api.post("/crm/system/backups", { label });
+    await api.post("/v1/system/backups", { label });
 }
 
 export async function verifyBackup(id: string): Promise<{ verified: boolean; drift: number }> {
-    const res = await api.post(`/crm/system/backups/${id}/verify`);
+    const res = await api.post(`/v1/system/backups/${id}/verify`);
     return res.data.data;
 }
 
@@ -167,7 +167,7 @@ export async function searchAudit(params: AuditSearchParams = {}): Promise<Audit
     if (params.from) s.set("from", params.from);
     if (params.to) s.set("to", params.to);
     const qs = s.toString();
-    const res = await api.get(`/crm/system/audit${qs ? `?${qs}` : ""}`);
+    const res = await api.get(`/v1/system/audit${qs ? `?${qs}` : ""}`);
     return res.data;
 }
 
@@ -177,7 +177,7 @@ export type ExportDataset = "customers" | "orders" | "inventory" | "payments" | 
 
 /** Trigger a browser download of an export file. */
 export async function downloadExport(dataset: ExportDataset, format: "csv" | "json"): Promise<void> {
-    const res = await api.get(`/crm/exports/${dataset}?format=${format}`, { responseType: "blob" });
+    const res = await api.get(`/v1/exports/${dataset}?format=${format}`, { responseType: "blob" });
     const blob = new Blob([res.data], { type: format === "json" ? "application/json" : "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

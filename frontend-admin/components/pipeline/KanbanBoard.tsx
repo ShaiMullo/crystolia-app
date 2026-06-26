@@ -63,7 +63,7 @@ export function KanbanBoard({ leads, users, onChange }: KanbanBoardProps) {
             onChange(optimistic);
 
             try {
-                await api.patch(`/leads/${draggedId}`, { status });
+                await api.patch(`/v1/leads/${draggedId}`, { status });
                 toast.success(t("pipeline.toasts.moved", { status: t(`status.${status}`) }));
             } catch (err: unknown) {
                 console.error(err);

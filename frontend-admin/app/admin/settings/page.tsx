@@ -56,7 +56,7 @@ export default function SettingsPage() {
         setLoading(true);
         setError(null);
         try {
-            const res = await api.get("/settings");
+            const res = await api.get("/v1/settings");
             const data: SettingsData = res.data.data;
             setMinimumOrderAmount(data.minimumOrderAmount ?? 0);
             setCurrency(data.currency ?? "ILS");
@@ -86,7 +86,7 @@ export default function SettingsPage() {
         }
         setSaving(true);
         try {
-            await api.put("/settings", { minimumOrderAmount, currency, boxPrices });
+            await api.put("/v1/settings", { minimumOrderAmount, currency, boxPrices });
             toast.success(t("settings.toasts.saved"));
         } catch (err) {
             console.error(err);
