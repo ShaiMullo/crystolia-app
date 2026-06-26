@@ -30,12 +30,12 @@ export async function listOrders(params: OrderListParams = {}): Promise<OrderLis
     if (params.status) s.set("status", params.status);
     if (params.companyId) s.set("companyId", params.companyId);
     const qs = s.toString();
-    const res = await api.get(`/crm/orders${qs ? `?${qs}` : ""}`);
+    const res = await api.get(`/v1/orders${qs ? `?${qs}` : ""}`);
     return res.data;
 }
 
 export async function getOrder(id: string): Promise<OrderDetail> {
-    const res = await api.get(`/crm/orders/${id}`);
+    const res = await api.get(`/v1/orders/${id}`);
     return res.data.data;
 }
 
@@ -56,17 +56,17 @@ export interface OrderUpsertPayload {
 }
 
 export async function previewOrder(items: OrderItemInput[]): Promise<{ totals: OrderTotals; preview: OrderInventoryPreviewLine[] }> {
-    const res = await api.post("/crm/orders/preview", { items });
+    const res = await api.post("/v1/orders/preview", { items });
     return res.data.data;
 }
 
 export async function createOrder(payload: OrderUpsertPayload): Promise<Order> {
-    const res = await api.post("/crm/orders", payload);
+    const res = await api.post("/v1/orders", payload);
     return res.data.data;
 }
 
 export async function updateOrder(id: string, payload: OrderUpsertPayload): Promise<Order> {
-    const res = await api.patch(`/crm/orders/${id}`, payload);
+    const res = await api.patch(`/v1/orders/${id}`, payload);
     return res.data.data;
 }
 

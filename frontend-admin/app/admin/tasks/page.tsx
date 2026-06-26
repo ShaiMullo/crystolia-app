@@ -36,7 +36,7 @@ export default function TasksPage() {
 
     useEffect(() => {
         let cancelled = false;
-        api.get("/users")
+        api.get("/v1/users")
             .then((res) => {
                 if (cancelled) return;
                 const list: User[] = res.data?.data || [];

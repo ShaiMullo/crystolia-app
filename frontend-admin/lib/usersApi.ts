@@ -46,7 +46,7 @@ export interface ListUsersResult {
  * `GET /users` call still returns a plain array and is unaffected.
  */
 export async function listUsers(params: ListUsersParams = {}): Promise<ListUsersResult> {
-    const res = await api.get("/users", { params });
+    const res = await api.get("/v1/users", { params });
     return { data: res.data?.data ?? [], pagination: res.data?.pagination };
 }
 
@@ -79,21 +79,21 @@ export interface ResetPasswordResult {
 }
 
 export async function createUser(payload: CreateUserPayload): Promise<AdminUser> {
-    const res = await api.post("/users", payload);
+    const res = await api.post("/v1/users", payload);
     return res.data?.data ?? res.data;
 }
 
 export async function updateUser(id: string, payload: UpdateUserPayload): Promise<AdminUser> {
-    const res = await api.patch(`/users/${id}`, payload);
+    const res = await api.patch(`/v1/users/${id}`, payload);
     return res.data?.data ?? res.data;
 }
 
 export async function deleteUser(id: string): Promise<{ id: string; isDeleted: boolean }> {
-    const res = await api.delete(`/users/${id}`);
+    const res = await api.delete(`/v1/users/${id}`);
     return res.data?.data ?? res.data;
 }
 
 export async function resetUserPassword(id: string): Promise<ResetPasswordResult> {
-    const res = await api.post(`/users/${id}/reset-password`);
+    const res = await api.post(`/v1/users/${id}/reset-password`);
     return res.data?.data ?? res.data;
 }
