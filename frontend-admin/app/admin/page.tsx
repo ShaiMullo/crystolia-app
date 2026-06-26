@@ -84,7 +84,7 @@ export default function AdminDashboard() {
             if (statusFilter) params.append("status", statusFilter);
             if (agentFilter) params.append("assignedTo", agentFilter);
             if (searchQuery) params.append("search", searchQuery);
-            const response = await api.get(`/leads?${params.toString()}`);
+            const response = await api.get(`/v1/leads?${params.toString()}`);
             if (response.data.success && response.data.data) {
                 setLeads(response.data.data.leads || []);
                 if (response.data.data.pagination) setTotalPages(response.data.data.pagination.pages);
@@ -114,7 +114,7 @@ export default function AdminDashboard() {
     const fetchAuditLogs = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await api.get(`/audit?page=${page}&limit=${limit}`);
+            const response = await api.get(`/v1/audit?page=${page}&limit=${limit}`);
             if (response.data.success) {
                 setAuditLogs(response.data.data || []);
                 if (response.data.pagination) setTotalPages(response.data.pagination.pages);
@@ -130,7 +130,7 @@ export default function AdminDashboard() {
     const fetchOrders = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await api.get("/orders");
+            const response = await api.get("/v1/orders");
             if (response.data.success) setOrders(response.data.data || []);
         } catch (error) {
             console.error(error);
@@ -143,7 +143,7 @@ export default function AdminDashboard() {
     const fetchInvoices = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await api.get("/invoices");
+            const response = await api.get("/v1/invoices");
             if (response.data.success) setInvoices(response.data.data || []);
         } catch (error) {
             console.error(error);
@@ -188,7 +188,7 @@ export default function AdminDashboard() {
 
     const handleSaveLead = async (leadId: string, data: Partial<Lead>) => {
         try {
-            await api.patch(`/leads/${leadId}`, data);
+            await api.patch(`/v1/leads/${leadId}`, data);
             toast.success(t("leads.toasts.updated"));
             fetchLeads();
         } catch (error) {
@@ -241,7 +241,7 @@ export default function AdminDashboard() {
         setOrders((prev) => prev.map((o) => (o._id === orderId ? { ...o, status: newStatus } : o)));
         setSavingOrderIds((prev) => new Set(prev).add(orderId));
         try {
-            await api.patch(`/orders/${orderId}`, { status: newStatus });
+            await api.patch(`/v1/orders/${orderId}`, { status: newStatus });
             toast.success(t("orders.toasts.updated"));
         } catch (error) {
             console.error(error);
@@ -260,7 +260,7 @@ export default function AdminDashboard() {
         setInvoices((prev) => prev.map((inv) => (inv._id === invoiceId ? { ...inv, status: newStatus } : inv)));
         setSavingInvoiceIds((prev) => new Set(prev).add(invoiceId));
         try {
-            await api.patch(`/invoices/${invoiceId}`, { status: newStatus });
+            await api.patch(`/v1/invoices/${invoiceId}`, { status: newStatus });
             toast.success(t("invoices.toasts.updated"));
         } catch (error) {
             console.error(error);
@@ -278,7 +278,7 @@ export default function AdminDashboard() {
     const handleIssueInvoice = async (invoiceId: string) => {
         setIssuingInvoiceIds((prev) => new Set(prev).add(invoiceId));
         try {
-            const response = await api.post(`/invoices/${invoiceId}/issue`);
+            const response = await api.post(`/v1/invoices/${invoiceId}/issue`);
             toast.success(t("invoices.toasts.issued"));
             fetchInvoices();
             const pdfUrl = response.data?.pdfUrl;
@@ -297,7 +297,7 @@ export default function AdminDashboard() {
 
     const handleCreateInvoice = async (payload: InvoicePayload) => {
         try {
-            await api.post("/invoices", payload);
+            await api.post("/v1/invoices", payload);
             toast.success(t("invoices.toasts.created"));
             fetchInvoices();
         } catch (err: unknown) {

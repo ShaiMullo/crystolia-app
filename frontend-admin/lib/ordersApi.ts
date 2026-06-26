@@ -71,6 +71,6 @@ export async function updateOrder(id: string, payload: OrderUpsertPayload): Prom
 }
 
 export async function getFinanceSummary(): Promise<FinanceSummary> {
-    const res = await api.get("/crm/analytics/finance");
+    const res = await api.get("/v1/analytics/finance");
     return res.data.data;
 }

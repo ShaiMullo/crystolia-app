@@ -47,7 +47,7 @@ export default function AgentDashboard() {
     const fetchLeads = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await api.get("/leads");
+            const response = await api.get("/v1/leads");
             if (response.data.success || response.data.data) {
                 setLeads(response.data.data?.leads || response.data.data || []);
             }
@@ -67,7 +67,7 @@ export default function AgentDashboard() {
         setLeads((prev) => prev.map((l) => (l._id === leadId ? { ...l, status: newStatus } : l)));
         setSavingIds((prev) => new Set(prev).add(leadId));
         try {
-            await api.patch(`/leads/${leadId}`, { status: newStatus });
+            await api.patch(`/v1/leads/${leadId}`, { status: newStatus });
             toast.success(t("agent.toasts.statusUpdated"));
         } catch (error) {
             console.error(error);
@@ -84,7 +84,7 @@ export default function AgentDashboard() {
 
     const handleSaveLead = async (leadId: string, data: Partial<Lead>) => {
         try {
-            await api.patch(`/leads/${leadId}`, data);
+            await api.patch(`/v1/leads/${leadId}`, data);
             toast.success(t("agent.toasts.leadUpdated"));
             fetchLeads();
         } catch (error) {

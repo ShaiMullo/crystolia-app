@@ -29,7 +29,7 @@ export async function listPayments(params: { page?: number; invoiceId?: string; 
     if (params.invoiceId) s.set("invoiceId", params.invoiceId);
     if (params.companyId) s.set("companyId", params.companyId);
     const qs = s.toString();
-    const res = await api.get(`/crm/payments${qs ? `?${qs}` : ""}`);
+    const res = await api.get(`/v1/payments${qs ? `?${qs}` : ""}`);
     return res.data;
 }
 
@@ -43,11 +43,11 @@ export interface PaymentPayload {
 }
 
 export async function postPayment(payload: PaymentPayload): Promise<void> {
-    await api.post("/crm/payments", payload);
+    await api.post("/v1/payments", payload);
 }
 
 export async function voidPayment(id: string): Promise<void> {
-    await api.post(`/crm/payments/${id}/void`);
+    await api.post(`/v1/payments/${id}/void`);
 }
 
 // ── Shipments ────────────────────────────────────────────────────────────────
@@ -55,7 +55,7 @@ export async function voidPayment(id: string): Promise<void> {
 export async function listShipments(orderId?: string): Promise<ShipmentRecord[]> {
     const s = new URLSearchParams();
     if (orderId) s.set("orderId", orderId);
-    const res = await api.get(`/crm/shipments${s.toString() ? `?${s.toString()}` : ""}`);
+    const res = await api.get(`/v1/shipments${s.toString() ? `?${s.toString()}` : ""}`);
     return res.data.data;
 }
 
@@ -68,12 +68,12 @@ export interface ShipmentPayload {
 }
 
 export async function createShipment(payload: ShipmentPayload): Promise<ShipmentRecord> {
-    const res = await api.post("/crm/shipments", payload);
+    const res = await api.post("/v1/shipments", payload);
     return res.data.data;
 }
 
 export async function updateShipment(id: string, payload: ShipmentPayload): Promise<ShipmentRecord> {
-    const res = await api.patch(`/crm/shipments/${id}`, payload);
+    const res = await api.patch(`/v1/shipments/${id}`, payload);
     return res.data.data;
 }
 
@@ -90,12 +90,12 @@ export async function listSuppliers(params: { page?: number; search?: string } =
     if (params.page) s.set("page", String(params.page));
     if (params.search) s.set("search", params.search);
     const qs = s.toString();
-    const res = await api.get(`/crm/suppliers${qs ? `?${qs}` : ""}`);
+    const res = await api.get(`/v1/suppliers${qs ? `?${qs}` : ""}`);
     return res.data;
 }
 
 export async function getSupplier(id: string): Promise<SupplierDetail> {
-    const res = await api.get(`/crm/suppliers/${id}`);
+    const res = await api.get(`/v1/suppliers/${id}`);
     return res.data.data;
 }
 
@@ -112,12 +112,12 @@ export interface SupplierPayload {
 }
 
 export async function createSupplier(payload: SupplierPayload): Promise<Supplier> {
-    const res = await api.post("/crm/suppliers", payload);
+    const res = await api.post("/v1/suppliers", payload);
     return res.data.data;
 }
 
 export async function updateSupplier(id: string, payload: SupplierPayload): Promise<Supplier> {
-    const res = await api.patch(`/crm/suppliers/${id}`, payload);
+    const res = await api.patch(`/v1/suppliers/${id}`, payload);
     return res.data.data;
 }
 
@@ -135,12 +135,12 @@ export async function listPurchaseOrders(params: { page?: number; status?: Purch
     if (params.status) s.set("status", params.status);
     if (params.supplierId) s.set("supplierId", params.supplierId);
     const qs = s.toString();
-    const res = await api.get(`/crm/purchase-orders${qs ? `?${qs}` : ""}`);
+    const res = await api.get(`/v1/purchase-orders${qs ? `?${qs}` : ""}`);
     return res.data;
 }
 
 export async function getPurchaseOrder(id: string): Promise<PurchaseOrder> {
-    const res = await api.get(`/crm/purchase-orders/${id}`);
+    const res = await api.get(`/v1/purchase-orders/${id}`);
     return res.data.data;
 }
 
@@ -153,27 +153,27 @@ export interface PurchaseOrderPayload {
 }
 
 export async function createPurchaseOrder(payload: PurchaseOrderPayload): Promise<PurchaseOrder> {
-    const res = await api.post("/crm/purchase-orders", payload);
+    const res = await api.post("/v1/purchase-orders", payload);
     return res.data.data;
 }
 
 export async function updatePurchaseOrder(id: string, payload: PurchaseOrderPayload): Promise<PurchaseOrder> {
-    const res = await api.patch(`/crm/purchase-orders/${id}`, payload);
+    const res = await api.patch(`/v1/purchase-orders/${id}`, payload);
     return res.data.data;
 }
 
 export async function receivePurchaseOrder(id: string, receipts: Array<{ productId: string; quantity: number }>): Promise<void> {
-    await api.post(`/crm/purchase-orders/${id}/receive`, { receipts });
+    await api.post(`/v1/purchase-orders/${id}/receive`, { receipts });
 }
 
 // ── Profitability + reconciliation history ───────────────────────────────────
 
 export async function getProfitability(): Promise<ProfitabilitySummary> {
-    const res = await api.get("/crm/analytics/profitability");
+    const res = await api.get("/v1/analytics/profitability");
     return res.data.data;
 }
 
 export async function getReconciliationHistory(): Promise<ReconciliationHistoryEntry[]> {
-    const res = await api.get("/crm/inventory/reconciliation/history");
+    const res = await api.get("/v1/inventory/reconciliation/history");
     return res.data.data;
 }

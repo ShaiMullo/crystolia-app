@@ -41,7 +41,7 @@ export async function listTasks(params: TaskListParams = {}): Promise<TaskListRe
     if (params.relatedId) s.set("relatedId", params.relatedId);
     if (params.overdue) s.set("overdue", "true");
     const qs = s.toString();
-    const res = await api.get(`/crm/tasks${qs ? `?${qs}` : ""}`);
+    const res = await api.get(`/v1/tasks${qs ? `?${qs}` : ""}`);
     return res.data;
 }
 
@@ -58,17 +58,17 @@ export interface TaskUpsertPayload {
 }
 
 export async function createTask(payload: TaskUpsertPayload): Promise<TaskRecord> {
-    const res = await api.post("/crm/tasks", payload);
+    const res = await api.post("/v1/tasks", payload);
     return res.data.data;
 }
 
 export async function updateTask(id: string, payload: TaskUpsertPayload): Promise<TaskRecord> {
-    const res = await api.patch(`/crm/tasks/${id}`, payload);
+    const res = await api.patch(`/v1/tasks/${id}`, payload);
     return res.data.data;
 }
 
 export async function deleteTask(id: string): Promise<void> {
-    await api.delete(`/crm/tasks/${id}`);
+    await api.delete(`/v1/tasks/${id}`);
 }
 
 // ── Notifications ────────────────────────────────────────────────────────────
@@ -84,22 +84,22 @@ export async function listNotifications(unreadOnly = false, limit = 20): Promise
     const s = new URLSearchParams();
     if (unreadOnly) s.set("unread", "true");
     s.set("limit", String(limit));
-    const res = await api.get(`/crm/notifications?${s.toString()}`);
+    const res = await api.get(`/v1/notifications?${s.toString()}`);
     return res.data;
 }
 
 export async function markNotificationRead(id: string): Promise<void> {
-    await api.post(`/crm/notifications/${id}/read`);
+    await api.post(`/v1/notifications/${id}/read`);
 }
 
 export async function markAllNotificationsRead(): Promise<void> {
-    await api.post(`/crm/notifications/read-all`);
+    await api.post(`/v1/notifications/read-all`);
 }
 
 // ── Analytics + Activity ─────────────────────────────────────────────────────
 
 export async function getPipelineAnalytics(): Promise<PipelineAnalytics> {
-    const res = await api.get("/crm/analytics/pipeline");
+    const res = await api.get("/v1/analytics/pipeline");
     return res.data.data;
 }
 
@@ -107,6 +107,6 @@ export async function listActivity(entity?: string, limit = 30): Promise<AuditLo
     const s = new URLSearchParams();
     if (entity) s.set("entity", entity);
     s.set("limit", String(limit));
-    const res = await api.get(`/crm/analytics/activity?${s.toString()}`);
+    const res = await api.get(`/v1/analytics/activity?${s.toString()}`);
     return res.data.data;
 }

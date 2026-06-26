@@ -23,7 +23,7 @@ export default function PipelinePage() {
             // Fetch a generous page of leads so the board feels populated.
             // Production-scale optimization (per-column lazy load) is Phase 5.
             const [leadsRes, usersRes, analyticsData] = await Promise.all([
-                api.get("/leads?page=1&limit=200"),
+                api.get("/v1/leads?page=1&limit=200"),
                 api.get("/v1/users"),
                 getPipelineAnalytics().catch(() => null),
             ]);

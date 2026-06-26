@@ -66,7 +66,7 @@ export default function PaymentsPage() {
     // Load invoices for the payment modal picker (issued/unpaid first).
     useEffect(() => {
         let cancelled = false;
-        api.get("/invoices")
+        api.get("/v1/invoices")
             .then((res) => {
                 if (cancelled) return;
                 const list: Invoice[] = res.data?.data || [];
