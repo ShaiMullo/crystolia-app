@@ -14,9 +14,14 @@ const router = Router();
 router.use(protect);
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// GET /api/customers/my-profile (Customer Only)
+// Customer self-service handlers (shared)
+// Exported so the versioned /api/v1/me router (routes/me.ts) reuses the EXACT
+// same logic as the legacy /api/customers/* mounts below — one implementation,
+// no drift. Behavior and response shapes are unchanged.
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-router.get('/my-profile', authorize('customer'), async (req: Request, res: Response, next: NextFunction) => {
+
+// GET own profile (Customer Only)  — legacy: GET /api/customers/my-profile
+export const getMyProfile = async (req: Request, res: Response, next: NextFunction) => {
     try {
         // req.user is already attached by protect, but we need to populate company
         // to get the name.
@@ -40,12 +45,10 @@ router.get('/my-profile', authorize('customer'), async (req: Request, res: Respo
     } catch (error) {
         next(error);
     }
-});
+};
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// POST /api/customers/complete-profile (Onboarding)
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-router.post('/complete-profile', authorize('customer'), async (req: Request, res: Response, next: NextFunction) => {
+// POST complete profile (Onboarding) — legacy: POST /api/customers/complete-profile
+export const completeProfile = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const user = req.user as any;
         const { companyName, vatNumber, phone, address, city } = req.body;
@@ -99,12 +102,10 @@ router.post('/complete-profile', authorize('customer'), async (req: Request, res
         }
         next(error);
     }
-});
+};
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// PATCH /api/customers/update-profile (Customer Only)
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-router.patch('/update-profile', authorize('customer'), async (req: Request, res: Response, next: NextFunction) => {
+// PATCH update profile (Customer Only) — legacy: PATCH /api/customers/update-profile
+export const updateProfile = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const user = req.user as any;
 
@@ -145,6 +146,11 @@ router.patch('/update-profile', authorize('customer'), async (req: Request, res:
         }
         next(error);
     }
-});
+};
+
+// ━━━ Legacy /api/customers/* mounts (unchanged behavior) ━━━
+router.get('/my-profile', authorize('customer'), getMyProfile);
+router.post('/complete-profile', authorize('customer'), completeProfile);
+router.patch('/update-profile', authorize('customer'), updateProfile);
 
 export default router;

@@ -19,9 +19,16 @@ const router = Router();
 router.use(protect);
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// POST /api/orders (Customer Only)
+// Customer-facing order handlers (shared)
+// Exported so the versioned /api/v1/me router (routes/me.ts) reuses the EXACT
+// same logic as the legacy /api/orders mounts below — one implementation, no
+// drift. listOrders is role-aware (customer → own company; admin/agent → all);
+// under /api/v1/me it is gated to customers, so it returns only the caller's
+// own orders. The admin-only PATCH /:id stays defined inline below.
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-router.post('/', authorize('customer'), async (req: Request, res: Response, next: NextFunction) => {
+
+// POST place order (Customer Only) — legacy: POST /api/orders
+export const placeOrder = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { items, notes } = req.body;
 
@@ -83,12 +90,10 @@ router.post('/', authorize('customer'), async (req: Request, res: Response, next
     } catch (error) {
         next(error);
     }
-});
+};
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// GET /api/orders
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-router.get('/', async (req: Request, res: Response, next: NextFunction) => {
+// GET orders (role-aware) — legacy: GET /api/orders
+export const listOrders = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const user = req.user as any;
         let query = {};
@@ -119,7 +124,11 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     } catch (error) {
         next(error);
     }
-});
+};
+
+// ━━━ Legacy /api/orders mounts (unchanged behavior) ━━━
+router.post('/', authorize('customer'), placeOrder);
+router.get('/', listOrders);
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // PATCH /api/orders/:id (Admin/Agent Only)
