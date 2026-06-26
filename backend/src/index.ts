@@ -34,6 +34,7 @@ import usersRouter from './routes/users.js';
 import auditRouter from './routes/audit.js';
 import ordersRouter from './routes/orders.js';
 import customersRouter from './routes/customers.js';
+import meRouter from './routes/me.js';
 import companiesRouter from './routes/companies.js';
 import invoicesRouter from './routes/invoices.js';
 import settingsRouter from './routes/settings.js';
@@ -218,6 +219,10 @@ app.use('/api/v1/settings', settingsRouter);
 app.use('/api/v1/analytics', crmAnalyticsRouter);
 app.use('/api/v1/exports', crmExportsRouter);
 app.use('/api/v1/system', crmSystemRouter);
+// customer portal (self-service) — additive; reuses the customer handlers from
+// routes/customers.ts + routes/orders.ts. /api/v1/{customers,orders} above stay
+// the admin CRM routers; /api/customers + /api/orders stay mounted unchanged.
+app.use('/api/v1/me', meRouter);
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ⚠️ Error Handler
