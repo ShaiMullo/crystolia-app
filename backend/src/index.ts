@@ -162,10 +162,14 @@ app.use('/api/crm/purchase-orders', deprecatedRoute('/api/v1/purchase-orders'), 
 app.use('/api/crm/system', deprecatedRoute('/api/v1/system'), crmSystemRouter);
 app.use('/api/crm/exports', deprecatedRoute('/api/v1/exports'), crmExportsRouter);
 app.use('/api/users', usersRouter);
-// Legacy DUPLICATE mounts (frontend already calls the crm*/v1 versions) —
-// DEPRECATED; v1 successor is the crm-backed router. Removed in M1/B4.
-app.use('/api/orders', deprecatedRoute('/api/v1/orders'), ordersRouter);
-app.use('/api/customers', deprecatedRoute('/api/v1/customers'), customersRouter);
+// Customer-facing routers — NOT duplicates of the crm*/v1 (admin) routers.
+// ordersRouter serves customer order flows (POST / place, GET /, PATCH /:id,
+// payment/approval) and customersRouter serves self-service (/my-profile,
+// /complete-profile, /update-profile). frontend-client consumes both, and
+// /api/v1/{orders,customers} (CRM/admin) are NOT equivalent successors — so
+// these stay mounted plain (no deprecation) until they get their own v1 home.
+app.use('/api/orders', ordersRouter);
+app.use('/api/customers', customersRouter);
 app.use('/api/companies', companiesRouter);
 app.use('/api/invoices', invoicesRouter);
 app.use('/api/settings', settingsRouter);
@@ -180,9 +184,10 @@ app.use('/api/audit', auditRouter);
 // authorize). Zero behavior change; nothing above is removed or modified.
 // Canonical map: docs/m1-consolidation-plan.md.
 // Notes:
-//  - customers/orders alias the crm* routers (the live ones). The legacy
-//    /api/customers and /api/orders routers are the deprecated duplicates and
-//    are intentionally NOT given a v1 alias (removed in B4).
+//  - customers/orders here alias the crm* (admin) routers. The separate
+//    /api/customers and /api/orders are customer-facing routers (self-service /
+//    order placement) consumed by frontend-client — NOT duplicates — so they
+//    keep their own plain mounts and are not aliased or deprecated here.
 //  - the /api/crm meta root (crmRouter) is not aliased (canonical home TBD, M3).
 //  - deprecation headers on legacy/crm paths are B2; frontend migration is B3.
 // identity
