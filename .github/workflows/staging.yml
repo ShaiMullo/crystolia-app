@@ -161,8 +161,14 @@ jobs:
     needs: [changes, verify-admin, verify-client]
     # Build when the frontend changed AND no verify job failed.
     # (verify-* jobs are skipped when their area is untouched — skipped ≠ failure.)
+    # `!cancelled()` is required: without a status-check function in the `if`,
+    # GitHub adds an implicit success() over ALL needs, so a *skipped* sibling
+    # verify job (e.g. verify-client on an admin-only change) would skip this
+    # build too. `!cancelled()` lifts that implicit gate while our explicit
+    # `result != 'failure'` checks still block builds on a real verify failure.
     if: >-
-      ${{ needs.changes.outputs.frontend == 'true'
+      ${{ !cancelled()
+          && needs.changes.outputs.frontend == 'true'
           && needs.verify-admin.result != 'failure'
           && needs.verify-client.result != 'failure' }}
     runs-on: ubuntu-latest
