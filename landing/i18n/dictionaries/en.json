@@ -2,6 +2,49 @@
   "a11y": {
     "skipToMain": "Skip to main content"
   },
+  "consent": {
+    "banner": {
+      "title": "We value your privacy",
+      "description": "Crystolia uses only essential and functional cookies (for example, to remember your language). We don't track you.",
+      "cookiePolicy": "Cookie Policy"
+    },
+    "preferences": {
+      "title": "Privacy preferences",
+      "intro": "Choose which cookies Crystolia may use. You can change this at any time.",
+      "alwaysOn": "Always on",
+      "close": "Close"
+    },
+    "categories": {
+      "essential": {
+        "name": "Essential",
+        "description": "Required for the website to function. Always active."
+      },
+      "functional": {
+        "name": "Functional",
+        "description": "Remembers preferences such as your chosen language."
+      },
+      "analytics": {
+        "name": "Analytics",
+        "description": "Not used today. Would help us understand site usage so we can improve it."
+      },
+      "marketing": {
+        "name": "Marketing",
+        "description": "Not used today. Would support marketing and personalized content."
+      }
+    },
+    "actions": {
+      "acceptAll": "Accept all",
+      "rejectNonEssential": "Reject non-essential",
+      "managePreferences": "Manage preferences",
+      "save": "Save preferences"
+    }
+  },
+  "legal": {
+    "privacy": "Privacy Policy",
+    "cookies": "Cookie Policy",
+    "terms": "Terms of Service",
+    "privacyPreferences": "Privacy Preferences"
+  },
   "seo": {
     "title": "Crystolia | Quality Canola and Sunflower Cooking Oils",
     "description": "Crystolia provides quality canola and sunflower cooking oils for households, restaurants, catering businesses and retailers.",
