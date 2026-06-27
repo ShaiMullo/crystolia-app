@@ -91,7 +91,7 @@ export default function Footer({ locale, dict }: FooterProps) {
 
         {/* Developer Credit */}
         <div className="mt-6 text-center">
-          <p className="text-xs font-light text-white/50">
+          <p className="text-xs font-light text-white/70">
             &copy; {year} {dict.footer.developerCredit}
           </p>
         </div>

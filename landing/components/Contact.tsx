@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, useRef, useEffect, FormEvent } from "react";
 import type { Locale } from "../i18n/config";
 import { whatsappNumber } from "../i18n/site";
 
@@ -37,7 +37,16 @@ export default function Contact({ locale, dict }: ContactProps) {
     message: "",
   });
   const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
+  const errorRef = useRef<HTMLDivElement>(null);
   const isRTL = locale === "he";
+
+  // On a submit error, move focus to the alert so keyboard and screen-reader
+  // users are taken straight to it (role="alert" also announces it).
+  useEffect(() => {
+    if (status === "error") {
+      errorRef.current?.focus();
+    }
+  }, [status]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -105,7 +114,7 @@ export default function Contact({ locale, dict }: ContactProps) {
 
         {/* Contact Form */}
         <div className="bg-gradient-to-br from-white to-gray-50/50 rounded-3xl p-8 md:p-12 shadow-xl border border-gray-100">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} aria-busy={status === "sending"} className="space-y-6">
             {/* Name Field */}
             <div>
               <label
@@ -178,14 +187,23 @@ export default function Contact({ locale, dict }: ContactProps) {
               />
             </div>
 
-            {/* Status Messages */}
+            {/* Status Messages — announced to assistive technology */}
             {status === "success" && (
-              <div className="p-4 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm font-light">
+              <div
+                role="status"
+                aria-live="polite"
+                className="p-4 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm font-light"
+              >
                 {dict.contact.form.success}
               </div>
             )}
             {status === "error" && (
-              <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-light">
+              <div
+                ref={errorRef}
+                tabIndex={-1}
+                role="alert"
+                className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-light"
+              >
                 {dict.contact.form.error}
               </div>
             )}
