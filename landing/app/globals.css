@@ -185,3 +185,55 @@ html {
 .btn-premium:active {
   transform: translateY(0);
 }
+
+/* ============================================================
+   Accessibility (Compliance PR-1)
+   ============================================================ */
+
+/* Skip link — visually hidden until keyboard focus, then slides into the top.
+   `position: fixed` keeps it out of the layout flow (no CLS); centered so it
+   works in both LTR and RTL. */
+.skip-link {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -120%);
+  z-index: 200;
+  padding: 0.625rem 1.25rem;
+  background: var(--crystolia-chocolate);
+  color: var(--crystolia-cream);
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: 0 0 0.5rem 0.5rem;
+  box-shadow: var(--shadow-hover);
+  transition: transform 0.2s ease;
+}
+
+.skip-link:focus-visible {
+  transform: translate(-50%, 0);
+}
+
+/* Visible keyboard focus ring — keyboard only (`:focus-visible` excludes mouse),
+   brand gold-deep which reads on both light surfaces and the dark footer. */
+:focus-visible {
+  outline: 2px solid var(--crystolia-gold-deep);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Respect reduced-motion: neutralize decorative animations, transitions and
+   smooth scroll. No effect for users without the preference. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

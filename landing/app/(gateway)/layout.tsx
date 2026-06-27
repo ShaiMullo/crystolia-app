@@ -1,6 +1,8 @@
 import "../globals.css";
 import { baseMetadata } from "@/app/_shared/metadata";
 import ChosenMarker from "@/components/ChosenMarker";
+import { getDictionary } from "@/i18n/getDictionary";
+import { i18n, type Locale } from "@/i18n/config";
 
 export const metadata = baseMetadata;
 
@@ -12,9 +14,15 @@ export default function GatewayLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // The gateway is always English (x-default).
+  const dict = getDictionary(i18n.defaultLocale as Locale);
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
       <body suppressHydrationWarning>
+        {/* Keyboard skip link — first focusable element, jumps to <main id="main-content">. */}
+        <a href="#main-content" className="skip-link">
+          {dict.a11y.skipToMain}
+        </a>
         {/* Persist an explicit language choice (?chosen=1) + clean the URL. */}
         <ChosenMarker />
         {children}
