@@ -1,6 +1,18 @@
 {
   "a11y": {
-    "skipToMain": "Skip to main content"
+    "skipToMain": "Skip to main content",
+    "widget": {
+      "open": "Accessibility options",
+      "title": "Accessibility",
+      "textSize": "Text size",
+      "increaseText": "Increase text size",
+      "decreaseText": "Decrease text size",
+      "contrast": "High contrast",
+      "reduceMotion": "Reduce motion",
+      "highlightLinks": "Highlight links",
+      "reset": "Reset settings",
+      "close": "Close"
+    }
   },
   "consent": {
     "banner": {

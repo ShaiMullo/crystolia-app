@@ -237,3 +237,53 @@ html {
     scroll-behavior: auto !important;
   }
 }
+
+/* ============================================================
+   Accessibility widget — user preferences (cl_a11y cookie)
+   Keyed off attributes/classes the widget sets on <html>.
+   ============================================================ */
+
+/* Text size — scales rem-based text proportionally. Percentage is relative to
+   the browser default, so it respects the user's own base font size. Steps are
+   modest to scale content without breaking layout. */
+html[data-a11y-text="-1"] { font-size: 93.75%; }
+html[data-a11y-text="1"]  { font-size: 106.25%; }
+html[data-a11y-text="2"]  { font-size: 112.5%; }
+html[data-a11y-text="3"]  { font-size: 125%; }
+html[data-a11y-text="4"]  { font-size: 137.5%; }
+
+/* Reduce motion (user toggle) — same neutralization as the OS media query. */
+html.a11y-reduce-motion *,
+html.a11y-reduce-motion *::before,
+html.a11y-reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+html.a11y-reduce-motion { scroll-behavior: auto !important; }
+
+/* Highlight links — underline body links so they stand out from text. The
+   widget trigger and the skip link opt out (decorative / already obvious). */
+html.a11y-highlight-links a:not(.skip-link):not([aria-haspopup="dialog"]) {
+  text-decoration: underline !important;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+/* High contrast — brand-safe: darken default copy and lift the known muted
+   utilities to fully legible values; underline links. The gold/chocolate brand
+   accents (explicit utilities) are preserved — the palette is not inverted. */
+html.a11y-contrast body { color: #1a1209; }
+html.a11y-contrast .text-gray-500,
+html.a11y-contrast .text-gray-600,
+html.a11y-contrast .text-gray-700 { color: #111827 !important; }
+html.a11y-contrast .text-white\/70,
+html.a11y-contrast .text-white\/80,
+html.a11y-contrast .text-white\/90 { color: #ffffff !important; }
+html.a11y-contrast a:not([aria-haspopup="dialog"]) {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+html.a11y-contrast .border-gray-100,
+html.a11y-contrast .border-gray-200 { border-color: #6b7280 !important; }

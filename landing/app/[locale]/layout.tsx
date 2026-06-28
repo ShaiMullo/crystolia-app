@@ -1,6 +1,7 @@
 import "../globals.css";
 import { baseMetadata } from "@/app/_shared/metadata";
 import ChosenMarker from "@/components/ChosenMarker";
+import A11yWidget from "@/components/a11y/A11yWidget";
 import { ConsentProvider } from "@/components/consent/ConsentProvider";
 import { i18n, type Locale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/getDictionary";
@@ -41,6 +42,8 @@ export default async function LocaleLayout({
           <ChosenMarker />
           {children}
         </ConsentProvider>
+        {/* Native accessibility widget (floating button + preferences panel). */}
+        <A11yWidget locale={locale} />
       </body>
     </html>
   );
