@@ -3,6 +3,7 @@
 import type { Locale } from "../i18n/config";
 import Image from "next/image";
 import Link from "next/link";
+import { useConsent } from "./consent/useConsent";
 
 interface FooterProps {
   locale: Locale;
@@ -24,6 +25,7 @@ interface FooterProps {
       privacy: string;
       cookies: string;
       terms: string;
+      privacyPreferences: string;
     };
   };
 }
@@ -31,6 +33,7 @@ interface FooterProps {
 export default function Footer({ locale, dict }: FooterProps) {
   const isRTL = locale === "he";
   const year = new Date().getFullYear();
+  const { openPreferences } = useConsent();
 
   return (
     <footer
@@ -105,6 +108,13 @@ export default function Footer({ locale, dict }: FooterProps) {
           <Link href={`/${locale}/terms`} className="text-xs text-white/70 hover:text-[#F5C542] transition-colors">
             {dict.legal.terms}
           </Link>
+          <button
+            type="button"
+            onClick={openPreferences}
+            className="text-xs text-white/70 hover:text-[#F5C542] transition-colors"
+          >
+            {dict.legal.privacyPreferences}
+          </button>
         </nav>
 
         {/* Developer Credit */}

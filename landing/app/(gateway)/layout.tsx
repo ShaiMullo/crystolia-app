@@ -24,8 +24,8 @@ export default function GatewayLayout({
         <a href="#main-content" className="skip-link">
           {dict.a11y.skipToMain}
         </a>
-        {/* Consent state for the app (no UI yet — banner/modal arrive in PR-6). */}
-        <ConsentProvider>
+        {/* Consent state + UI (cookie banner / preferences modal) for the app. */}
+        <ConsentProvider locale={i18n.defaultLocale as Locale}>
           {/* Persist an explicit language choice (?chosen=1) + clean the URL. */}
           <ChosenMarker />
           {children}

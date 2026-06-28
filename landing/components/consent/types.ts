@@ -31,6 +31,9 @@ export type ToggleableConsent = Pick<
 
 export interface ConsentContextValue {
   status: ConsentStatus;
+  /** True once the cookie has been read on the client. The banner waits for this
+   *  so it only appears after the decision is known (client-only, no flash). */
+  hydrated: boolean;
   categories: ConsentCategories;
   /** essential always returns true; others reflect the current decision. */
   isEnabled: (category: ConsentCategory) => boolean;
