@@ -20,6 +20,11 @@ interface FooterProps {
       rights: string;
       developerCredit: string;
     };
+    legal: {
+      privacy: string;
+      cookies: string;
+      terms: string;
+    };
   };
 }
 
@@ -86,6 +91,19 @@ export default function Footer({ locale, dict }: FooterProps) {
           </Link>
           <Link href={`/${locale}#contact`} className="text-sm text-white/70 hover:text-[#F5C542] transition-colors">
             {dict.nav.contact}
+          </Link>
+        </nav>
+
+        {/* Legal Links */}
+        <nav aria-label="Legal" className="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+          <Link href={`/${locale}/privacy`} className="text-xs text-white/70 hover:text-[#F5C542] transition-colors">
+            {dict.legal.privacy}
+          </Link>
+          <Link href={`/${locale}/cookies`} className="text-xs text-white/70 hover:text-[#F5C542] transition-colors">
+            {dict.legal.cookies}
+          </Link>
+          <Link href={`/${locale}/terms`} className="text-xs text-white/70 hover:text-[#F5C542] transition-colors">
+            {dict.legal.terms}
           </Link>
         </nav>
 
