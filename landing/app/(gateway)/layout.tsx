@@ -1,6 +1,7 @@
 import "../globals.css";
 import { baseMetadata } from "@/app/_shared/metadata";
 import ChosenMarker from "@/components/ChosenMarker";
+import { ConsentProvider } from "@/components/consent/ConsentProvider";
 import { getDictionary } from "@/i18n/getDictionary";
 import { i18n, type Locale } from "@/i18n/config";
 
@@ -23,9 +24,12 @@ export default function GatewayLayout({
         <a href="#main-content" className="skip-link">
           {dict.a11y.skipToMain}
         </a>
-        {/* Persist an explicit language choice (?chosen=1) + clean the URL. */}
-        <ChosenMarker />
-        {children}
+        {/* Consent state for the app (no UI yet — banner/modal arrive in PR-6). */}
+        <ConsentProvider>
+          {/* Persist an explicit language choice (?chosen=1) + clean the URL. */}
+          <ChosenMarker />
+          {children}
+        </ConsentProvider>
       </body>
     </html>
   );
