@@ -47,7 +47,7 @@ export default function CookieBanner({ locale }: { locale: Locale }) {
           <div className="flex flex-col gap-2 sm:flex-row md:shrink-0">
             <button
               type="button"
-              onClick={openPreferences}
+              onClick={(e) => openPreferences(e.currentTarget)}
               className="order-3 rounded-full px-4 py-2.5 text-sm font-medium text-[#FFF8E7]/80 transition-colors hover:text-[#F5C542] sm:order-1"
             >
               {c.actions.managePreferences}

@@ -110,7 +110,7 @@ export default function Footer({ locale, dict }: FooterProps) {
           </Link>
           <button
             type="button"
-            onClick={openPreferences}
+            onClick={(e) => openPreferences(e.currentTarget)}
             className="text-xs text-white/70 hover:text-[#F5C542] transition-colors"
           >
             {dict.legal.privacyPreferences}

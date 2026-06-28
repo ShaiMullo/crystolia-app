@@ -10,7 +10,7 @@
 // the first client render (status "undecided", essential-only), so there is no
 // hydration mismatch — especially since nothing visual depends on it yet.
 
-import { createContext, useCallback, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Locale } from "../../i18n/config";
 import type {
   ConsentCategories,
@@ -74,8 +74,26 @@ export function ConsentProvider({
     [persist, categories],
   );
 
-  const openPreferences = useCallback(() => setPreferencesOpen(true), []);
-  const closePreferences = useCallback(() => setPreferencesOpen(false), []);
+  // The element that opened the modal — captured so focus can be restored to it
+  // on close. Openers pass their button explicitly (mouse-robust); we fall back
+  // to the focused element for keyboard-only callers.
+  const triggerElRef = useRef<HTMLElement | null>(null);
+
+  const openPreferences = useCallback((trigger?: HTMLElement | null) => {
+    triggerElRef.current =
+      trigger ??
+      (typeof document !== "undefined" ? (document.activeElement as HTMLElement | null) : null);
+    setPreferencesOpen(true);
+  }, []);
+
+  const closePreferences = useCallback(() => {
+    setPreferencesOpen(false);
+    const trigger = triggerElRef.current;
+    triggerElRef.current = null;
+    if (trigger && typeof trigger.focus === "function") {
+      trigger.focus();
+    }
+  }, []);
 
   const isEnabled = useCallback(
     (category: ConsentCategory) => (category === "essential" ? true : categories[category]),

@@ -54,7 +54,6 @@ export default function PreferencesModal({ locale }: { locale: Locale }) {
   } = useConsent();
 
   const dialogRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
   const descId = useId();
 
@@ -73,7 +72,6 @@ export default function PreferencesModal({ locale }: { locale: Locale }) {
       analytics: categories.analytics,
       marketing: categories.marketing,
     });
-    triggerRef.current = (document.activeElement as HTMLElement) ?? null;
     const id = requestAnimationFrame(() => {
       const first = dialogRef.current?.querySelector<HTMLElement>("[data-autofocus]");
       (first ?? dialogRef.current)?.focus();
@@ -81,10 +79,12 @@ export default function PreferencesModal({ locale }: { locale: Locale }) {
     return () => cancelAnimationFrame(id);
   }, [preferencesOpen, categories]);
 
+  // Focus is restored to the opener by the provider's closePreferences() — it
+  // captured the explicit trigger via openPreferences(trigger). Delegating here
+  // keeps every close path (Escape, X, scrim, Save, Reject, Accept) consistent
+  // for both keyboard and mouse openings.
   const close = useCallback(() => {
     closePreferences();
-    // Restore focus to whatever opened the modal.
-    triggerRef.current?.focus?.();
   }, [closePreferences]);
 
   // Escape to close + focus trap on Tab.

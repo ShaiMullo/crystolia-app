@@ -41,6 +41,8 @@ export interface ConsentContextValue {
   rejectNonEssential: () => void;
   savePreferences: (prefs: Partial<ToggleableConsent>) => void;
   preferencesOpen: boolean;
-  openPreferences: () => void;
+  /** Optionally pass the triggering element so focus can be restored to it on
+   *  close (robust for mouse clicks, which don't always focus the button). */
+  openPreferences: (trigger?: HTMLElement | null) => void;
   closePreferences: () => void;
 }
