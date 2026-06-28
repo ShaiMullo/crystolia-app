@@ -21,6 +21,10 @@ interface ContactProps {
         sending: string;
         success: string;
         error: string;
+        errors: {
+          name: string;
+          phone: string;
+        };
       };
       whatsapp: string;
       whatsappIntro: string;
@@ -38,6 +42,12 @@ export default function Contact({ locale, dict }: ContactProps) {
   });
   const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
   const errorRef = useRef<HTMLDivElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ name: boolean; phone: boolean }>({
+    name: false,
+    phone: false,
+  });
   const isRTL = locale === "he";
 
   // On a submit error, move focus to the alert so keyboard and screen-reader
@@ -50,6 +60,24 @@ export default function Contact({ locale, dict }: ContactProps) {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+
+    // Field-level validation: name + phone are required (whitespace-only is
+    // rejected via trim). On failure, show inline errors and move focus to the
+    // first invalid field (name, then phone). The submit-level (network/server)
+    // error handling below is unchanged.
+    const nameInvalid = formData.name.trim() === "";
+    const phoneInvalid = formData.phone.trim() === "";
+    if (nameInvalid || phoneInvalid) {
+      setFieldErrors({ name: nameInvalid, phone: phoneInvalid });
+      if (nameInvalid) {
+        nameRef.current?.focus();
+      } else {
+        phoneRef.current?.focus();
+      }
+      return;
+    }
+    setFieldErrors({ name: false, phone: false });
+
     setStatus("sending");
 
     try {
@@ -114,7 +142,7 @@ export default function Contact({ locale, dict }: ContactProps) {
 
         {/* Contact Form */}
         <div className="bg-gradient-to-br from-white to-gray-50/50 rounded-3xl p-8 md:p-12 shadow-xl border border-gray-100">
-          <form onSubmit={handleSubmit} aria-busy={status === "sending"} className="space-y-6">
+          <form onSubmit={handleSubmit} noValidate aria-busy={status === "sending"} className="space-y-6">
             {/* Name Field */}
             <div>
               <label
@@ -124,19 +152,28 @@ export default function Contact({ locale, dict }: ContactProps) {
                 {dict.contact.form.name}
               </label>
               <input
+                ref={nameRef}
                 type="text"
                 id="name"
                 name="name"
                 value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
+                onChange={(e) => {
+                  setFormData({ ...formData, name: e.target.value });
+                  if (fieldErrors.name) setFieldErrors((f) => ({ ...f, name: false }));
+                }}
                 required
+                aria-invalid={fieldErrors.name ? "true" : "false"}
+                aria-describedby={fieldErrors.name ? "name-error" : undefined}
                 disabled={status === "sending"}
                 placeholder={dict.contact.form.namePlaceholder}
                 autoComplete="name"
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:border-[#F5C542] focus:ring-2 focus:ring-[#F5C542]/20 outline-none transition-all duration-300 font-light disabled:opacity-50"
               />
+              {fieldErrors.name && (
+                <p id="name-error" role="alert" className="mt-2 text-sm text-red-700">
+                  {dict.contact.form.errors.name}
+                </p>
+              )}
             </div>
 
             {/* Phone Field */}
@@ -148,14 +185,18 @@ export default function Contact({ locale, dict }: ContactProps) {
                 {dict.contact.form.phone}
               </label>
               <input
+                ref={phoneRef}
                 type="tel"
                 id="phone"
                 name="phone"
                 value={formData.phone}
-                onChange={(e) =>
-                  setFormData({ ...formData, phone: e.target.value })
-                }
+                onChange={(e) => {
+                  setFormData({ ...formData, phone: e.target.value });
+                  if (fieldErrors.phone) setFieldErrors((f) => ({ ...f, phone: false }));
+                }}
                 required
+                aria-invalid={fieldErrors.phone ? "true" : "false"}
+                aria-describedby={fieldErrors.phone ? "phone-error" : undefined}
                 disabled={status === "sending"}
                 dir="ltr"
                 inputMode="tel"
@@ -163,6 +204,11 @@ export default function Contact({ locale, dict }: ContactProps) {
                 placeholder={dict.contact.form.phonePlaceholder}
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:border-[#F5C542] focus:ring-2 focus:ring-[#F5C542]/20 outline-none transition-all duration-300 font-light disabled:opacity-50"
               />
+              {fieldErrors.phone && (
+                <p id="phone-error" role="alert" className="mt-2 text-sm text-red-700">
+                  {dict.contact.form.errors.phone}
+                </p>
+              )}
             </div>
 
             {/* Message Field */}
