@@ -31,6 +31,9 @@ export type ToggleableConsent = Pick<
 
 export interface ConsentContextValue {
   status: ConsentStatus;
+  /** True once the cookie has been read on the client. The banner waits for this
+   *  so it only appears after the decision is known (client-only, no flash). */
+  hydrated: boolean;
   categories: ConsentCategories;
   /** essential always returns true; others reflect the current decision. */
   isEnabled: (category: ConsentCategory) => boolean;
@@ -38,6 +41,8 @@ export interface ConsentContextValue {
   rejectNonEssential: () => void;
   savePreferences: (prefs: Partial<ToggleableConsent>) => void;
   preferencesOpen: boolean;
-  openPreferences: () => void;
+  /** Optionally pass the triggering element so focus can be restored to it on
+   *  close (robust for mouse clicks, which don't always focus the button). */
+  openPreferences: (trigger?: HTMLElement | null) => void;
   closePreferences: () => void;
 }

@@ -10,7 +10,8 @@
 // the first client render (status "undecided", essential-only), so there is no
 // hydration mismatch — especially since nothing visual depends on it yet.
 
-import { createContext, useCallback, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Locale } from "../../i18n/config";
 import type {
   ConsentCategories,
   ConsentCategory,
@@ -27,22 +28,34 @@ import {
   parseConsentCookie,
   serializeConsentCookie,
 } from "./consentCore";
+import CookieBanner from "./CookieBanner";
+import PreferencesModal from "./PreferencesModal";
 
 export const ConsentContext = createContext<ConsentContextValue | null>(null);
 
-export function ConsentProvider({ children }: { children: React.ReactNode }) {
+export function ConsentProvider({
+  locale,
+  children,
+}: {
+  locale: Locale;
+  children: React.ReactNode;
+}) {
   const [categories, setCategories] = useState<ConsentCategories>(ESSENTIAL_ONLY);
   const [status, setStatus] = useState<ConsentStatus>("undecided");
+  const [hydrated, setHydrated] = useState(false);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
 
   // On mount (client only), hydrate from the cookie. A missing, malformed, or
-  // stale-version cookie leaves status "undecided" (PR-6 will then show the banner).
+  // stale-version cookie leaves status "undecided" -> the banner then shows.
+  // `hydrated` flips true only after the read, so the banner never flashes for
+  // users who already have a valid cookie.
   useEffect(() => {
     const record = parseConsentCookie(typeof document !== "undefined" ? document.cookie : "");
     if (isCurrent(record)) {
       setCategories(record.categories);
       setStatus("decided");
     }
+    setHydrated(true);
   }, []);
 
   const persist = useCallback((next: ConsentCategories) => {
@@ -61,8 +74,26 @@ export function ConsentProvider({ children }: { children: React.ReactNode }) {
     [persist, categories],
   );
 
-  const openPreferences = useCallback(() => setPreferencesOpen(true), []);
-  const closePreferences = useCallback(() => setPreferencesOpen(false), []);
+  // The element that opened the modal — captured so focus can be restored to it
+  // on close. Openers pass their button explicitly (mouse-robust); we fall back
+  // to the focused element for keyboard-only callers.
+  const triggerElRef = useRef<HTMLElement | null>(null);
+
+  const openPreferences = useCallback((trigger?: HTMLElement | null) => {
+    triggerElRef.current =
+      trigger ??
+      (typeof document !== "undefined" ? (document.activeElement as HTMLElement | null) : null);
+    setPreferencesOpen(true);
+  }, []);
+
+  const closePreferences = useCallback(() => {
+    setPreferencesOpen(false);
+    const trigger = triggerElRef.current;
+    triggerElRef.current = null;
+    if (trigger && typeof trigger.focus === "function") {
+      trigger.focus();
+    }
+  }, []);
 
   const isEnabled = useCallback(
     (category: ConsentCategory) => (category === "essential" ? true : categories[category]),
@@ -72,6 +103,7 @@ export function ConsentProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<ConsentContextValue>(
     () => ({
       status,
+      hydrated,
       categories,
       isEnabled,
       acceptAll,
@@ -83,6 +115,7 @@ export function ConsentProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       status,
+      hydrated,
       categories,
       isEnabled,
       acceptAll,
@@ -94,5 +127,11 @@ export function ConsentProvider({ children }: { children: React.ReactNode }) {
     ],
   );
 
-  return <ConsentContext.Provider value={value}>{children}</ConsentContext.Provider>;
+  return (
+    <ConsentContext.Provider value={value}>
+      {children}
+      <CookieBanner locale={locale} />
+      <PreferencesModal locale={locale} />
+    </ConsentContext.Provider>
+  );
 }
