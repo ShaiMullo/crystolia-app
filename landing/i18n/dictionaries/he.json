@@ -1,6 +1,18 @@
 {
   "a11y": {
-    "skipToMain": "דלג לתוכן הראשי"
+    "skipToMain": "דלג לתוכן הראשי",
+    "widget": {
+      "open": "אפשרויות נגישות",
+      "title": "נגישות",
+      "textSize": "גודל טקסט",
+      "increaseText": "הגדלת גודל הטקסט",
+      "decreaseText": "הקטנת גודל הטקסט",
+      "contrast": "ניגודיות גבוהה",
+      "reduceMotion": "הפחתת תנועה",
+      "highlightLinks": "הדגשת קישורים",
+      "reset": "איפוס הגדרות",
+      "close": "סגירה"
+    }
   },
   "consent": {
     "banner": {
