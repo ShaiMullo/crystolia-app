@@ -83,7 +83,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
     const fetchOrders = async () => {
         if (!user) return;
         try {
-            const response = await api.get('/orders');
+            const response = await api.get('/v1/me/orders');
             setOrders(response.data.data || []);
         } catch (error) {
             console.error("Failed to fetch orders:", error);
@@ -171,9 +171,9 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
             };
 
             if (hasProfile) {
-                await api.patch('/customers/update-profile', payload);
+                await api.patch('/v1/me/profile', payload);
             } else {
-                await api.post('/customers/complete-profile', payload);
+                await api.post('/v1/me/profile/complete', payload);
             }
 
             setHasProfile(true);
@@ -215,7 +215,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
         }
 
         try {
-            await api.post('/orders', { items });
+            await api.post('/v1/me/orders', { items });
             toast.success("ההזמנה נשלחה בהצלחה! 🎉");
 
             // Reset form
@@ -223,7 +223,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
             setActiveTab("orders");
 
             // Refresh orders
-            const response = await api.get('/orders');
+            const response = await api.get('/v1/me/orders');
             setOrders(response.data.data || []);
         } catch (error: unknown) {
             console.error("Failed to submit order:", error);

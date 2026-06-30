@@ -80,7 +80,7 @@ export default function OnboardingPage({ locale }: OnboardingPageProps) {
         setLoading(true);
 
         try {
-            const { data } = await api.post('/customers/complete-profile', {
+            const { data } = await api.post('/v1/me/profile/complete', {
                 companyName: formData.businessName,
                 vatNumber: formData.businessId,
                 ...formData,
