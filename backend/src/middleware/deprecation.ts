@@ -22,28 +22,35 @@ const log = opsLogger.forService('api-deprecation');
 
 /**
  * Express middleware factory. Marks the current mount as deprecated in favour of
- * `successor` (e.g. '/api/v1/customers'). Additive only: sets headers + logs one
- * line, then next() — the wrapped router runs unchanged.
+ * `successor`. `successor` is either a static replacement path (e.g.
+ * '/api/v1/customers') or a resolver `(req) => path` for mounts whose successor
+ * depends on the subpath — e.g. /api/customers/complete-profile →
+ * /api/v1/me/profile/complete vs /api/customers/my-profile → /api/v1/me/profile.
+ * Additive only: sets headers + logs one line, then next() — the wrapped router
+ * runs unchanged.
  *
- * @param successor canonical replacement path, e.g. '/api/v1/orders'
+ * @param successor canonical replacement path, or a per-request resolver for it
  */
-export function deprecatedRoute(successor: string) {
+export function deprecatedRoute(successor: string | ((req: Request) => string)) {
     return (req: Request, res: Response, next: NextFunction): void => {
         // req.baseUrl is the mount path of THIS middleware = the deprecated path.
         const deprecatedPath = req.baseUrl || req.path;
+        // req.path here is relative to the mount (e.g. '/complete-profile'), so a
+        // resolver can map subpaths to distinct successors.
+        const target = typeof successor === 'function' ? successor(req) : successor;
 
         res.setHeader('Deprecation', 'true');
         res.setHeader('Sunset', API_V1_SUNSET);
-        res.setHeader('Link', `<${successor}>; rel="successor-version"`);
+        res.setHeader('Link', `<${target}>; rel="successor-version"`);
         res.setHeader('X-Crystolia-Deprecated-Route', deprecatedPath);
-        res.setHeader('X-Crystolia-Successor-Route', successor);
+        res.setHeader('X-Crystolia-Successor-Route', target);
 
         // One concise warn line (Loki-friendly); no Error object → no stack trace.
         log.warn('deprecated API route used', {
             method: req.method,
             path: req.originalUrl,
             deprecated: deprecatedPath,
-            successor,
+            successor: target,
         });
 
         next();

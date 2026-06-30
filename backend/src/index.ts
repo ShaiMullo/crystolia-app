@@ -163,14 +163,26 @@ app.use('/api/crm/purchase-orders', deprecatedRoute('/api/v1/purchase-orders'), 
 app.use('/api/crm/system', deprecatedRoute('/api/v1/system'), crmSystemRouter);
 app.use('/api/crm/exports', deprecatedRoute('/api/v1/exports'), crmExportsRouter);
 app.use('/api/users', usersRouter);
-// Customer-facing routers — NOT duplicates of the crm*/v1 (admin) routers.
-// ordersRouter serves customer order flows (POST / place, GET /, PATCH /:id,
-// payment/approval) and customersRouter serves self-service (/my-profile,
-// /complete-profile, /update-profile). frontend-client consumes both, and
-// /api/v1/{orders,customers} (CRM/admin) are NOT equivalent successors — so
-// these stay mounted plain (no deprecation) until they get their own v1 home.
-app.use('/api/orders', ordersRouter);
-app.use('/api/customers', customersRouter);
+// Customer-facing routers — self-service profile (customersRouter) and customer
+// order flow (ordersRouter); NOT duplicates of the crm*/v1 (admin) routers.
+// Their v1 home is /api/v1/me/* (B4.1), and the frontend-client customer portal
+// migrated onto it in B4.2 (PR #50). B4.3: flag these legacy mounts as deprecated
+// → /api/v1/me/* (non-breaking — sets headers + one log line, then the SAME
+// router runs unchanged). Routers stay fully mounted; removal is B4.4 after a
+// repo-wide no-consumer check. Note: /api/v1/{orders,customers} are the admin CRM
+// routers, NOT the successors for this customer surface. The /api/customers
+// successor is subpath-aware (complete-profile → /api/v1/me/profile/complete;
+// my-profile & update-profile → /api/v1/me/profile).
+app.use('/api/orders', deprecatedRoute('/api/v1/me/orders'), ordersRouter);
+app.use(
+    '/api/customers',
+    deprecatedRoute((req) =>
+        req.path.startsWith('/complete-profile')
+            ? '/api/v1/me/profile/complete'
+            : '/api/v1/me/profile',
+    ),
+    customersRouter,
+);
 app.use('/api/companies', companiesRouter);
 app.use('/api/invoices', invoicesRouter);
 app.use('/api/settings', settingsRouter);
