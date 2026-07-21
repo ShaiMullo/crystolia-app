@@ -1,20 +1,9 @@
 import type { MetadataRoute } from "next";
 import { localeUrl, hreflangAlternates } from "@/i18n/site";
 import { i18n } from "@/i18n/config";
+import { LOCALE_ROUTES as routes } from "@/i18n/routes";
 
 export const dynamic = "force-static";
-
-// All indexable routes, relative to /{locale}. "" = homepage.
-const routes = [
-  "",
-  "/about",
-  "/faq",
-  "/canola-oil",
-  "/sunflower-oil",
-  "/privacy",
-  "/cookies",
-  "/terms",
-] as const;
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = new Date();

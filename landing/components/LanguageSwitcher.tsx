@@ -5,6 +5,7 @@ import { useTransition } from "react";
 import { i18n, type Locale } from "../i18n/config";
 import { localeOrigin } from "../i18n/site";
 import { isLocaleLive } from "../i18n/manifest";
+import { isLocaleRoute } from "../i18n/routes";
 
 const languages: { code: Locale; flag: string; label: string }[] = [
   { code: "he", flag: "\u{1F1EE}\u{1F1F1}", label: "\u05E2\u05D1\u05E8\u05D9\u05EA" },
@@ -34,22 +35,23 @@ export default function LanguageSwitcher({
 
     // Path after the locale segment: "" for the homepage, "/faq" etc. On a
     // localized apex the URL has no locale segment, so this yields "".
-    const rest = pathname.replace(LOCALE_PREFIX, "");
-    const sub = rest === "/" || rest === "" ? "" : rest;
+    const rest = pathname.replace(LOCALE_PREFIX, "").replace(/\/+$/, "");
+    // Only sub-paths that exist in every locale's export are preserved;
+    // anything else (404 page, unknown URL) goes to the locale homepage.
+    const sub = isLocaleRoute(rest) ? rest : "";
 
-    let dest: string;
-    if (isLocaleLive(locale)) {
-      // Live/provisioned market → its own canonical domain (per-domain SEO).
-      // Homepage → bare apex; sub-pages keep /{locale}/<path>.
-      const origin = localeOrigin(locale);
-      dest = sub ? `${origin}/${locale}${sub}` : origin;
-    } else {
-      // Planned/unprovisioned market (e.g. crystolia.co.il while il-he is
-      // status=planned): never send the user to a non-live domain. Stay on the
-      // current domain — the static export deployed here already contains
-      // /<locale>, so it serves that language correctly.
-      dest = `${window.location.origin}/${locale}${sub}`;
-    }
+    // Live market → its own canonical domain (per-domain SEO). A non-live
+    // market's domain may not resolve yet, so stay on the current domain —
+    // the static export deployed here already contains every /<locale>.
+    const origin = isLocaleLive(locale)
+      ? localeOrigin(locale)
+      : window.location.origin;
+
+    // Always target the full /{locale} path, never a bare apex: the .com root
+    // serves the language gateway, which redirects by *browser* language and
+    // would both override the user's explicit choice and flash the gateway
+    // fallback page mid-navigation.
+    const dest = `${origin}/${locale}${sub}`;
 
     // Mark this as an explicit choice so the .com CloudFront geo/language
     // redirect won't override it (loop-safe), and persist it first-party so

@@ -18,8 +18,15 @@ export default function GatewayLayout({
 }) {
   // The gateway is always English (x-default).
   const dict = getDictionary(i18n.defaultLocale as Locale);
+  // Inline brand colors on <html> so the gateway's first paint is Crystolia
+  // cream even before the external stylesheet loads — never a bare white page.
   return (
-    <html lang="en" dir="ltr" suppressHydrationWarning>
+    <html
+      lang="en"
+      dir="ltr"
+      style={{ backgroundColor: "#FFF8E7", color: "#3D2914" }}
+      suppressHydrationWarning
+    >
       <body suppressHydrationWarning>
         {/* Keyboard skip link — first focusable element, jumps to <main id="main-content">. */}
         <a href="#main-content" className="skip-link">

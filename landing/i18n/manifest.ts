@@ -72,6 +72,16 @@ export function marketStatus(locale: Locale): string {
 }
 
 /**
+ * Locale whose market canonically owns `hostname` (apex or www), or null when
+ * the host belongs to no market (localhost, raw CloudFront/S3 preview hosts).
+ */
+export function localeForHostname(hostname: string): Locale | null {
+  const host = hostname.toLowerCase().replace(/^www\./, "");
+  const market = markets.find((m) => m.domain === host);
+  return market ? (market.locale as Locale) : null;
+}
+
+/**
  * Whether a locale's market is publicly reachable on its own canonical domain.
  * ONLY `status === "live"` qualifies — i.e. the domain has gone live (apex/www
  * A-ALIAS records exist, go_live=true). A `provisioned` market has infrastructure
