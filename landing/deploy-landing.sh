@@ -6,21 +6,34 @@
 # domains.lock.json (canonical source: crystolia-infra/manifest). The script no
 # longer hardcodes any of it.
 #
-# Markets today (from the manifest):
-#   crystolia.com   (il-en, en)  live        -> S3 crystolia-landing-site + CloudFront
-#   crystolia.ru    (ru-ru, ru)  provisioned -> S3 crystolia-landing-ru   + CloudFront
-#   crystolia.co.il (il-he, he)  planned     -> no bucket yet → build-only, no upload
+# Market status, buckets and distributions are NOT hardcoded here — they come
+# from the manifest at deploy time (list them with:
+#   jq -r '.markets[] | [.domain,.locale,.status,.aws.bucket] | @tsv' domains.lock.json
+# ). A market deploys to S3+CloudFront only when its manifest status is not
+# "planned" and it has a bucket; otherwise the script stops after the build.
 #
-# For provisioned S3 markets the script builds the static export, syncs ./out to
-# the bucket, uploads extensionless copies of every HTML file (so /ru, /ru/faq, …
-# resolve as clean URLs without a CloudFront URL-rewrite function), and
+# For provisioned S3 markets the script builds the static export, uploads ./out
+# to the bucket with explicit per-category Cache-Control metadata, uploads
+# extensionless copies of every HTML file (so /ru, /ru/faq, … resolve as clean
+# URLs without a CloudFront URL-rewrite function), prunes stale objects, and
 # invalidates the CloudFront cache. A "planned" market (no bucket) or a "vercel"
 # market is built locally only — nothing is uploaded from here.
 #
-# NOTE on NEXT_PUBLIC_SITE_URL: it is set from the market's manifest host for
-# forward-compatibility, but on current main it has NO effect — i18n/site.ts
-# sources SITE_URL from the manifest (not this env var), so robots.txt/metadata
-# are host-independent today. See the PR description.
+# Cache-Control policy (browsers only honor what we set — without it they apply
+# heuristic freshness and can keep stale HTML/JS for days after a deploy, and
+# CloudFront invalidation cannot reach a visitor's browser cache):
+#   - HTML, extensionless clean-URL copies, RSC .txt payloads, sitemap.xml,
+#     robots.txt            -> public, max-age=0, must-revalidate
+#   - /_next/static/* (content-hashed / build-scoped filenames)
+#                           -> public, max-age=31536000, immutable
+#   - other public assets (images, favicon — stable names, rarely change)
+#                           -> public, max-age=86400
+#
+# NOTE on NEXT_PUBLIC_SITE_URL: set from the market's manifest host per deploy.
+# i18n/site.ts prefers it over the manifest default (SITE_URL =
+# process.env.NEXT_PUBLIC_SITE_URL ?? default-locale host), so each domain's
+# build gets its own robots.txt Host:/Sitemap: — which is why every market
+# REBUILDS rather than reusing another market's ./out.
 #
 # Usage:
 #   ./deploy-landing.sh [domain] [--skip-build]
@@ -108,17 +121,56 @@ MSG
 fi
 
 # ── Provisioned S3 + CloudFront market ──
-echo "==> Syncing ./out to s3://${BUCKET}..."
-aws s3 sync out/ "s3://${BUCKET}/" --delete
+# `aws s3 cp --recursive` (not `sync`) is used for uploads so Cache-Control is
+# (re)written on EVERY object each deploy — `sync` skips byte-identical files
+# and would leave their previous metadata untouched. Assets go first, documents
+# last, so a page never goes live before the subresources it references.
+CC_REVALIDATE="public, max-age=0, must-revalidate"
+CC_IMMUTABLE="public, max-age=31536000, immutable"
+CC_ASSET="public, max-age=86400"
 
-echo "==> Uploading extensionless HTML copies (clean URLs)..."
+echo "==> Uploading fingerprinted Next.js assets (cache: 1 year, immutable)..."
+aws s3 cp out/_next/static/ "s3://${BUCKET}/_next/static/" --recursive \
+  --cache-control "$CC_IMMUTABLE" --only-show-errors
+
+echo "==> Uploading other static assets (cache: 1 day)..."
+aws s3 cp out/ "s3://${BUCKET}/" --recursive \
+  --exclude "*.html" --exclude "*.txt" --exclude "*.xml" --exclude "_next/static/*" \
+  --cache-control "$CC_ASSET" --only-show-errors
+
+echo "==> Uploading documents & metadata (cache: revalidate every request)..."
+# Trailing exclude wins over the includes for anything under _next/static/
+# (AWS CLI: the LAST matching filter decides), so a future .txt/.xml emitted
+# there can never be re-uploaded with the wrong (non-immutable) policy.
+aws s3 cp out/ "s3://${BUCKET}/" --recursive \
+  --exclude "*" --include "*.html" --include "*.txt" --include "*.xml" \
+  --exclude "_next/static/*" \
+  --cache-control "$CC_REVALIDATE" --only-show-errors
+
+echo "==> Refreshing extensionless HTML copies (clean URLs)..."
 (cd out && find . -name '*.html' ! -name 'index.html' | while read -r f; do
   key="${f#./}"          # e.g. ru/faq.html
   clean="${key%.html}"   # e.g. ru/faq
   aws s3 cp "$f" "s3://${BUCKET}/${clean}" \
-    --content-type "text/html; charset=utf-8" --only-show-errors
+    --content-type "text/html; charset=utf-8" \
+    --cache-control "$CC_REVALIDATE" --only-show-errors
   echo "    /${clean}"
 done)
+
+echo "==> Pruning stale objects..."
+# The extensionless clean-URL copies exist only in S3, so a bare `sync --delete`
+# would remove them (clean URLs would 404 until re-uploaded). Excluding the
+# clean key of every CURRENT page keeps them live through the prune; copies of
+# since-removed pages are NOT in the exclude list, so they still get pruned.
+# The sync uploads nothing here — every local file was already uploaded above —
+# it only computes deletions.
+DELETE_EXCLUDES=()
+while IFS= read -r f; do
+  key="${f#./}"
+  DELETE_EXCLUDES+=(--exclude "${key%.html}")
+done < <(cd out && find . -name '*.html' ! -name 'index.html')
+aws s3 sync out/ "s3://${BUCKET}/" --delete --only-show-errors \
+  ${DELETE_EXCLUDES[@]+"${DELETE_EXCLUDES[@]}"}
 
 echo "==> Finding CloudFront distribution for ${DOMAIN}..."
 DIST_ID=$(aws cloudfront list-distributions \
