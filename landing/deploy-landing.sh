@@ -6,10 +6,11 @@
 # domains.lock.json (canonical source: crystolia-infra/manifest). The script no
 # longer hardcodes any of it.
 #
-# Markets today (from the manifest):
-#   crystolia.com   (il-en, en)  live        -> S3 crystolia-landing-site + CloudFront
-#   crystolia.ru    (ru-ru, ru)  provisioned -> S3 crystolia-landing-ru   + CloudFront
-#   crystolia.co.il (il-he, he)  planned     -> no bucket yet → build-only, no upload
+# Market status, buckets and distributions are NOT hardcoded here — they come
+# from the manifest at deploy time (list them with:
+#   jq -r '.markets[] | [.domain,.locale,.status,.aws.bucket] | @tsv' domains.lock.json
+# ). A market deploys to S3+CloudFront only when its manifest status is not
+# "planned" and it has a bucket; otherwise the script stops after the build.
 #
 # For provisioned S3 markets the script builds the static export, uploads ./out
 # to the bucket with explicit per-category Cache-Control metadata, uploads
@@ -28,10 +29,11 @@
 #   - other public assets (images, favicon — stable names, rarely change)
 #                           -> public, max-age=86400
 #
-# NOTE on NEXT_PUBLIC_SITE_URL: it is set from the market's manifest host for
-# forward-compatibility, but on current main it has NO effect — i18n/site.ts
-# sources SITE_URL from the manifest (not this env var), so robots.txt/metadata
-# are host-independent today. See the PR description.
+# NOTE on NEXT_PUBLIC_SITE_URL: set from the market's manifest host per deploy.
+# i18n/site.ts prefers it over the manifest default (SITE_URL =
+# process.env.NEXT_PUBLIC_SITE_URL ?? default-locale host), so each domain's
+# build gets its own robots.txt Host:/Sitemap: — which is why every market
+# REBUILDS rather than reusing another market's ./out.
 #
 # Usage:
 #   ./deploy-landing.sh [domain] [--skip-build]
@@ -137,8 +139,12 @@ aws s3 cp out/ "s3://${BUCKET}/" --recursive \
   --cache-control "$CC_ASSET" --only-show-errors
 
 echo "==> Uploading documents & metadata (cache: revalidate every request)..."
+# Trailing exclude wins over the includes for anything under _next/static/
+# (AWS CLI: the LAST matching filter decides), so a future .txt/.xml emitted
+# there can never be re-uploaded with the wrong (non-immutable) policy.
 aws s3 cp out/ "s3://${BUCKET}/" --recursive \
   --exclude "*" --include "*.html" --include "*.txt" --include "*.xml" \
+  --exclude "_next/static/*" \
   --cache-control "$CC_REVALIDATE" --only-show-errors
 
 echo "==> Refreshing extensionless HTML copies (clean URLs)..."
