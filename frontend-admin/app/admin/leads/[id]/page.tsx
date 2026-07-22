@@ -159,6 +159,17 @@ export default function LeadDetailPage() {
                         <CardTitle>{t("leadDetail.info.title")}</CardTitle>
                         <dl className="mt-3 space-y-2 text-sm">
                             <InfoRow label={t("leadDetail.info.source")} value={lead.source || "—"} />
+                            <InfoRow label={t("leadDetail.info.language")} value={lead.locale || "—"} />
+                            <InfoRow
+                                label={t("leadDetail.info.sourceDomain")}
+                                value={lead.sourceDomain ? `${lead.sourceDomain}${lead.sourcePage || ""}` : "—"}
+                            />
+                            {lead.utm && Object.keys(lead.utm).length > 0 && (
+                                <InfoRow
+                                    label={t("leadDetail.info.utm")}
+                                    value={Object.entries(lead.utm).map(([k, v]) => `${k}=${v}`).join(", ")}
+                                />
+                            )}
                             <InfoRow label={t("leadDetail.info.tags")} value={lead.tags?.length ? lead.tags.join(", ") : "—"} />
                             <InfoRow label={t("leadDetail.info.contactCount")} value={String(lead.contactCount || 1)} />
                             <InfoRow label={t("leadDetail.info.lastContact")} value={lead.lastContactAt ? formatDateTime(lead.lastContactAt, locale as Locale) : "—"} />

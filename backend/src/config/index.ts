@@ -122,7 +122,21 @@ export const config: Config = {
     },
 
     // Production Security
-    corsOrigins: getEnvOrDefault('CORS_ALLOW_ORIGINS', 'http://localhost:3000,http://localhost:3001').split(',').map(s => s.trim()),
+    // The public landing sites POST the contact form cross-origin to /api/v1/leads,
+    // so their origins must ALWAYS be allowed (CORS + the csrf origin check) —
+    // they are merged with CORS_ALLOW_ORIGINS rather than replaced by it, so a
+    // box env that only lists the admin/app origins can't silently break the
+    // public lead form. Never a wildcard: the cors middleware runs with
+    // credentials:true, so the exact-origin allow-list is required.
+    corsOrigins: [...new Set([
+        ...getEnvOrDefault('CORS_ALLOW_ORIGINS', 'http://localhost:3000,http://localhost:3001').split(',').map(s => s.trim()),
+        'https://crystolia.com',
+        'https://www.crystolia.com',
+        'https://crystolia.ru',
+        'https://www.crystolia.ru',
+        'https://crystolia.co.il',
+        'https://www.crystolia.co.il',
+    ])].filter(Boolean),
     cookieDomain: process.env.COOKIE_DOMAIN, // Undefined by default (host only)
     secureCookie: process.env.NODE_ENV === 'production', // True in prod, false in dev
 };

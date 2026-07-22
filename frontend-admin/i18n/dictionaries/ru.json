@@ -260,6 +260,9 @@
     "info": {
       "title": "Информация о лиде",
       "source": "Источник",
+      "language": "Язык",
+      "sourceDomain": "Страница-источник",
+      "utm": "Кампания (UTM)",
       "tags": "Теги",
       "contactCount": "Контактов",
       "lastContact": "Последний контакт",

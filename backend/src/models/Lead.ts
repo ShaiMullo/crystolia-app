@@ -46,6 +46,11 @@ export interface ILead extends Document {
     email?: string;
     message?: string;
     source?: string;
+    // Website attribution (public contact form) — all optional & additive.
+    locale?: string;
+    sourceDomain?: string;
+    sourcePage?: string;
+    utm?: Record<string, string>;
     status: LeadStatus;
     tags: string[];
     assignedTo?: string;
@@ -106,6 +111,26 @@ const LeadSchema = new Schema<ILead>(
             type: String,
             default: 'website',
             index: true,
+        },
+        // Website attribution (public contact form). Optional/additive — the
+        // route whitelists and caps these before they reach the model.
+        locale: {
+            type: String,
+            trim: true,
+            maxlength: [8, 'Locale cannot exceed 8 characters'],
+        },
+        sourceDomain: {
+            type: String,
+            trim: true,
+            maxlength: [100, 'Source domain cannot exceed 100 characters'],
+        },
+        sourcePage: {
+            type: String,
+            trim: true,
+            maxlength: [300, 'Source page cannot exceed 300 characters'],
+        },
+        utm: {
+            type: Schema.Types.Mixed,
         },
         status: {
             type: String,

@@ -140,6 +140,11 @@ export interface Lead {
     message?: string;
     status: LeadStatus;
     source: string;
+    // Website attribution (public contact form) — optional
+    locale?: string;
+    sourceDomain?: string;
+    sourcePage?: string;
+    utm?: Record<string, string>;
     tags: string[];
     assignedTo?: string;
 

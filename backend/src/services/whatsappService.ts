@@ -60,7 +60,8 @@ export async function sendTextMessage(
             body: message
         };
 
-        console.log("📤 UltraMsg sending:", { to, message });
+        // Never log the message body — it carries lead PII (name/phone/free text).
+        console.log("📤 UltraMsg sending:", { to, length: message.length });
 
         const response = await axios.post(url, payload, {
             headers: { 'Content-Type': 'application/json' },

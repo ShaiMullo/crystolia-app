@@ -53,7 +53,42 @@ router.post('/', createLeadLimiter, async (req: Request, res: Response, next: Ne
             }
         }
 
-        const { name, phone, email, message, source, tags } = req.body;
+        // ━━━ Sanitize the public payload (whitelist + trim + cap) ━━━
+        // Only these fields are ever read from the body; anything else —
+        // including internal fields like status/ownerId/isDeleted — is ignored.
+        const str = (v: unknown, max: number): string =>
+            typeof v === 'string' ? v.trim().slice(0, max) : '';
+
+        const name = str(req.body.name, 100);
+        const phone = str(req.body.phone, 32);
+        const email = str(req.body.email, 254);
+        const message = str(req.body.message, 2000);
+        const source = str(req.body.source, 100) || 'website';
+
+        // Website attribution — validated/capped, never trusted raw.
+        const VALID_LOCALES = ['en', 'he', 'ru'];
+        const locale = VALID_LOCALES.includes(req.body.locale) ? (req.body.locale as string) : undefined;
+        const sourceDomain = str(req.body.sourceDomain, 100) || undefined;
+        const sourcePage = str(req.body.sourcePage, 300) || undefined;
+        const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'] as const;
+        let utm: Record<string, string> | undefined;
+        if (req.body.utm && typeof req.body.utm === 'object') {
+            for (const key of UTM_KEYS) {
+                const value = str((req.body.utm as Record<string, unknown>)[key], 200);
+                if (value) (utm ??= {})[key] = value;
+            }
+        }
+
+        // Tags are an internal CRM concept — only an authenticated admin may set them.
+        const tags = req.user && Array.isArray(req.body.tags)
+            ? (req.body.tags as unknown[]).filter((t): t is string => typeof t === 'string').map((t) => t.slice(0, 50))
+            : [];
+
+        // ━━━ Honeypot: bots fill the hidden "website" field; humans never see it.
+        // Pretend success without creating anything (don't tip the bot off).
+        if (str(req.body.website, 200)) {
+            return res.status(201).json({ success: true, message: 'Lead received successfully' });
+        }
 
         // Validation
         if (!name || !phone) {
@@ -66,6 +101,9 @@ router.post('/', createLeadLimiter, async (req: Request, res: Response, next: Ne
 
         // ━━━ Normalize phone BEFORE lookup ━━━
         const normalizedPhone = normalizePhoneNumber(phone);
+        if (normalizedPhone.length < 7 || normalizedPhone.length > 15) {
+            throw new AppError('Invalid phone number', 400);
+        }
 
         // ━━━ CRM Upsert Logic ━━━
         let lead = await Lead.findOne({ phone: normalizedPhone, isDeleted: false });
@@ -73,8 +111,15 @@ router.post('/', createLeadLimiter, async (req: Request, res: Response, next: Ne
         const timestamp = new Date();
         const newMessage = {
             content: message || '',
-            source: source || 'website',
+            source,
             createdAt: timestamp,
+        };
+        // Attribution captured in the timeline too, so it survives later edits.
+        const attribution = {
+            ...(locale && { locale }),
+            ...(sourceDomain && { sourceDomain }),
+            ...(sourcePage && { sourcePage }),
+            ...(utm && { utm }),
         };
 
         if (lead) {
@@ -93,7 +138,7 @@ router.post('/', createLeadLimiter, async (req: Request, res: Response, next: Ne
             lead.timeline.push({
                 type: 'lead_updated',
                 at: timestamp,
-                meta: { source: source || 'website', contactCount: lead.contactCount },
+                meta: { source, contactCount: lead.contactCount, ...attribution },
             });
 
             // Re-engagement logic
@@ -112,32 +157,36 @@ router.post('/', createLeadLimiter, async (req: Request, res: Response, next: Ne
             if (name) lead.name = name;
             if (email) lead.email = email;
             if (source) lead.source = source;
+            if (locale) lead.locale = locale;
+            if (sourceDomain) lead.sourceDomain = sourceDomain;
+            if (sourcePage) lead.sourcePage = sourcePage;
+            if (utm) lead.utm = utm;
 
             await lead.save();
 
         } else {
             // ══════ CREATE NEW LEAD ══════
-            console.log(`✨ Creating new lead for phone: ${normalizedPhone}`);
-
             lead = await Lead.create({
                 name,
                 phone: normalizedPhone,
-                email,
+                email: email || undefined,
                 message: message || '',
-                source: source || 'website',
-                tags: tags || [],
+                source,
+                ...attribution,
+                tags,
                 status: 'new',
                 contactCount: 1,
                 messages: message ? [newMessage] : [],
                 timeline: [{
                     type: 'lead_created',
                     at: timestamp,
-                    meta: { source: source || 'website' },
+                    meta: { source, ...attribution },
                 }],
                 notes: [],
                 lastContactAt: timestamp,
                 isDeleted: false,
             });
+            console.log(`✨ Created new lead: ${lead._id}`);
 
             // Audit Log (Only for creation)
             if (req.user) {
@@ -151,7 +200,8 @@ router.post('/', createLeadLimiter, async (req: Request, res: Response, next: Ne
             }
         }
 
-        console.log(`📬 Lead processed: ${name} - ${normalizedPhone} (status=${lead.status}, count=${lead.contactCount})`);
+        // No PII in server logs — the lead id is enough to find the record.
+        console.log(`📬 Lead processed: ${lead._id} (status=${lead.status}, count=${lead.contactCount}, source=${source})`);
 
         // ━━━ WhatsApp Notification (Fire-and-forget) ━━━
         try {
@@ -162,7 +212,8 @@ router.post('/', createLeadLimiter, async (req: Request, res: Response, next: Ne
 Name: ${name}
 Phone: ${phone}
 Message: ${message || 'N/A'}
-Source: ${source || 'N/A'}
+Source: ${source}${sourceDomain ? ` (${sourceDomain}${sourcePage || ''})` : ''}${locale ? `
+Language: ${locale}` : ''}
 Count: ${lead.contactCount}
 Status: ${lead.status}`;
 
@@ -179,12 +230,22 @@ Status: ${lead.status}`;
             console.warn('⚠️ [WhatsApp] Logic crash (should not happen):', waError);
         }
 
-        // Return same shape as before for backward compatibility
-        res.status(201).json({
-            success: true,
-            message: 'Lead received successfully',
-            lead: lead,
-        });
+        // Public callers get only safe fields — the full lead document (timeline,
+        // notes, ownerId, …) is internal CRM data. Authenticated staff keep the
+        // original full-lead shape for backward compatibility.
+        if (req.user) {
+            res.status(201).json({
+                success: true,
+                message: 'Lead received successfully',
+                lead: lead,
+            });
+        } else {
+            res.status(201).json({
+                success: true,
+                message: 'Lead received successfully',
+                leadId: lead._id,
+            });
+        }
     } catch (error) {
         next(error);
     }
