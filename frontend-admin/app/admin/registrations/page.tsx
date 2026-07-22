@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Search } from "lucide-react";
+import toast from "react-hot-toast";
 import { Card, Input, Modal, PageHeader, Pagination, Select, Button } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { OperationalError } from "@/components/system/OperationalError";
@@ -12,6 +13,7 @@ import {
     approveRegistration,
     rejectRegistration,
     resendRegistrationEmail,
+    notifyRegistrationsChanged,
     type RegistrationRequest,
     type RegistrationsPagination,
     type RegistrationStatus,
@@ -84,9 +86,13 @@ export default function RegistrationsPage() {
         if (!approveTarget) return;
         run({
             request: () => approveRegistration(approveTarget._id),
-            successMessage: t("registrations.toasts.approved"),
             errorMessage: t("registrations.toasts.approveFailed"),
-            onSuccess: () => {
+            onSuccess: (data) => {
+                toast.success(t("registrations.toasts.approved"));
+                if (data.emailNotificationSent === false) {
+                    toast.error(t("registrations.toasts.emailNotSent"));
+                }
+                notifyRegistrationsChanged();
                 setApproveTarget(null);
                 setViewTarget(null);
                 fetchRegistrations();
@@ -98,9 +104,13 @@ export default function RegistrationsPage() {
         if (!rejectTarget) return;
         run({
             request: () => rejectRegistration(rejectTarget._id, payload),
-            successMessage: t("registrations.toasts.rejected"),
             errorMessage: t("registrations.toasts.rejectFailed"),
-            onSuccess: () => {
+            onSuccess: (data) => {
+                toast.success(t("registrations.toasts.rejected"));
+                if (payload.notifyCustomer !== false && data.emailNotificationSent === false) {
+                    toast.error(t("registrations.toasts.emailNotSent"));
+                }
+                notifyRegistrationsChanged();
                 setRejectTarget(null);
                 setViewTarget(null);
                 fetchRegistrations();
@@ -111,13 +121,10 @@ export default function RegistrationsPage() {
     const resend = (r: RegistrationRequest) => {
         run({
             request: () => resendRegistrationEmail(r._id),
-            successMessage: t("registrations.toasts.resent"),
             errorMessage: t("registrations.toasts.resendFailed"),
             onSuccess: (data) => {
-                if (!data.sent) {
-                    // The endpoint succeeded but the provider is unavailable /
-                    // unconfigured — refresh so the recorded status is visible.
-                }
+                if (data.sent) toast.success(t("registrations.toasts.resent"));
+                else toast.error(t("registrations.toasts.emailNotSent"));
                 fetchRegistrations();
             },
         });

@@ -584,6 +584,7 @@
       "alreadyRejected": "Registration was already rejected",
       "rejectFailed": "Rejection failed",
       "resent": "Email sent",
+      "emailNotSent": "The action was saved, but the email was not sent. Check the SendGrid configuration.",
       "resendFailed": "Email could not be sent",
       "loadFailed": "Failed to load registration requests"
     },

@@ -584,6 +584,7 @@
       "alreadyRejected": "ההרשמה כבר נדחתה קודם",
       "rejectFailed": "הדחייה נכשלה",
       "resent": "המייל נשלח",
+      "emailNotSent": "הפעולה נשמרה, אבל המייל לא נשלח. יש לבדוק את הגדרת SendGrid.",
       "resendFailed": "שליחת המייל נכשלה",
       "loadFailed": "טעינת בקשות ההרשמה נכשלה"
     },

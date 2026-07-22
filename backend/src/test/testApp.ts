@@ -18,12 +18,14 @@ import meRouter from '../routes/me.js';
 import { errorHandler } from '../middleware/errorHandler.js';
 import { config } from '../config/index.js';
 import User from '../models/User.js';
+import Company from '../models/Company.js';
 
 let mongod: MongoMemoryServer | null = null;
 
 export async function startTestDb(): Promise<void> {
     mongod = await MongoMemoryServer.create();
     await mongoose.connect(mongod.getUri());
+    await Promise.all([User.init(), Company.init()]);
 }
 
 export async function stopTestDb(): Promise<void> {

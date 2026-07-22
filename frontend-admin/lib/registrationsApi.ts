@@ -1,5 +1,13 @@
 import api from "@/app/lib/api";
 
+export const REGISTRATIONS_CHANGED_EVENT = "crystolia:registrations-changed";
+
+export function notifyRegistrationsChanged(): void {
+    if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event(REGISTRATIONS_CHANGED_EVENT));
+    }
+}
+
 export type RegistrationStatus = "pending" | "approved" | "rejected";
 export type RegistrationMethod = "password" | "google";
 export type NotificationStatus = "sent" | "failed" | "skipped";

@@ -180,6 +180,9 @@ router.post('/:id/approve-registration', protect, authorize('admin'), async (req
                 409,
             );
         }
+        if (outcome.status === 'in_progress') {
+            throw new AppError('Registration approval is already in progress — try again shortly', 409);
+        }
         if (outcome.status === 'already_approved') {
             return res.json({ success: true, data: { alreadyApproved: true, user: outcome.user } });
         }
@@ -226,6 +229,9 @@ router.post('/:id/reject-registration', protect, authorize('admin'), async (req:
         }
         if (outcome.status === 'approved_cannot_reject') {
             throw new AppError('An approved account cannot be rejected — deactivate it from user management instead', 409);
+        }
+        if (outcome.status === 'in_progress') {
+            throw new AppError('Registration approval is already in progress — try again shortly', 409);
         }
         if (outcome.status === 'already_rejected') {
             return res.json({ success: true, data: { alreadyRejected: true, user: outcome.user } });

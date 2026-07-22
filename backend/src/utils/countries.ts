@@ -43,5 +43,12 @@ export function isValidCompanyNumber(country: string, value: string): boolean {
     if (country === 'IL') {
         return /^\d{8,9}$/.test(trimmed);
     }
-    return /^[A-Za-z0-9 .\-\/]{4,32}$/.test(trimmed);
+    return /^[A-Za-z0-9 .\-/]{4,32}$/.test(trimmed);
+}
+
+/** Canonical form used for duplicate checks and the unique Company index. */
+export function normalizeCompanyNumber(country: string, value: string): string {
+    const trimmed = value.trim();
+    if (country === 'IL') return trimmed.replace(/\D/g, '');
+    return trimmed.toUpperCase().replace(/[ .\-/]/g, '');
 }

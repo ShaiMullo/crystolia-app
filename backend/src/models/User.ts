@@ -60,6 +60,8 @@ export interface IUser extends Document {
     rejectedAt?: Date;
     rejectedBy?: mongoose.Types.ObjectId;
     rejectionReason?: string;
+    approvalInProgressAt?: Date;
+    approvalLock?: string;
     isDeleted: boolean;
     deletedAt?: Date;
     mustChangePassword: boolean;
@@ -235,6 +237,17 @@ const UserSchema = new Schema<IUser>(
             type: String,
             trim: true,
             maxlength: 1000,
+        },
+        // Short-lived internal lock used while materialising the Company and
+        // activating a registration. It prevents approve/reject races and is
+        // recoverable after a stale timeout if the process exits mid-flow.
+        approvalInProgressAt: {
+            type: Date,
+            select: false,
+        },
+        approvalLock: {
+            type: String,
+            select: false,
         },
         // Soft delete — records are excluded from listings instead of removed,
         // preserving audit history and referential integrity.

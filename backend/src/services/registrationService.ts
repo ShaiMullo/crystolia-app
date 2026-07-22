@@ -6,11 +6,11 @@
 //   pending ──approve──▶ approved      (Company created from the snapshot)
 //   pending ──reject───▶ rejected      (reversible via approve)
 //
-// Both transitions are claimed with an ATOMIC findOneAndUpdate on
-// registrationStatus, so a double-clicked approval can never send two emails
-// or mutate data twice — the second request observes the final state and
-// reports it as already done.
+// Both transitions are claimed with a short-lived atomic lock while the user
+// remains inactive. A double click cannot send two emails, and a process exit
+// between Company creation and User linking is recoverable on the next try.
 
+import crypto from 'crypto';
 import mongoose from 'mongoose';
 import { User, IUser } from '../models/User.js';
 import Company from '../models/Company.js';
@@ -20,14 +20,18 @@ import type { SendEmailResult } from './emailService.js';
 export type ApproveOutcome =
     | { status: 'approved'; user: IUser; emailResult: SendEmailResult }
     | { status: 'already_approved'; user: IUser }
+    | { status: 'in_progress' }
     | { status: 'conflict'; conflictField: string }
     | { status: 'not_found' };
 
 export type RejectOutcome =
     | { status: 'rejected'; user: IUser; emailResult?: SendEmailResult }
     | { status: 'already_rejected'; user: IUser }
+    | { status: 'in_progress' }
     | { status: 'approved_cannot_reject' }
     | { status: 'not_found' };
+
+const APPROVAL_LOCK_TTL_MS = 2 * 60 * 1000;
 
 /**
  * Create the Company from the registration snapshot and link it, if the user
@@ -40,6 +44,19 @@ export async function ensureCompanyFromSnapshot(
 ): Promise<{ ok: true } | { ok: false; conflictField: string }> {
     if (user.company || !user.registrationCompany) return { ok: true };
     const snapshot = user.registrationCompany;
+
+    // Crash recovery: if a previous approval attempt created the Company but
+    // exited before linking it to the User, reuse only the Company owned by
+    // this exact registration. Never attach by public name or VAT alone.
+    const ownedCompany = await Company.findOne({ owner: user._id }).select('_id name vatNumber').lean();
+    if (ownedCompany) {
+        if (ownedCompany.name !== snapshot.name || ownedCompany.vatNumber !== snapshot.vatNumber) {
+            return { ok: false, conflictField: 'owner' };
+        }
+        user.set('company', ownedCompany._id);
+        user.isCompanyOwner = true;
+        return { ok: true };
+    }
 
     // Pre-check for a clear admin-facing message (the unique indexes below
     // remain the authoritative guard against races).
@@ -76,22 +93,28 @@ export async function approveRegistration(
     userId: string,
     adminId: mongoose.Types.ObjectId | string | undefined,
 ): Promise<ApproveOutcome> {
-    // Atomically claim the transition — only one request can win it.
+    // Atomically lock the transition while the account is still inactive.
+    // Keeping registrationStatus pending/rejected until the Company exists
+    // avoids a crash window where a user could sign in with no linked Company.
+    const lock = crypto.randomUUID();
+    const now = new Date();
+    const staleBefore = new Date(now.getTime() - APPROVAL_LOCK_TTL_MS);
     const claimed = await User.findOneAndUpdate(
         {
             _id: userId,
             role: 'customer',
             isDeleted: { $ne: true },
             registrationStatus: { $in: ['pending', 'rejected'] },
+            $or: [
+                { approvalLock: { $exists: false } },
+                { approvalInProgressAt: { $lt: staleBefore } },
+            ],
         },
         {
             $set: {
-                registrationStatus: 'approved',
-                isActive: true,
-                approvedAt: new Date(),
-                approvedBy: adminId,
+                approvalLock: lock,
+                approvalInProgressAt: now,
             },
-            $unset: { rejectedAt: 1, rejectedBy: 1, rejectionReason: 1 },
         },
         { new: true },
     );
@@ -101,29 +124,61 @@ export async function approveRegistration(
         if (existing && existing.registrationStatus === 'approved') {
             return { status: 'already_approved', user: existing };
         }
+        if (existing && ['pending', 'rejected'].includes(existing.registrationStatus)) {
+            return { status: 'in_progress' };
+        }
         return { status: 'not_found' };
     }
 
-    // Create the Company from the registration snapshot. Legacy pending users
-    // (created before this flow) already carry a linked company and skip this.
-    const companyResult = await ensureCompanyFromSnapshot(claimed);
-    if (!companyResult.ok) {
-        // Roll the claim back so the request stays visible as pending and the
-        // admin can resolve the conflict manually.
-        await User.updateOne(
-            { _id: claimed._id },
-            {
-                $set: { registrationStatus: 'pending', isActive: false },
-                $unset: { approvedAt: 1, approvedBy: 1 },
-            },
-        );
-        return { status: 'conflict', conflictField: companyResult.conflictField };
-    }
-    await claimed.save({ validateBeforeSave: false });
+    try {
+        // Create the Company from the registration snapshot. Legacy pending
+        // users already carry a linked company and skip this.
+        const companyResult = await ensureCompanyFromSnapshot(claimed);
+        if (!companyResult.ok) {
+            await User.updateOne(
+                { _id: claimed._id, approvalLock: lock },
+                { $unset: { approvalLock: 1, approvalInProgressAt: 1 } },
+            );
+            return { status: 'conflict', conflictField: companyResult.conflictField };
+        }
 
-    // Best-effort — an email outage must never undo an approval.
-    const emailResult = await sendRegistrationEmail(claimed, 'approved');
-    return { status: 'approved', user: claimed, emailResult };
+        // One atomic user update publishes the approval only after the Company
+        // is ready. The lock token ensures no stale attempt can win later.
+        const approved = await User.findOneAndUpdate(
+            { _id: claimed._id, approvalLock: lock },
+            {
+                $set: {
+                    registrationStatus: 'approved',
+                    isActive: true,
+                    approvedAt: new Date(),
+                    approvedBy: adminId,
+                    ...(claimed.company ? { company: claimed.company } : {}),
+                    isCompanyOwner: claimed.isCompanyOwner,
+                },
+                $unset: {
+                    rejectedAt: 1,
+                    rejectedBy: 1,
+                    rejectionReason: 1,
+                    approvalLock: 1,
+                    approvalInProgressAt: 1,
+                },
+            },
+            { new: true },
+        );
+        if (!approved) {
+            return { status: 'in_progress' };
+        }
+
+        // Best-effort — an email outage must never undo an approval.
+        const emailResult = await sendRegistrationEmail(approved, 'approved');
+        return { status: 'approved', user: approved, emailResult };
+    } catch (error) {
+        await User.updateOne(
+            { _id: claimed._id, approvalLock: lock },
+            { $unset: { approvalLock: 1, approvalInProgressAt: 1 } },
+        ).catch(() => undefined);
+        throw error;
+    }
 }
 
 export interface RejectOptions {
@@ -140,6 +195,7 @@ export async function rejectRegistration(
     options: RejectOptions = {},
 ): Promise<RejectOutcome> {
     const reason = options.reason?.trim().slice(0, 1000) || undefined;
+    const staleBefore = new Date(Date.now() - APPROVAL_LOCK_TTL_MS);
 
     const claimed = await User.findOneAndUpdate(
         {
@@ -147,6 +203,10 @@ export async function rejectRegistration(
             role: 'customer',
             isDeleted: { $ne: true },
             registrationStatus: 'pending',
+            $or: [
+                { approvalLock: { $exists: false } },
+                { approvalInProgressAt: { $lt: staleBefore } },
+            ],
         },
         {
             $set: {
@@ -156,6 +216,7 @@ export async function rejectRegistration(
                 rejectedBy: adminId,
                 ...(reason ? { rejectionReason: reason } : {}),
             },
+            $unset: { approvalLock: 1, approvalInProgressAt: 1 },
             // Defense in depth: invalidate any token that may somehow exist.
             $inc: { tokenVersion: 1 },
         },
@@ -165,6 +226,7 @@ export async function rejectRegistration(
     if (!claimed) {
         const existing = await User.findOne({ _id: userId, role: 'customer', isDeleted: { $ne: true } });
         if (!existing) return { status: 'not_found' };
+        if (existing.registrationStatus === 'pending') return { status: 'in_progress' };
         if (existing.registrationStatus === 'rejected') {
             return { status: 'already_rejected', user: existing };
         }

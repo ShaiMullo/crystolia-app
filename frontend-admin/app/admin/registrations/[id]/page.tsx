@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowRight, ArrowLeft } from "lucide-react";
+import toast from "react-hot-toast";
 import { Button, Card, LoadingState, PageHeader } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { OperationalError } from "@/components/system/OperationalError";
@@ -14,6 +15,7 @@ import {
     approveRegistration,
     rejectRegistration,
     resendRegistrationEmail,
+    notifyRegistrationsChanged,
     type RegistrationRequest,
     type RejectRegistrationPayload,
 } from "@/lib/registrationsApi";
@@ -60,9 +62,13 @@ export default function RegistrationDetailPage() {
         if (!registration) return;
         run({
             request: () => approveRegistration(registration._id),
-            successMessage: t("registrations.toasts.approved"),
             errorMessage: t("registrations.toasts.approveFailed"),
-            onSuccess: () => {
+            onSuccess: (data) => {
+                toast.success(t("registrations.toasts.approved"));
+                if (data.emailNotificationSent === false) {
+                    toast.error(t("registrations.toasts.emailNotSent"));
+                }
+                notifyRegistrationsChanged();
                 setApproveOpen(false);
                 fetchRegistration();
             },
@@ -73,9 +79,13 @@ export default function RegistrationDetailPage() {
         if (!registration) return;
         run({
             request: () => rejectRegistration(registration._id, payload),
-            successMessage: t("registrations.toasts.rejected"),
             errorMessage: t("registrations.toasts.rejectFailed"),
-            onSuccess: () => {
+            onSuccess: (data) => {
+                toast.success(t("registrations.toasts.rejected"));
+                if (payload.notifyCustomer !== false && data.emailNotificationSent === false) {
+                    toast.error(t("registrations.toasts.emailNotSent"));
+                }
+                notifyRegistrationsChanged();
                 setRejectOpen(false);
                 fetchRegistration();
             },
@@ -86,9 +96,12 @@ export default function RegistrationDetailPage() {
         if (!registration) return;
         run({
             request: () => resendRegistrationEmail(registration._id),
-            successMessage: t("registrations.toasts.resent"),
             errorMessage: t("registrations.toasts.resendFailed"),
-            onSuccess: fetchRegistration,
+            onSuccess: (data) => {
+                if (data.sent) toast.success(t("registrations.toasts.resent"));
+                else toast.error(t("registrations.toasts.emailNotSent"));
+                fetchRegistration();
+            },
         });
     };
 

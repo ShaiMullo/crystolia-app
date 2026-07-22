@@ -23,6 +23,12 @@ beforeEach(async () => {
 });
 
 describe('POST /api/auth/register (password registration)', () => {
+    it('reports provider capabilities without exposing configuration values', async () => {
+        const res = await request(app).get('/api/auth/capabilities');
+        expect(res.status).toBe(200);
+        expect(res.body.data).toEqual({ google: false, registrationEmail: false });
+    });
+
     it('creates a pending user with a company snapshot and no Company document', async () => {
         const res = await request(app).post('/api/auth/register').send(VALID_REGISTRATION);
 
@@ -95,6 +101,32 @@ describe('POST /api/auth/register (password registration)', () => {
         expect(res.body.status).toBe('pending_approval');
         // No second user was created.
         expect(await User.countDocuments({ email: VALID_REGISTRATION.email })).toBe(1);
+    });
+
+    it('keeps the generic 202 response under a simultaneous duplicate-email race', async () => {
+        const [first, second] = await Promise.all([
+            request(app).post('/api/auth/register').send(VALID_REGISTRATION),
+            request(app).post('/api/auth/register').send({
+                ...VALID_REGISTRATION,
+                companyName: 'חברה מקבילה',
+                vatNumber: '512345678',
+            }),
+        ]);
+
+        expect(first.status).toBe(202);
+        expect(second.status).toBe(202);
+        expect(await User.countDocuments({ email: VALID_REGISTRATION.email })).toBe(1);
+    });
+
+    it('normalizes an international VAT number before storage and duplicate checks', async () => {
+        const res = await request(app).post('/api/auth/register').send({
+            ...VALID_REGISTRATION,
+            country: 'DE',
+            vatNumber: 'de 123-456/789',
+        });
+        expect(res.status).toBe(202);
+        const user = await User.findOne({ email: VALID_REGISTRATION.email });
+        expect(user!.registrationCompany!.vatNumber).toBe('DE123456789');
     });
 
     it('never joins an existing company by name, and flags duplicate VAT for manual review', async () => {

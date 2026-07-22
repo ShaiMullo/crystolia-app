@@ -91,6 +91,51 @@ describe('POST /api/v1/users/:id/approve-registration', () => {
         expect(await Company.countDocuments({})).toBe(1);
     });
 
+    it('blocks a competing approve/reject while an approval lock is active', async () => {
+        const user = await registerPendingUser();
+        await User.updateOne(
+            { _id: user._id },
+            { $set: { approvalLock: 'active-lock', approvalInProgressAt: new Date() } },
+        );
+
+        const approve = await request(app)
+            .post(`/api/v1/users/${user._id}/approve-registration`)
+            .set('Cookie', adminCookie);
+        expect(approve.status).toBe(409);
+
+        const reject = await request(app)
+            .post(`/api/v1/users/${user._id}/reject-registration`)
+            .set('Cookie', adminCookie)
+            .send({});
+        expect(reject.status).toBe(409);
+
+        const unchanged = await User.findById(user._id);
+        expect(unchanged!.registrationStatus).toBe('pending');
+        expect(unchanged!.isActive).toBe(false);
+        expect(await Company.countDocuments({})).toBe(0);
+    });
+
+    it('recovers a Company created by an interrupted approval and links it safely', async () => {
+        const user = await registerPendingUser();
+        const orphan = await Company.create({
+            name: VALID_REGISTRATION.companyName,
+            vatNumber: VALID_REGISTRATION.vatNumber,
+            country: 'IL',
+            owner: user._id,
+        });
+
+        const res = await request(app)
+            .post(`/api/v1/users/${user._id}/approve-registration`)
+            .set('Cookie', adminCookie);
+        expect(res.status).toBe(200);
+
+        const updated = await User.findById(user._id);
+        expect(String(updated!.company)).toBe(String(orphan._id));
+        expect(updated!.registrationStatus).toBe('approved');
+        expect(updated!.isActive).toBe(true);
+        expect(await Company.countDocuments({ owner: user._id })).toBe(1);
+    });
+
     it('returns 409 and stays pending when the company name already exists', async () => {
         await Company.create({ name: VALID_REGISTRATION.companyName, vatNumber: '598765432' });
         const user = await registerPendingUser();

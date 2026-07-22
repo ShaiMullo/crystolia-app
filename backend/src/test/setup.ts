@@ -12,6 +12,8 @@ delete process.env.EMAIL_FROM_ADDRESS;
 delete process.env.TWILIO_ACCOUNT_SID;
 delete process.env.TWILIO_AUTH_TOKEN;
 delete process.env.TWILIO_PHONE_NUMBER;
+delete process.env.GOOGLE_CLIENT_ID;
+delete process.env.GOOGLE_CLIENT_SECRET;
 process.env.ADMIN_PHONE_NUMBER = process.env.TEST_ADMIN_PHONE || '';
 process.env.FRONTEND_URL = 'https://business.crystolia.com';
 process.env.ADMIN_FRONTEND_URL = 'https://admin.crystolia.com';

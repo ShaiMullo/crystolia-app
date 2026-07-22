@@ -56,6 +56,7 @@ const COPY = {
         genericError: "לא הצלחנו להשלים את הפעולה. נסו שוב בעוד רגע.",
         pendingLoginError: "החשבון עדיין ממתין לאישור צוות קריסטוליה.",
         googleAuthFailed: "ההתחברות עם Google לא הושלמה. אפשר לנסות שוב או להשתמש באימייל וסיסמה.",
+        googleUnavailable: "ההרשמה עם Google עדיין אינה זמינה. אפשר להירשם עם אימייל וסיסמה.",
         googleAccountExists: "כתובת האימייל הזאת כבר רשומה עם סיסמה. התחברו עם האימייל והסיסמה שלכם.",
         accountUnavailable: "לא ניתן להתחבר עם החשבון הזה. לפרטים אפשר לפנות לצוות קריסטוליה.",
         registrationExpired: "תוקף תהליך ההרשמה פג. התחילו שוב עם כפתור Google.",
@@ -109,6 +110,7 @@ const COPY = {
         genericError: "We couldn't complete the request. Please try again shortly.",
         pendingLoginError: "This account is still awaiting approval by the Crystolia team.",
         googleAuthFailed: "Sign-in with Google did not complete. Try again or use email and password.",
+        googleUnavailable: "Google registration is not available yet. You can register with email and password.",
         googleAccountExists: "This email address is already registered with a password. Sign in with your email and password.",
         accountUnavailable: "This account cannot be used to sign in. Contact the Crystolia team for details.",
         registrationExpired: "The registration session expired. Start again with the Google button.",
@@ -162,6 +164,7 @@ const COPY = {
         genericError: "Не удалось выполнить запрос. Повторите попытку позже.",
         pendingLoginError: "Аккаунт ещё ожидает подтверждения командой Crystolia.",
         googleAuthFailed: "Вход через Google не был завершён. Попробуйте снова или используйте электронную почту и пароль.",
+        googleUnavailable: "Регистрация через Google пока недоступна. Используйте электронную почту и пароль.",
         googleAccountExists: "Этот адрес уже зарегистрирован с паролем. Войдите с адресом электронной почты и паролем.",
         accountUnavailable: "Вход с этим аккаунтом невозможен. За подробностями обратитесь к команде Crystolia.",
         registrationExpired: "Сессия регистрации истекла. Начните заново с кнопки Google.",
@@ -201,6 +204,7 @@ export default function AuthPage({ locale: rawLocale }: AuthPageProps) {
     });
     const [status, setStatus] = useState<"idle" | "loading">("idle");
     const [error, setError] = useState<string | null>(null);
+    const [googleAvailable, setGoogleAvailable] = useState(false);
     const { user, login, register } = useAuth();
     const router = useRouter();
 
@@ -213,7 +217,19 @@ export default function AuthPage({ locale: rawLocale }: AuthPageProps) {
         else if (oauthError === "account_exists") setError(t.googleAccountExists);
         else if (oauthError === "account_unavailable") setError(t.accountUnavailable);
         else if (oauthError === "registration_expired") setError(t.registrationExpired);
+        else if (oauthError === "google_unavailable") setError(t.googleUnavailable);
         // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+        fetch("/api/auth/capabilities", { credentials: "include" })
+            .then((response) => response.ok ? response.json() : null)
+            .then((payload) => {
+                if (!cancelled) setGoogleAvailable(payload?.data?.google === true);
+            })
+            .catch(() => undefined);
+        return () => { cancelled = true; };
     }, []);
 
     useEffect(() => {
@@ -388,18 +404,22 @@ export default function AuthPage({ locale: rawLocale }: AuthPageProps) {
                                     <p className="mt-3 text-slate-600">{t.subtitle}</p>
                                 </div>
 
-                                <button
-                                    type="button"
-                                    onClick={() => { window.location.href = `/api/auth/google?locale=${locale}`; }}
-                                    className="flex min-h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-5 py-3 font-medium text-slate-700 shadow-sm transition-colors duration-200 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4a83a]"
-                                >
-                                    <span aria-hidden="true" className="font-bold text-[#4285F4]">G</span>
-                                    {t.continueWithGoogle}
-                                </button>
-                                <div className="relative my-7">
-                                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200" /></div>
-                                    <div className="relative flex justify-center text-sm"><span className="bg-white px-4 text-slate-500">{t.or}</span></div>
-                                </div>
+                                {googleAvailable && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => { window.location.href = `/api/auth/google?locale=${locale}`; }}
+                                            className="flex min-h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-5 py-3 font-medium text-slate-700 shadow-sm transition-colors duration-200 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4a83a]"
+                                        >
+                                            <span aria-hidden="true" className="font-bold text-[#4285F4]">G</span>
+                                            {t.continueWithGoogle}
+                                        </button>
+                                        <div className="relative my-7">
+                                            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200" /></div>
+                                            <div className="relative flex justify-center text-sm"><span className="bg-white px-4 text-slate-500">{t.or}</span></div>
+                                        </div>
+                                    </>
+                                )}
 
                                 {error && (
                                     <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800" role="alert">

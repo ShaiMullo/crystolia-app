@@ -13,12 +13,20 @@ import { config } from '../config/index.js';
 import passport from 'passport';
 import { authLimiter } from '../middleware/rateLimiter.js';
 import { logAudit } from '../services/auditService.js';
-import { sendRegistrationExistingAccountEmail, type EmailLocale } from '../services/emailService.js';
+import {
+    isEmailConfigured,
+    sendRegistrationExistingAccountEmail,
+    type EmailLocale,
+} from '../services/emailService.js';
 import {
     notifyAdminOfRegistration,
     sendRegistrationEmail,
 } from '../services/registrationNotificationService.js';
-import { isSupportedCountry, isValidCompanyNumber } from '../utils/countries.js';
+import {
+    isSupportedCountry,
+    isValidCompanyNumber,
+    normalizeCompanyNumber,
+} from '../utils/countries.js';
 
 const router = Router();
 
@@ -103,6 +111,27 @@ function authPageUrl(locale: AppLocale, query: string): string {
     return `${config.frontendUrl.replace(/\/$/, '')}/${locale}/auth?${query}`;
 }
 
+function isGoogleConfigured(): boolean {
+    return Boolean(config.google.clientId && config.google.clientSecret && config.google.callbackUrl);
+}
+
+function isDuplicateKeyError(error: unknown): boolean {
+    return typeof error === 'object' && error !== null && 'code' in error
+        && (error as { code?: number }).code === 11000;
+}
+
+// Public feature discovery lets the UI avoid offering OAuth before the
+// production credentials exist. It exposes capability booleans only.
+router.get('/capabilities', (_req: Request, res: Response) => {
+    res.json({
+        success: true,
+        data: {
+            google: isGoogleConfigured(),
+            registrationEmail: isEmailConfigured(),
+        },
+    });
+});
+
 function verifyPurposeToken<T extends { purpose: string }>(
     token: string | undefined,
     purpose: T['purpose'],
@@ -123,6 +152,10 @@ function verifyPurposeToken<T extends { purpose: string }>(
 // signed httpOnly cookie, which also carries the caller's locale.
 router.get('/google', (req: Request, res: Response, next: NextFunction) => {
     const locale = safeAppLocale(req.query.locale);
+    if (!isGoogleConfigured()) {
+        res.redirect(authPageUrl(locale, 'error=google_unavailable'));
+        return;
+    }
     const nonce = crypto.randomBytes(16).toString('hex');
     const statePayload: OauthStatePayload = { purpose: 'google_oauth_state', nonce, locale };
     const stateToken = jwt.sign(statePayload, jwtSecret, { expiresIn: '10m' });
@@ -140,6 +173,13 @@ router.get('/google', (req: Request, res: Response, next: NextFunction) => {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 router.get(
     '/google/callback',
+    (req: Request, res: Response, next: NextFunction) => {
+        if (!isGoogleConfigured()) {
+            res.redirect(authPageUrl(safeAppLocale(req.query.locale), 'error=google_unavailable'));
+            return;
+        }
+        next();
+    },
     // Verify our own CSRF state BEFORE exchanging the authorization code.
     (req: Request, res: Response, next: NextFunction) => {
         const statePayload = verifyPurposeToken<OauthStatePayload>(
@@ -274,7 +314,7 @@ router.post('/google/complete-registration', authLimiter, async (req: Request, r
         const companyName = text(req.body.companyName, 160);
         const phone = text(req.body.phone, 32);
         const country = text(req.body.country, 2).toUpperCase();
-        const vatNumber = text(req.body.vatNumber, 32);
+        const vatNumber = normalizeCompanyNumber(country, text(req.body.vatNumber, 32));
         const locale = safeAppLocale(req.body.locale ?? ticket.locale);
 
         const validationError = validateRegistrationBusinessFields({ name, companyName, phone, country, vatNumber });
@@ -315,8 +355,10 @@ router.post('/google/complete-registration', authLimiter, async (req: Request, r
         res.clearCookie(REGISTRATION_TICKET_COOKIE, { path: '/api' });
 
         // Best-effort notifications — never fail a saved registration.
-        const emailResult = await sendRegistrationEmail(newUser, 'pending', { companyName });
-        await notifyAdminOfRegistration(newUser);
+        const [emailResult] = await Promise.all([
+            sendRegistrationEmail(newUser, 'pending', { companyName }),
+            notifyAdminOfRegistration(newUser),
+        ]);
 
         await logAudit({
             action: 'CREATE',
@@ -400,7 +442,7 @@ router.post('/register', authLimiter, async (req: Request, res: Response, next: 
         const companyName = text(req.body.companyName, 160);
         const phone = text(req.body.phone, 32);
         const country = text(req.body.country, 2).toUpperCase();
-        const vatNumber = text(req.body.vatNumber, 32);
+        const vatNumber = normalizeCompanyNumber(country, text(req.body.vatNumber, 32));
         const locale: EmailLocale = req.body.locale === 'en' || req.body.locale === 'ru'
             ? req.body.locale
             : 'he';
@@ -462,11 +504,13 @@ router.post('/register', authLimiter, async (req: Request, res: Response, next: 
 
         // 4. A pending registration never receives a token. Email + admin SMS
         // are best-effort so a provider outage does not lose the request.
-        const emailResult = await sendRegistrationEmail(newUser, 'pending', { companyName });
+        const [emailResult] = await Promise.all([
+            sendRegistrationEmail(newUser, 'pending', { companyName }),
+            notifyAdminOfRegistration(newUser),
+        ]);
         if (!emailResult.success) {
             console.warn('[Registration] Pending email was not delivered:', emailResult.error);
         }
-        await notifyAdminOfRegistration(newUser);
 
         await logAudit({
             action: 'CREATE',
@@ -483,6 +527,32 @@ router.post('/register', authLimiter, async (req: Request, res: Response, next: 
             message: 'Registration received and awaiting approval',
         });
     } catch (error) {
+        // Two simultaneous requests can both pass the pre-check before the
+        // unique email index accepts only one. Preserve the same generic 202
+        // anti-enumeration response instead of leaking Mongo's duplicate error.
+        if (isDuplicateKeyError(error)) {
+            const email = typeof req.body?.email === 'string'
+                ? req.body.email.trim().slice(0, 254).toLowerCase()
+                : '';
+            const locale: EmailLocale = req.body?.locale === 'en' || req.body?.locale === 'ru'
+                ? req.body.locale
+                : 'he';
+            const existingUser = email ? await User.findOne({ email }) : null;
+            if (existingUser) {
+                const reminder = await sendRegistrationExistingAccountEmail({
+                    to: email,
+                    name: existingUser.name,
+                    locale,
+                });
+                res.status(202).json({
+                    success: true,
+                    status: 'pending_approval',
+                    emailNotificationSent: reminder.success,
+                    message: 'Registration received and awaiting approval',
+                });
+                return;
+            }
+        }
         next(error);
     }
 });
