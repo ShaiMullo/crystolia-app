@@ -12,6 +12,18 @@ export interface SendSmsResult {
     error?: string;
 }
 
+export interface LeadSmsDetails {
+    name: string;
+    phone: string;
+    email?: string;
+    message?: string;
+    source: string;
+    sourceDomain?: string;
+    sourcePage?: string;
+    contactCount: number;
+    leadUrl: string;
+}
+
 type SmsHttpClient = Pick<typeof axios, 'post'>;
 
 export function isSmsConfigured(): boolean {
@@ -26,6 +38,46 @@ export function isSmsConfigured(): boolean {
 function toE164(phone: string): string {
     const normalized = normalizePhoneNumber(phone);
     return normalized.startsWith('+') ? normalized : `+${normalized}`;
+}
+
+function compactSmsField(value: string, maxLength: number): string {
+    const compact = value.replace(/\s+/g, ' ').trim();
+    return compact.length <= maxLength
+        ? compact
+        : `${compact.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+}
+
+/**
+ * Build a compact Hebrew lead alert. User-provided fields are flattened to a
+ * single line and capped so an unexpectedly long form message cannot create
+ * an excessive number of billable SMS segments.
+ */
+export function buildLeadNotificationSms(details: LeadSmsDetails): string {
+    const title = details.contactCount > 1
+        ? '🔁 פנייה חוזרת בקריסטוליה'
+        : '🌻 ליד חדש בקריסטוליה';
+    const source = details.sourceDomain
+        ? `${details.sourceDomain}${details.sourcePage || ''}`
+        : details.source;
+    const lines = [
+        title,
+        `👤 ${compactSmsField(details.name, 70)}`,
+        `📞 ${compactSmsField(details.phone, 30)}`,
+    ];
+
+    if (details.email) {
+        lines.push(`✉️ ${compactSmsField(details.email, 80)}`);
+    }
+    if (details.message) {
+        lines.push(`📝 ${compactSmsField(details.message, 120)}`);
+    }
+
+    lines.push(
+        `📍 ${compactSmsField(source, 80)}`,
+        `🔗 ${details.leadUrl}`,
+    );
+
+    return lines.join('\n');
 }
 
 /**
