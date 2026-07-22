@@ -14,6 +14,7 @@ export interface SendSmsResult {
 
 export interface LeadSmsDetails {
     name: string;
+    companyName?: string;
     phone: string;
     email?: string;
     message?: string;
@@ -62,8 +63,13 @@ export function buildLeadNotificationSms(details: LeadSmsDetails): string {
     const lines = [
         title,
         `👤 ${compactSmsField(details.name, 70)}`,
-        `📞 ${compactSmsField(details.phone, 30)}`,
     ];
+
+    if (details.companyName) {
+        lines.push(`🏢 ${compactSmsField(details.companyName, 90)}`);
+    }
+
+    lines.push(`📞 ${compactSmsField(details.phone, 30)}`);
 
     if (details.email) {
         lines.push(`✉️ ${compactSmsField(details.email, 80)}`);

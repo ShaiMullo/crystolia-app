@@ -135,8 +135,9 @@ export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'proposal' | 'won' 
 export interface Lead {
     _id: string;
     name: string;
+    companyName?: string;
     phone: string;
-    email: string;
+    email?: string;
     message?: string;
     status: LeadStatus;
     source: string;

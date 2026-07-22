@@ -194,6 +194,7 @@ export default function LeadDetailPage() {
                     <Card>
                         <CardTitle>{t("leadDetail.info.title")}</CardTitle>
                         <dl className="mt-3 space-y-2 text-sm">
+                            <InfoRow label={t("leadDetail.info.companyName")} value={lead.companyName || "—"} />
                             <InfoRow label={t("leadDetail.info.source")} value={lead.source || "—"} />
                             <InfoRow label={t("leadDetail.info.language")} value={lead.locale || "—"} />
                             <InfoRow

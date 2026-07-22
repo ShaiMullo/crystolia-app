@@ -13,8 +13,13 @@ interface ContactProps {
       form: {
         name: string;
         namePlaceholder: string;
+        companyName: string;
+        companyNamePlaceholder: string;
+        optional: string;
         phone: string;
         phonePlaceholder: string;
+        email: string;
+        emailPlaceholder: string;
         message: string;
         messagePlaceholder: string;
         submit: string;
@@ -25,6 +30,8 @@ interface ContactProps {
           name: string;
           phone: string;
           phoneInvalid: string;
+          email: string;
+          emailInvalid: string;
         };
       };
       whatsapp: string;
@@ -59,6 +66,13 @@ function isPlausiblePhone(raw: string): boolean {
   return digits.length >= 7 && digits.length <= 15 && /^[+0-9()\-.\s]+$/.test(visible);
 }
 
+function isPlausibleEmail(raw: string): boolean {
+  const visible = raw
+    .replace(/[\u200B-\u200F\u2060\u2066-\u2069\u202A-\u202E\uFEFF]/g, "")
+    .trim();
+  return visible.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(visible);
+}
+
 // UTM parameters from the current URL, when present (paid/campaign traffic).
 function collectUtm(): Record<string, string> | undefined {
   try {
@@ -77,13 +91,16 @@ function collectUtm(): Record<string, string> | undefined {
 export default function Contact({ locale, dict }: ContactProps) {
   const [formData, setFormData] = useState({
     name: "",
+    companyName: "",
     phone: "",
+    email: "",
     message: "",
   });
   const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
   const errorRef = useRef<HTMLDivElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const phoneRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
   // Honeypot: humans never see or fill this; bots that do are silently dropped.
   const [honeypot, setHoneypot] = useState("");
   // Synchronous double-submit guard. React state ("sending") only updates on
@@ -99,9 +116,14 @@ export default function Contact({ locale, dict }: ContactProps) {
     submissionIdRef.current = null;
     setFormData((prev) => ({ ...prev, ...patch }));
   };
-  const [fieldErrors, setFieldErrors] = useState<{ name: boolean; phone: "required" | "invalid" | false }>({
+  const [fieldErrors, setFieldErrors] = useState<{
+    name: boolean;
+    phone: "required" | "invalid" | false;
+    email: "required" | "invalid" | false;
+  }>({
     name: false,
     phone: false,
+    email: false,
   });
   const isRTL = locale === "he";
 
@@ -117,24 +139,28 @@ export default function Contact({ locale, dict }: ContactProps) {
     e.preventDefault();
     if (submittingRef.current) return; // double-submit guard (synchronous)
 
-    // Field-level validation: name + phone are required (whitespace-only is
-    // rejected via trim); phone must also look like a real number. On failure,
+    // Field-level validation: name, phone, and email are required. On failure,
     // show inline errors and move focus to the first invalid field.
     const name = formData.name.trim();
     const phone = formData.phone.trim();
+    const email = formData.email.trim();
     const nameInvalid = name === "";
     const phoneInvalid: "required" | "invalid" | false =
       phone === "" ? "required" : !isPlausiblePhone(phone) ? "invalid" : false;
-    if (nameInvalid || phoneInvalid) {
-      setFieldErrors({ name: nameInvalid, phone: phoneInvalid });
+    const emailInvalid: "required" | "invalid" | false =
+      email === "" ? "required" : !isPlausibleEmail(email) ? "invalid" : false;
+    if (nameInvalid || phoneInvalid || emailInvalid) {
+      setFieldErrors({ name: nameInvalid, phone: phoneInvalid, email: emailInvalid });
       if (nameInvalid) {
         nameRef.current?.focus();
-      } else {
+      } else if (phoneInvalid) {
         phoneRef.current?.focus();
+      } else {
+        emailRef.current?.focus();
       }
       return;
     }
-    setFieldErrors({ name: false, phone: false });
+    setFieldErrors({ name: false, phone: false, email: false });
 
     submittingRef.current = true;
     setStatus("sending");
@@ -152,7 +178,9 @@ export default function Contact({ locale, dict }: ContactProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
+          companyName: formData.companyName.trim(),
           phone,
+          email,
           message: formData.message.trim(),
           locale,
           // The server derives the domain from the validated Origin header;
@@ -170,7 +198,7 @@ export default function Contact({ locale, dict }: ContactProps) {
       if (res.ok && body?.success === true) {
         submissionIdRef.current = null; // next submission is a new attempt
         setStatus("success");
-        setFormData({ name: "", phone: "", message: "" });
+        setFormData({ name: "", companyName: "", phone: "", email: "", message: "" });
         setTimeout(() => setStatus("idle"), 6000);
       } else {
         // Keep the entered data so the visitor can retry.
@@ -189,7 +217,9 @@ export default function Contact({ locale, dict }: ContactProps) {
     const phone = whatsappNumber(locale);
     const lines = [dict.contact.whatsappIntro, ""];
     if (formData.name) lines.push(`${dict.contact.form.name}: ${formData.name}`);
+    if (formData.companyName) lines.push(`${dict.contact.form.companyName}: ${formData.companyName}`);
     if (formData.phone) lines.push(`${dict.contact.form.phone}: ${formData.phone}`);
+    if (formData.email) lines.push(`${dict.contact.form.email}: ${formData.email}`);
     if (formData.message) lines.push(`${dict.contact.form.message}: ${formData.message}`);
     const message = encodeURIComponent(lines.join("\n"));
     window.open(`https://wa.me/${phone}?text=${message}`, "_blank");
@@ -255,6 +285,29 @@ export default function Contact({ locale, dict }: ContactProps) {
               )}
             </div>
 
+            {/* Company Field — optional so private customers can still submit */}
+            <div>
+              <label
+                htmlFor="companyName"
+                className="block text-sm font-light text-gray-700 mb-2"
+              >
+                {dict.contact.form.companyName}{" "}
+                <span className="text-gray-500">({dict.contact.form.optional})</span>
+              </label>
+              <input
+                type="text"
+                id="companyName"
+                name="companyName"
+                value={formData.companyName}
+                onChange={(e) => updateField({ companyName: e.target.value })}
+                disabled={status === "sending"}
+                placeholder={dict.contact.form.companyNamePlaceholder}
+                autoComplete="organization"
+                maxLength={120}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:border-[#F5C542] focus:ring-2 focus:ring-[#F5C542]/20 outline-none transition-all duration-300 font-light disabled:opacity-50"
+              />
+            </div>
+
             {/* Phone Field */}
             <div>
               <label
@@ -288,6 +341,44 @@ export default function Contact({ locale, dict }: ContactProps) {
                   {fieldErrors.phone === "invalid"
                     ? dict.contact.form.errors.phoneInvalid
                     : dict.contact.form.errors.phone}
+                </p>
+              )}
+            </div>
+
+            {/* Email Field */}
+            <div>
+              <label
+                htmlFor="email"
+                className="block text-sm font-light text-gray-700 mb-2"
+              >
+                {dict.contact.form.email}
+              </label>
+              <input
+                ref={emailRef}
+                type="email"
+                id="email"
+                name="email"
+                value={formData.email}
+                onChange={(e) => {
+                  updateField({ email: e.target.value });
+                  if (fieldErrors.email) setFieldErrors((f) => ({ ...f, email: false }));
+                }}
+                required
+                aria-invalid={fieldErrors.email ? "true" : "false"}
+                aria-describedby={fieldErrors.email ? "email-error" : undefined}
+                disabled={status === "sending"}
+                dir="ltr"
+                inputMode="email"
+                autoComplete="email"
+                maxLength={254}
+                placeholder={dict.contact.form.emailPlaceholder}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:border-[#F5C542] focus:ring-2 focus:ring-[#F5C542]/20 outline-none transition-all duration-300 font-light disabled:opacity-50"
+              />
+              {fieldErrors.email && (
+                <p id="email-error" role="alert" className="mt-2 text-sm text-red-700">
+                  {fieldErrors.email === "invalid"
+                    ? dict.contact.form.errors.emailInvalid
+                    : dict.contact.form.errors.email}
                 </p>
               )}
             </div>

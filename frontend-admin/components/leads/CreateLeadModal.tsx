@@ -6,6 +6,7 @@ import { useAdminI18n } from "@/i18n/I18nProvider";
 
 export interface CreateLeadPayload {
     name: string;
+    companyName?: string;
     phone: string;
     email?: string;
     message?: string;
@@ -27,6 +28,7 @@ function isPlausiblePhone(raw: string): boolean {
 export default function CreateLeadModal({ isOpen, onClose, onCreate }: CreateLeadModalProps) {
     const { t } = useAdminI18n();
     const [name, setName] = useState("");
+    const [companyName, setCompanyName] = useState("");
     const [phone, setPhone] = useState("");
     const [email, setEmail] = useState("");
     const [message, setMessage] = useState("");
@@ -37,6 +39,7 @@ export default function CreateLeadModal({ isOpen, onClose, onCreate }: CreateLea
     useEffect(() => {
         if (!isOpen) return;
         setName("");
+        setCompanyName("");
         setPhone("");
         setEmail("");
         setMessage("");
@@ -65,6 +68,7 @@ export default function CreateLeadModal({ isOpen, onClose, onCreate }: CreateLea
         try {
             await onCreate({
                 name: cleanName,
+                companyName: companyName.trim() || undefined,
                 phone: cleanPhone,
                 email: email.trim() || undefined,
                 message: message.trim() || undefined,
@@ -116,6 +120,16 @@ export default function CreateLeadModal({ isOpen, onClose, onCreate }: CreateLea
                         aria-describedby={nameError ? "create-lead-name-error" : undefined}
                     />
                     {nameError && <span id="create-lead-name-error" className="sr-only">{t("common.required")}</span>}
+                </Field>
+
+                <Field label={t("leads.create.companyName")} htmlFor="create-lead-company" optional={t("common.optional")}>
+                    <Input
+                        id="create-lead-company"
+                        autoComplete="organization"
+                        maxLength={120}
+                        value={companyName}
+                        onChange={(event) => setCompanyName(event.target.value)}
+                    />
                 </Field>
 
                 <Field

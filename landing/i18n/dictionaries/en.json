@@ -149,8 +149,13 @@
     "form": {
       "name": "Name",
       "namePlaceholder": "e.g. John Doe",
+      "companyName": "Company name",
+      "companyNamePlaceholder": "e.g. Example Trading Ltd.",
+      "optional": "optional",
       "phone": "Phone",
       "phonePlaceholder": "+1 555 000 0000",
+      "email": "Email",
+      "emailPlaceholder": "name@company.com",
       "message": "Message",
       "messagePlaceholder": "How can we help? Tell us what you need, for what use, and where to deliver.",
       "submit": "Submit",
@@ -160,7 +165,9 @@
       "errors": {
         "name": "Please enter your name.",
         "phone": "Please enter your phone number.",
-        "phoneInvalid": "Please enter a valid phone number."
+        "phoneInvalid": "Please enter a valid phone number.",
+        "email": "Please enter your email address.",
+        "emailInvalid": "Please enter a valid email address."
       }
     },
     "whatsapp": "Send WhatsApp Message",

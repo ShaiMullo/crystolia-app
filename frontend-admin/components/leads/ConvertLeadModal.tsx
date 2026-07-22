@@ -71,7 +71,7 @@ export default function ConvertLeadModal({ isOpen, onClose, lead, onSubmit, onSu
 
     useEffect(() => {
         if (isOpen && lead) {
-            setCompanyName(lead.name || "");
+            setCompanyName(lead.companyName || lead.name || "");
             setVatNumber("");
             setAddress("");
             setCity("");

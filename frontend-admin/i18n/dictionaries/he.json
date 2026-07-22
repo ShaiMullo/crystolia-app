@@ -249,6 +249,7 @@
       "title": "יצירת ליד חדש",
       "description": "הוסף ליד ידנית ושמור אותו ישירות במערכת ה-CRM.",
       "name": "שם",
+      "companyName": "שם החברה",
       "phone": "טלפון",
       "phoneInvalid": "יש להזין מספר טלפון תקין",
       "email": "אימייל",
@@ -278,6 +279,7 @@
     },
     "info": {
       "title": "פרטי הליד",
+      "companyName": "שם החברה",
       "source": "מקור",
       "language": "שפה",
       "sourceDomain": "עמוד מקור",
