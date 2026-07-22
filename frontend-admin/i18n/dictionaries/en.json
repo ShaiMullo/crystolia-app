@@ -71,7 +71,8 @@
     "myAccount": "My Account",
     "settings": "Settings",
     "logout": "Logout",
-    "administratorFallback": "Administrator"
+    "administratorFallback": "Administrator",
+    "registrations": "Registration requests"
   },
   "account": {
     "title": "My Account",
@@ -485,6 +486,113 @@
       "revealIntro": "Share this one-time password with {name} securely. They'll be required to change it at next login.",
       "warning": "This password won't be shown again.",
       "copied": "Copied"
+    }
+  },
+  "registrations": {
+    "page": {
+      "title": "Registration Requests",
+      "subtitle": "Review, approve or reject business portal registrations."
+    },
+    "table": {
+      "date": "Date",
+      "contact": "Contact",
+      "company": "Company",
+      "companyNumber": "Company no. / VAT",
+      "phone": "Phone",
+      "email": "Email",
+      "country": "Country",
+      "locale": "Language",
+      "method": "Method",
+      "notifications": "Notifications",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "method": {
+      "password": "Password",
+      "google": "Google"
+    },
+    "status": {
+      "pending": "Awaiting approval",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "notification": {
+      "sent": "Sent",
+      "failed": "Failed",
+      "skipped": "Not configured",
+      "email": "Email",
+      "sms": "SMS"
+    },
+    "filters": {
+      "status": "Status",
+      "statusAll": "All statuses"
+    },
+    "search": {
+      "placeholder": "Search by name, email or company"
+    },
+    "empty": "No registration requests yet",
+    "emptyFiltered": "No registration requests match the current filters",
+    "flags": {
+      "possibleDuplicateVat": "Possible duplicate company number",
+      "possibleDuplicateName": "Possible duplicate company name"
+    },
+    "actions": {
+      "view": "View details",
+      "approve": "Approve",
+      "reject": "Reject",
+      "resendEmail": "Resend email",
+      "backToList": "Back to requests"
+    },
+    "details": {
+      "title": "Registration details",
+      "contactName": "Contact name",
+      "email": "Email",
+      "phone": "Phone",
+      "companyName": "Company name",
+      "companyNumber": "Company no. / VAT",
+      "country": "Country",
+      "language": "Language",
+      "method": "Registration method",
+      "submittedAt": "Submitted",
+      "approvedAt": "Approved at",
+      "approvedBy": "Approved by",
+      "rejectedAt": "Rejected at",
+      "rejectedBy": "Rejected by",
+      "rejectionReason": "Rejection reason",
+      "notifications": "Notifications",
+      "pendingEmail": "Confirmation email",
+      "approvedEmail": "Approval email",
+      "rejectedEmail": "Rejection email",
+      "adminSms": "Admin SMS",
+      "flagsTitle": "Review flags"
+    },
+    "confirm": {
+      "approveTitle": "Approve registration",
+      "approveMessage": "Approve the registration of {name}? A company record will be created and an approval email will be sent.",
+      "rejectTitle": "Reject registration",
+      "rejectMessage": "Reject the registration of {name}?",
+      "reasonLabel": "Rejection reason (kept internally)",
+      "reasonPlaceholder": "Why is this registration rejected?",
+      "notifyCustomer": "Send the customer a rejection email",
+      "shareReason": "Include the reason in the email"
+    },
+    "toasts": {
+      "approved": "Registration approved",
+      "alreadyApproved": "Registration was already approved",
+      "approveFailed": "Approval failed",
+      "rejected": "Registration rejected",
+      "alreadyRejected": "Registration was already rejected",
+      "rejectFailed": "Rejection failed",
+      "resent": "Email sent",
+      "resendFailed": "Email could not be sent",
+      "loadFailed": "Failed to load registration requests"
+    },
+    "widget": {
+      "title": "Registration requests",
+      "pendingLabel": "Awaiting approval",
+      "recentTitle": "Latest requests",
+      "viewAll": "All requests",
+      "empty": "No pending requests"
     }
   },
   "orders": {

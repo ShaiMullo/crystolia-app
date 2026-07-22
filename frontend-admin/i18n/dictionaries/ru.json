@@ -71,7 +71,8 @@
     "myAccount": "Мой аккаунт",
     "settings": "Настройки",
     "logout": "Выйти",
-    "administratorFallback": "Администратор"
+    "administratorFallback": "Администратор",
+    "registrations": "Заявки на регистрацию"
   },
   "account": {
     "title": "Мой аккаунт",
@@ -485,6 +486,113 @@
       "revealIntro": "Передайте этот одноразовый пароль пользователю {name} безопасным способом. При следующем входе потребуется его сменить.",
       "warning": "Этот пароль больше не будет показан.",
       "copied": "Скопировано"
+    }
+  },
+  "registrations": {
+    "page": {
+      "title": "Заявки на регистрацию",
+      "subtitle": "Проверка, подтверждение или отклонение регистраций бизнес-портала."
+    },
+    "table": {
+      "date": "Дата",
+      "contact": "Контакт",
+      "company": "Компания",
+      "companyNumber": "Номер / VAT",
+      "phone": "Телефон",
+      "email": "Email",
+      "country": "Страна",
+      "locale": "Язык",
+      "method": "Способ",
+      "notifications": "Уведомления",
+      "status": "Статус",
+      "actions": "Действия"
+    },
+    "method": {
+      "password": "Пароль",
+      "google": "Google"
+    },
+    "status": {
+      "pending": "Ожидает подтверждения",
+      "approved": "Подтверждена",
+      "rejected": "Отклонена"
+    },
+    "notification": {
+      "sent": "Отправлено",
+      "failed": "Ошибка",
+      "skipped": "Не настроено",
+      "email": "Email",
+      "sms": "SMS"
+    },
+    "filters": {
+      "status": "Статус",
+      "statusAll": "Все статусы"
+    },
+    "search": {
+      "placeholder": "Поиск по имени, email или компании"
+    },
+    "empty": "Заявок на регистрацию пока нет",
+    "emptyFiltered": "Нет заявок, соответствующих текущим фильтрам",
+    "flags": {
+      "possibleDuplicateVat": "Возможный дубликат номера компании",
+      "possibleDuplicateName": "Возможный дубликат названия компании"
+    },
+    "actions": {
+      "view": "Подробности",
+      "approve": "Подтвердить",
+      "reject": "Отклонить",
+      "resendEmail": "Отправить письмо повторно",
+      "backToList": "К списку заявок"
+    },
+    "details": {
+      "title": "Данные заявки",
+      "contactName": "Контактное лицо",
+      "email": "Email",
+      "phone": "Телефон",
+      "companyName": "Название компании",
+      "companyNumber": "Номер / VAT",
+      "country": "Страна",
+      "language": "Язык",
+      "method": "Способ регистрации",
+      "submittedAt": "Подана",
+      "approvedAt": "Подтверждена",
+      "approvedBy": "Подтвердил(а)",
+      "rejectedAt": "Отклонена",
+      "rejectedBy": "Отклонил(а)",
+      "rejectionReason": "Причина отклонения",
+      "notifications": "Уведомления",
+      "pendingEmail": "Письмо о получении",
+      "approvedEmail": "Письмо о подтверждении",
+      "rejectedEmail": "Письмо об отклонении",
+      "adminSms": "SMS администратору",
+      "flagsTitle": "Флаги проверки"
+    },
+    "confirm": {
+      "approveTitle": "Подтвердить регистрацию",
+      "approveMessage": "Подтвердить регистрацию {name}? Будет создана запись компании и отправлено письмо о подтверждении.",
+      "rejectTitle": "Отклонить регистрацию",
+      "rejectMessage": "Отклонить регистрацию {name}?",
+      "reasonLabel": "Причина отклонения (хранится внутренне)",
+      "reasonPlaceholder": "Почему заявка отклоняется?",
+      "notifyCustomer": "Отправить клиенту письмо об отклонении",
+      "shareReason": "Указать причину в письме"
+    },
+    "toasts": {
+      "approved": "Регистрация подтверждена",
+      "alreadyApproved": "Регистрация уже была подтверждена",
+      "approveFailed": "Не удалось подтвердить",
+      "rejected": "Регистрация отклонена",
+      "alreadyRejected": "Регистрация уже была отклонена",
+      "rejectFailed": "Не удалось отклонить",
+      "resent": "Письмо отправлено",
+      "resendFailed": "Не удалось отправить письмо",
+      "loadFailed": "Не удалось загрузить заявки"
+    },
+    "widget": {
+      "title": "Заявки на регистрацию",
+      "pendingLabel": "Ожидают подтверждения",
+      "recentTitle": "Последние заявки",
+      "viewAll": "Все заявки",
+      "empty": "Нет ожидающих заявок"
     }
   },
   "orders": {

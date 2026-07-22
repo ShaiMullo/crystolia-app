@@ -3,9 +3,10 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Building2, Settings, LogOut, Kanban, CheckSquare, Activity, Package, Boxes, ShoppingCart, Wallet, Factory, PackageOpen, ServerCog, Users } from "lucide-react";
+import { LayoutDashboard, Building2, Settings, LogOut, Kanban, CheckSquare, Activity, Package, Boxes, ShoppingCart, Wallet, Factory, PackageOpen, ServerCog, Users, UserRoundPlus, type LucideIcon } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
 import { useAdminI18n } from "@/i18n/I18nProvider";
+import { useRegistrationsCount } from "@/lib/useRegistrationsCount";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { AdminNavMore } from "@/components/AdminNavMore";
@@ -20,6 +21,8 @@ export default function AdminLayout({
     const { t } = useAdminI18n();
     const router = useRouter();
     const pathname = usePathname();
+    // Pending registration requests badge (60s polling, silent on failure).
+    const { count: pendingRegistrations } = useRegistrationsCount();
 
     useEffect(() => {
         if (isLoading) return;
@@ -36,8 +39,9 @@ export default function AdminLayout({
     // `primary` items stay inline in the desktop top bar; the rest collapse into
     // a "More" dropdown so the navbar never overcrowds/overlaps the right-side
     // controls. The mobile bar (below) still shows every item in a scroll row.
-    const navItems = [
+    const navItems: { href: string; label: string; icon: LucideIcon; primary: boolean; badge?: number }[] = [
         { href: "/admin", label: t("nav.dashboard"), icon: LayoutDashboard, primary: true },
+        { href: "/admin/registrations", label: t("nav.registrations"), icon: UserRoundPlus, primary: true, badge: pendingRegistrations },
         { href: "/admin/pipeline", label: t("nav.pipeline"), icon: Kanban, primary: false },
         { href: "/admin/customers", label: t("nav.customers"), icon: Building2, primary: true },
         { href: "/admin/orders", label: t("nav.orders"), icon: ShoppingCart, primary: true },
@@ -85,6 +89,11 @@ export default function AdminLayout({
                                         >
                                             <item.icon size={14} className="shrink-0" />
                                             {item.label}
+                                            {(item.badge ?? 0) > 0 && (
+                                                <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white">
+                                                    {item.badge! > 9 ? "9+" : item.badge}
+                                                </span>
+                                            )}
                                         </Link>
                                     );
                                 })}
@@ -134,6 +143,11 @@ export default function AdminLayout({
                             >
                                 <item.icon size={14} />
                                 {item.label}
+                                {(item.badge ?? 0) > 0 && (
+                                    <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white">
+                                        {item.badge! > 9 ? "9+" : item.badge}
+                                    </span>
+                                )}
                             </Link>
                         );
                     })}

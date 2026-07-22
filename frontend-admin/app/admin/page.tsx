@@ -12,6 +12,7 @@ import CreateLeadModal, { type CreateLeadPayload } from "@/components/leads/Crea
 import UserActionModal from "@/components/users/UserActionModal";
 import { KpiGrid } from "@/components/dashboard/KpiGrid";
 import { QuickActions } from "@/components/dashboard/QuickActions";
+import { RegistrationsWidget } from "@/components/dashboard/RegistrationsWidget";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { LowStockWidget } from "@/components/dashboard/LowStockWidget";
 import { FinanceWidget } from "@/components/dashboard/FinanceWidget";
@@ -378,6 +379,7 @@ export default function AdminDashboard() {
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                 <div className="lg:col-span-1 space-y-4">
+                    <RegistrationsWidget />
                     <QuickActions
                         onCreateUser={handleCreateUser}
                         onCreateInvoice={() => setIsCreateInvoiceOpen(true)}
