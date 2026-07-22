@@ -34,6 +34,11 @@ export interface SystemHealth {
     lastBackup: { _id: string; status: string; createdAt: string; totalDocuments: number } | null;
     recentFailures: Array<{ jobKey: string; error?: string; createdAt: string }>;
     diagnostics: ReplicaDiagnostics;
+    notifications?: {
+        recipientConfigured: boolean;
+        whatsappConfigured: boolean;
+        smsConfigured: boolean;
+    };
     checkedAt: string;
 }
 

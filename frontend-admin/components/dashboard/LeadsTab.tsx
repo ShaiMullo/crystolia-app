@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Inbox, Search } from "lucide-react";
+import { Inbox, Plus, Search } from "lucide-react";
 import {
     Button,
     EmptyState,
@@ -37,6 +37,7 @@ interface LeadsTabProps {
     totalPages: number;
     onPageChange: (page: number) => void;
     onEdit: (lead: Lead) => void;
+    onCreate: () => void;
 }
 
 const LEAD_STATUSES: LeadStatus[] = [
@@ -57,6 +58,7 @@ export function LeadsTab({
     totalPages,
     onPageChange,
     onEdit,
+    onCreate,
 }: LeadsTabProps) {
     const { t, locale } = useAdminI18n();
     const agents = users.filter((u) => u.role === "agent");
@@ -86,6 +88,9 @@ export function LeadsTab({
                         ))}
                     </Select>
                 </div>
+                <Button onClick={onCreate} iconStart={<Plus size={16} />} className="min-h-11 sm:ms-auto">
+                    {t("leads.create.button")}
+                </Button>
             </div>
 
             <TableContainer>

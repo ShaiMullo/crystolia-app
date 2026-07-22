@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
-import { ArrowLeft, MessageSquare, Activity, FileText } from "lucide-react";
+import { ArrowLeft, MessageCircle, MessageSquare, Activity, FileText, Phone, Send } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
 import api from "@/app/lib/api";
 import {
@@ -29,6 +29,16 @@ const STATUS_OPTIONS: LeadStatus[] = [
     "new", "contacted", "qualified", "proposal", "won", "lost", "converted", "closed", "archived", "re-engaged",
 ];
 
+function whatsappPhone(phone: string): string {
+    let digits = phone.replace(/\D/g, "");
+    if (digits.startsWith("05")) digits = `972${digits.slice(1)}`;
+    return digits;
+}
+
+function dialPhone(phone: string): string {
+    return phone.replace(/[^\d+]/g, "");
+}
+
 export default function LeadDetailPage() {
     const params = useParams();
     const router = useRouter();
@@ -48,7 +58,9 @@ export default function LeadDetailPage() {
         if (!leadId) return;
         try {
             const res = await api.get(`/crm/leads/${leadId}`);
-            const data = res.data.data || res.data;
+            // CRM detail returns { success, lead }; keep the data fallback for
+            // compatibility with versioned response envelopes.
+            const data = res.data.lead || res.data.data || res.data;
             setLead(data);
             setNewStatus(data.status);
             setAssignOwner(data.ownerId || "");
@@ -145,6 +157,30 @@ export default function LeadDetailPage() {
                 description={`${lead.phone} · ${lead.email || t("leadDetail.noEmail")}`}
                 actions={
                     <>
+                        <Button
+                            variant="outline"
+                            iconStart={<Phone size={16} />}
+                            className="min-h-11"
+                            onClick={() => window.location.assign(`tel:${dialPhone(lead.phone)}`)}
+                        >
+                            {t("leadDetail.actions.call")}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            iconStart={<Send size={16} />}
+                            className="min-h-11"
+                            onClick={() => window.location.assign(`sms:${dialPhone(lead.phone)}`)}
+                        >
+                            {t("leadDetail.actions.sms")}
+                        </Button>
+                        <Button
+                            variant="success"
+                            iconStart={<MessageCircle size={16} />}
+                            className="min-h-11"
+                            onClick={() => window.open(`https://wa.me/${whatsappPhone(lead.phone)}`, "_blank", "noopener,noreferrer")}
+                        >
+                            {t("leadDetail.actions.whatsapp")}
+                        </Button>
                         <Button variant="outline" size="sm" iconStart={<ArrowLeft size={14} />} onClick={() => router.push("/admin")}>
                             {t("leadDetail.backToDashboard")}
                         </Button>

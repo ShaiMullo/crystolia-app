@@ -239,8 +239,22 @@
     "emptyHint": "התאם את הסינון או המתן להגשה חדשה.",
     "toasts": {
       "loadFailed": "טעינת הלידים נכשלה",
+      "created": "הליד נוצר ונשמר בהצלחה",
+      "createFailed": "יצירת הליד נכשלה",
       "updated": "הליד עודכן בהצלחה",
       "updateFailed": "עדכון הליד נכשל"
+    },
+    "create": {
+      "button": "ליד חדש",
+      "title": "יצירת ליד חדש",
+      "description": "הוסף ליד ידנית ושמור אותו ישירות במערכת ה-CRM.",
+      "name": "שם",
+      "phone": "טלפון",
+      "phoneInvalid": "יש להזין מספר טלפון תקין",
+      "email": "אימייל",
+      "message": "פרטי הפנייה",
+      "messagePlaceholder": "מה הלקוח ביקש או מאיפה הגיע…",
+      "submit": "צור ליד"
     },
     "modal": {
       "editTitle": "עריכת ליד: {name}",
@@ -257,6 +271,11 @@
   "leadDetail": {
     "backToDashboard": "← חזרה ללוח הבקרה",
     "noEmail": "ללא אימייל",
+    "actions": {
+      "call": "התקשר",
+      "sms": "SMS",
+      "whatsapp": "WhatsApp"
+    },
     "info": {
       "title": "פרטי הליד",
       "source": "מקור",
@@ -1307,6 +1326,11 @@
   },
   "monitoring": {
     "diagnostics": "אבחון",
+    "leadNotifications": "התראות על לידים",
+    "notificationRecipientReady": "מספר מנהל מוגדר לקבלת התראות.",
+    "notificationRecipientMissing": "יש להגדיר מספר מנהל לפני הפעלת WhatsApp או SMS.",
+    "ready": "מוכן",
+    "off": "כבוי",
     "topology": "טופולוגיה",
     "transactions": "טרנזקציות",
     "txnSupported": "נתמך",

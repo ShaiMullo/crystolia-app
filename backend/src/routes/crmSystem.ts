@@ -17,6 +17,7 @@ import { getReplicaDiagnostics } from '../services/diagnosticsService.js';
 import { createBackupManifest, verifyBackupManifest, listBackupManifests } from '../services/backupService.js';
 import { runJobNow, JOB_DEFINITIONS } from '../jobs/scheduler.js';
 import { resetRateLimitStore } from '../middleware/rateLimit.js';
+import { config } from '../config/index.js';
 
 const router = Router();
 router.use(protect);
@@ -69,6 +70,11 @@ router.get('/health', async (_req: Request, res: Response, next: NextFunction) =
                     createdAt: f.createdAt,
                 })),
                 diagnostics,
+                notifications: {
+                    recipientConfigured: Boolean(config.adminPhone),
+                    whatsappConfigured: Boolean(config.adminPhone && config.whatsapp.instanceId && config.whatsapp.token),
+                    smsConfigured: Boolean(config.adminPhone && config.sms.accountSid && config.sms.authToken && config.sms.fromNumber),
+                },
                 checkedAt: now.toISOString(),
             },
         });

@@ -239,8 +239,22 @@
     "emptyHint": "Adjust filters or wait for new submissions.",
     "toasts": {
       "loadFailed": "Failed to load leads",
+      "created": "Lead created and saved successfully",
+      "createFailed": "Failed to create lead",
       "updated": "Lead updated successfully",
       "updateFailed": "Failed to update lead"
+    },
+    "create": {
+      "button": "New lead",
+      "title": "Create a new lead",
+      "description": "Add a lead manually and save it directly to the CRM.",
+      "name": "Name",
+      "phone": "Phone",
+      "phoneInvalid": "Enter a valid phone number",
+      "email": "Email",
+      "message": "Enquiry details",
+      "messagePlaceholder": "What the customer requested or where they came from…",
+      "submit": "Create lead"
     },
     "modal": {
       "editTitle": "Edit Lead: {name}",
@@ -257,6 +271,11 @@
   "leadDetail": {
     "backToDashboard": "← Back to Dashboard",
     "noEmail": "No email",
+    "actions": {
+      "call": "Call",
+      "sms": "SMS",
+      "whatsapp": "WhatsApp"
+    },
     "info": {
       "title": "Lead Info",
       "source": "Source",
@@ -1307,6 +1326,11 @@
   },
   "monitoring": {
     "diagnostics": "Diagnostics",
+    "leadNotifications": "Lead notifications",
+    "notificationRecipientReady": "An administrator number is configured for alerts.",
+    "notificationRecipientMissing": "Configure an administrator number before enabling WhatsApp or SMS.",
+    "ready": "Ready",
+    "off": "Off",
     "topology": "Topology",
     "transactions": "Transactions",
     "txnSupported": "Supported",

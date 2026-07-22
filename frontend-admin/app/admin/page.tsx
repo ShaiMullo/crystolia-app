@@ -8,6 +8,7 @@ import { useAuth } from "@/app/context/AuthContext";
 import { useAdminI18n } from "@/i18n/I18nProvider";
 import { Button, Card, CardTitle, PageHeader, Tabs, type TabItem } from "@/components/ui";
 import LeadEditModal from "@/components/leads/LeadEditModal";
+import CreateLeadModal, { type CreateLeadPayload } from "@/components/leads/CreateLeadModal";
 import UserActionModal from "@/components/users/UserActionModal";
 import { KpiGrid } from "@/components/dashboard/KpiGrid";
 import { QuickActions } from "@/components/dashboard/QuickActions";
@@ -69,6 +70,7 @@ export default function AdminDashboard() {
 
     // ── Modals ────────────────────────────────────────────────────────────
     const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
+    const [isCreateLeadOpen, setIsCreateLeadOpen] = useState(false);
     const [currentLead, setCurrentLead] = useState<Lead | null>(null);
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
     const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -184,6 +186,23 @@ export default function AdminDashboard() {
     const handleEditLead = (lead: Lead) => {
         setCurrentLead(lead);
         setIsLeadModalOpen(true);
+    };
+
+    const handleCreateLead = async (payload: CreateLeadPayload) => {
+        try {
+            await api.post("/v1/leads/manual", payload);
+            toast.success(t("leads.toasts.created"));
+            if (page === 1) {
+                await fetchLeads();
+            } else {
+                // The page-change effect fetches the newest, first page.
+                setPage(1);
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error(t("leads.toasts.createFailed"));
+            throw error;
+        }
     };
 
     const handleSaveLead = async (leadId: string, data: Partial<Lead>) => {
@@ -401,6 +420,7 @@ export default function AdminDashboard() {
                         totalPages={totalPages}
                         onPageChange={setPage}
                         onEdit={handleEditLead}
+                        onCreate={() => setIsCreateLeadOpen(true)}
                     />
                 )}
                 {activeTab === "customers" && (
@@ -454,6 +474,12 @@ export default function AdminDashboard() {
                 lead={currentLead}
                 agents={users.filter((u) => u.role === "agent")}
                 onSave={handleSaveLead}
+            />
+
+            <CreateLeadModal
+                isOpen={isCreateLeadOpen}
+                onClose={() => setIsCreateLeadOpen(false)}
+                onCreate={handleCreateLead}
             />
 
             <UserActionModal

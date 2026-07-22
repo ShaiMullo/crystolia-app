@@ -27,7 +27,7 @@ plain config via Helm `backend.env`.
 | `ULTRAMSG_INSTANCE_ID` | no       | —                        | ExternalSecret| WhatsApp |
 | `ULTRAMSG_TOKEN`       | no       | —                        | ExternalSecret| |
 | `ADMIN_PHONE_NUMBER`   | no       | —                        | ExternalSecret| |
-| `TWILIO_ACCOUNT_SID`   | no       | —                        | K8s Secret    | SMS (legacy) |
+| `TWILIO_ACCOUNT_SID`   | no       | —                        | K8s Secret    | SMS lead alerts |
 | `TWILIO_AUTH_TOKEN`    | no       | —                        | K8s Secret    | |
 | `TWILIO_PHONE_NUMBER`  | no       | —                        | K8s Secret    | |
 | `PAYMENT_PROVIDER`     | no       | `mock`                   | K8s Secret    | |

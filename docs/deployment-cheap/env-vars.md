@@ -32,7 +32,8 @@ Interpolated into `docker-compose.demo.yml`.
 | `ENABLE_SCHEDULER`    | no       | `true` (single container on the box) |
 | `GOOGLE_CLIENT_ID/SECRET/CALLBACK_URL` | no | Google OAuth |
 | `GREEN_INVOICE_API_ID/SECRET/SANDBOX`  | no | invoicing; keep `SANDBOX=true` for a demo |
-| `ULTRAMSG_*`, `ADMIN_PHONE_NUMBER`     | no | WhatsApp |
+| `ULTRAMSG_*`, `ADMIN_PHONE_NUMBER`     | no | WhatsApp lead alerts |
+| `TWILIO_ACCOUNT_SID/AUTH_TOKEN/PHONE_NUMBER` | no | SMS lead alerts; recipient is `ADMIN_PHONE_NUMBER` |
 
 ## `frontend-admin/.env.demo`
 

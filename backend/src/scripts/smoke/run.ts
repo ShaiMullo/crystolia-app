@@ -144,6 +144,27 @@ async function main(): Promise<void> {
         expect(status === 200, `delete returned ${status}`);
     });
 
+    // ── authenticated manual lead entry (admin console flow) ──
+    let manualLeadId = '';
+    await test('leads: admin can create a manual lead', async () => {
+        const { status, body } = await api('/api/v1/leads/manual', {
+            method: 'POST',
+            body: JSON.stringify({
+                name: 'Crystolia Manual Lead Test',
+                phone: '0549000099',
+                email: 'manual-lead@example.com',
+                message: 'TEST — admin manual entry',
+                source: 'manual_entry',
+            }),
+        });
+        expect(status === 201, `manual create returned ${status}`);
+        expect(body?.success === true, 'manual create has no success flag');
+        expect(body?.lead?.source === 'manual_entry', `manual source is ${body?.lead?.source}`);
+        expect(body?.lead?.phone === '972549000099', `manual phone is ${body?.lead?.phone}`);
+        manualLeadId = body?.lead?._id;
+        expect(!!manualLeadId, 'manual create returned no lead id');
+    });
+
     // ── public website lead flow ──
     // Simulates the landing contact form: unauthenticated, cross-origin from a
     // landing domain (also exercises the CORS/CSRF origin allow-list). The
@@ -447,7 +468,7 @@ async function main(): Promise<void> {
     await resetLeadLimiter(); // leave the backend clean for a consecutive run
 
     await test('cleanup: soft-delete smoke leads', async () => {
-        for (const id of leadIds) {
+        for (const id of [...leadIds, manualLeadId].filter(Boolean)) {
             // eslint-disable-next-line no-await-in-loop
             const { status } = await api(`/api/v1/leads/${id}`, { method: 'DELETE' });
             expect(status === 200, `delete ${id} returned ${status}`);
