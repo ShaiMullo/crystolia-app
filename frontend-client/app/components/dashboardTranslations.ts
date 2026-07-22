@@ -1,5 +1,6 @@
 export const dashboardTranslations = {
     he: {
+        completeDetailsFirst: "כדי לבצע הזמנה יש להשלים קודם את פרטי המשלוח והחשבונית.",
         welcome: "שלום",
         newOrder: "הזמנה חדשה",
         myOrders: "ההזמנות שלי",
@@ -72,6 +73,7 @@ export const dashboardTranslations = {
         perUnit: "ארגזים",
     },
     en: {
+        completeDetailsFirst: "Please complete your delivery and invoice details before placing an order.",
         welcome: "Hello",
         newOrder: "New Order",
         myOrders: "My Orders",
@@ -141,6 +143,7 @@ export const dashboardTranslations = {
         perUnit: "cases",
     },
     ru: {
+        completeDetailsFirst: "Перед оформлением заказа заполните данные доставки и счёта.",
         welcome: "Привет",
         newOrder: "Новый заказ",
         myOrders: "Мои заказы",

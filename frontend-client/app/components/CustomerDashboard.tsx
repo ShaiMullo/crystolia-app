@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import api from "@/app/lib/api";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
@@ -52,6 +53,7 @@ interface BusinessSettings {
 
 export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
     const { user, logout } = useAuth();
+    const router = useRouter();
     const [activeTab, setActiveTab] = useState<"orders" | "invoices" | "profile" | "newOrder">("orders");
     const [isEditingProfile, setIsEditingProfile] = useState(false);
     const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -110,6 +112,19 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
 
                 if (userData && userData.company) {
                     const company = userData.company;
+
+                    // Approval-flow users must complete delivery/invoice
+                    // details before ordering — the backend enforces this too
+                    // (403 ORDER_PROFILE_INCOMPLETE). Legacy accounts without
+                    // registrationMethod are not redirected.
+                    if (userData.registrationMethod) {
+                        const orderProfileComplete = [company.address, company.city, company.billingAddress, company.billingEmail]
+                            .every((value: unknown) => typeof value === "string" && value.trim() !== "");
+                        if (!orderProfileComplete) {
+                            router.replace(`/${locale}/onboarding`);
+                            return;
+                        }
+                    }
 
                     setHasProfile(true);
                     setProfile({
@@ -227,8 +242,11 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
             setOrders(response.data.data || []);
         } catch (error: unknown) {
             console.error("Failed to submit order:", error);
-            const err = error as { response?: { status?: number; data?: { message?: string } }; message?: string };
-            if (err.response?.status === 401) {
+            const err = error as { response?: { status?: number; data?: { message?: string; error?: string } }; message?: string };
+            if (err.response?.status === 403 && err.response?.data?.error === "ORDER_PROFILE_INCOMPLETE") {
+                toast.error(t.completeDetailsFirst);
+                router.push(`/${locale}/onboarding`);
+            } else if (err.response?.status === 401) {
                 toast.error("המושב פג תוקף, אנא התחבר מחדש");
             } else {
                 toast.error(`שליחת ההזמנה נכשלה: ${err.response?.data?.message || err.message}`);
