@@ -179,6 +179,12 @@ async function main(): Promise<void> {
             sourcePage: '/he',
             utm: { utm_source: 'smoke', utm_medium: 'test' },
         });
+        if (status === 429) {
+            // The 429 test below exhausts the in-memory 10/hr/IP budget, which
+            // lives for the backend process lifetime — a re-run within the hour
+            // hits it here first. Make that failure self-explanatory.
+            throw new Error('rate-limiter budget exhausted by a previous run — restart the backend (in-memory 10/hr/IP store) and re-run');
+        }
         expect(status === 201, `create returned ${status}`);
         expect(body?.success === true, 'no success flag');
         expect(!!body?.leadId, 'no leadId in response');

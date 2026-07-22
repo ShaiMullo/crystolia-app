@@ -39,10 +39,16 @@ const API_URL = process.env.NEXT_PUBLIC_LEADS_API_URL || "https://api.crystolia.
 
 // Lenient phone check: accepts international formats (+, spaces, dashes,
 // parentheses) and only requires 7–15 digits — never blocks a legitimate
-// number, only obvious non-numbers.
+// number, only obvious non-numbers. Numbers copy-pasted from chat apps or
+// RTL pages carry invisible Unicode format marks (LRM/RLM, bidi isolates,
+// zero-width chars) that neither trim() nor \s matches — strip them before
+// judging the visible characters, or real numbers get rejected.
 function isPlausiblePhone(raw: string): boolean {
-  const digits = raw.replace(/\D/g, "");
-  return digits.length >= 7 && digits.length <= 15 && /^[+0-9()\-.\s]+$/.test(raw);
+  const visible = raw
+    .replace(/[\u200B-\u200F\u2060\u2066-\u2069\u202A-\u202E\uFEFF]/g, "")
+    .trim();
+  const digits = visible.replace(/\D/g, "");
+  return digits.length >= 7 && digits.length <= 15 && /^[+0-9()\-.\s]+$/.test(visible);
 }
 
 // UTM parameters from the current URL, when present (paid/campaign traffic).
