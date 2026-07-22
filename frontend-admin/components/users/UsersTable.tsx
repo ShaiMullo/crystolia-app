@@ -102,8 +102,12 @@ export function UsersTable({
                                     </TD>
                                     <TD muted>{companyName(u) ?? "—"}</TD>
                                     <TD>
-                                        <Badge tone={u.isActive ? "success" : "danger"}>
-                                            {u.isActive ? t("users.active") : t("users.inactive")}
+                                        <Badge tone={u.registrationStatus === "pending" ? "warning" : u.isActive ? "success" : "danger"}>
+                                            {u.registrationStatus === "pending"
+                                                ? t("users.pendingApproval")
+                                                : u.isActive
+                                                    ? t("users.active")
+                                                    : t("users.inactive")}
                                         </Badge>
                                     </TD>
                                     <TD muted>
@@ -150,7 +154,7 @@ export function UsersTable({
                                                     size="sm"
                                                     variant="ghost"
                                                     onClick={() => onToggleActive(u)}
-                                                    aria-label={t("users.actions.activate")}
+                                                    aria-label={u.registrationStatus === "pending" ? t("users.actions.approve") : t("users.actions.activate")}
                                                     iconStart={<UserCheck size={14} />}
                                                 />
                                             )}

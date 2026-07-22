@@ -31,17 +31,21 @@ interface LoginData {
 interface RegisterData {
     email: string;
     password: string;
-    firstName: string;
-    lastName: string;
-    phone?: string;
-    role?: string;
-    companyName?: string;
+    name: string;
+    phone: string;
+    companyName: string;
+    locale: 'he' | 'en' | 'ru';
+}
+
+interface RegistrationResult {
+    status: 'pending_approval';
+    emailNotificationSent: boolean;
 }
 
 interface AuthContextType {
     user: User | null;
     login: (data: LoginData) => Promise<void>;
-    register: (data: RegisterData) => Promise<void>;
+    register: (data: RegisterData) => Promise<RegistrationResult>;
     logout: () => Promise<void>;
     updateUser: (userData: Partial<User>) => void;
     isLoading: boolean;
@@ -76,9 +80,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Redirect based on role
             if (user.role === 'admin') {
-                window.location.href = 'http://localhost:3001/admin';
+                window.location.href = `${process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.crystolia.com'}/admin`;
             } else if (user.role === 'agent') {
-                window.location.href = 'http://localhost:3001/agent';
+                window.location.href = `${process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.crystolia.com'}/agent`;
             } else {
                 router.push(`/${locale}/dashboard`);
             }
@@ -90,28 +94,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const register = async (userData: RegisterData) => {
         try {
-            // STRICT Payload Construction for Backend
-            // Fixed: Combining names, filtering out excluded fields
             const payload = {
-                name: `${userData.firstName} ${userData.lastName}`,
+                name: userData.name,
                 email: userData.email,
                 password: userData.password,
-                companyName: userData.companyName
+                companyName: userData.companyName,
+                phone: userData.phone,
+                locale: userData.locale,
             };
 
             const response = await api.post('/auth/register', payload);
-            const { user } = response.data;
-
-            setUser(user);
-            localStorage.setItem('user', JSON.stringify(user));
-
-            // Get current locale
-            const currentPath = window.location.pathname;
-            const segments = currentPath.split('/').filter(Boolean);
-            const locale = segments[0] === 'en' || segments[0] === 'ru' ? segments[0] : 'he';
-
-            // Force hard navigation to ensure state is fresh
-            window.location.href = `/${locale}/dashboard`;
+            return {
+                status: response.data?.status || 'pending_approval',
+                emailNotificationSent: response.data?.emailNotificationSent === true,
+            };
         } catch (error) {
             console.error('Registration failed:', error);
             throw error;

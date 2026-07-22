@@ -400,6 +400,7 @@
       "statusAll": "All statuses",
       "statusActive": "Active",
       "statusInactive": "Inactive",
+      "statusPending": "Awaiting approval",
       "company": "Company",
       "companyAll": "All companies"
     },
@@ -409,6 +410,7 @@
       "resetPassword": "Reset password",
       "deactivate": "Deactivate",
       "activate": "Activate",
+      "approve": "Approve registration",
       "comingSoon": "Coming soon",
       "delete": "Delete",
       "selfHint": "You can't do this to your own account"
@@ -416,14 +418,17 @@
     "emptyFiltered": "No users match your filters.",
     "active": "Active",
     "inactive": "Inactive",
+    "pendingApproval": "Awaiting approval",
     "empty": "No users yet",
     "deactivate": "Deactivate",
     "activate": "Activate",
+    "approve": "Approve registration",
     "confirmToggle": "Are you sure you want to deactivate this user?",
     "confirmActivate": "Are you sure you want to activate this user?",
     "toasts": {
       "deactivated": "User deactivated",
       "activated": "User activated",
+      "approved": "Registration approved and the account was activated",
       "actionFailed": "Action failed",
       "created": "User created successfully",
       "updated": "User updated successfully",
@@ -452,7 +457,9 @@
       "deactivateTitle": "Deactivate user",
       "deactivateMessage": "Deactivate {name}? They'll be signed out and unable to log in until reactivated.",
       "activateTitle": "Activate user",
-      "activateMessage": "Reactivate {name}? They'll be able to log in again."
+      "activateMessage": "Reactivate {name}? They'll be able to log in again.",
+      "approveTitle": "Approve business registration",
+      "approveMessage": "Approve {name}'s registration? The account will be activated and the system will attempt to email the customer a sign-in link."
     },
     "form": {
       "viewTitle": "User details: {label}",
