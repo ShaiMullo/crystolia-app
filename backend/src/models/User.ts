@@ -9,6 +9,24 @@ import bcrypt from 'bcryptjs';
 // 📦 Interface
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+export interface IRegistrationCompany {
+    name: string;
+    vatNumber: string;
+    country: string; // ISO-3166 alpha-2 code
+    phone?: string;
+}
+
+export interface IRegistrationNotifications {
+    pendingEmailStatus?: 'sent' | 'failed' | 'skipped';
+    pendingEmailAt?: Date;
+    approvedEmailStatus?: 'sent' | 'failed' | 'skipped';
+    approvedEmailAt?: Date;
+    rejectedEmailStatus?: 'sent' | 'failed' | 'skipped';
+    rejectedEmailAt?: Date;
+    adminSmsStatus?: 'sent' | 'failed' | 'skipped';
+    adminSmsAt?: Date;
+}
+
 export interface IUser extends Document {
     name: string;
     email: string;
@@ -20,16 +38,30 @@ export interface IUser extends Document {
     avatar?: string;
     phone?: string;
     googleId?: string;
+    contactRole?: string;
 
     // Company Relation
     company?: mongoose.Types.ObjectId; // Reference to Company
     isCompanyOwner: boolean;
 
     isActive: boolean;
-    registrationStatus: 'pending' | 'approved';
+    registrationStatus: 'pending' | 'approved' | 'rejected';
+    registrationMethod?: 'password' | 'google';
+    // Snapshot of the business details submitted at registration. The real
+    // Company document is only created when an admin approves the request, so
+    // a rejected registration never leaves an orphan Company behind and a
+    // public registration can never attach itself to an existing Company.
+    registrationCompany?: IRegistrationCompany;
+    registrationFlags?: string[];
+    registrationNotifications?: IRegistrationNotifications;
     preferredLocale: 'he' | 'en' | 'ru';
     approvedAt?: Date;
     approvedBy?: mongoose.Types.ObjectId;
+    rejectedAt?: Date;
+    rejectedBy?: mongoose.Types.ObjectId;
+    rejectionReason?: string;
+    approvalInProgressAt?: Date;
+    approvalLock?: string;
     isDeleted: boolean;
     deletedAt?: Date;
     mustChangePassword: boolean;
@@ -89,6 +121,13 @@ const UserSchema = new Schema<IUser>(
             type: String,
             trim: true,
         },
+        // Optional free-text role of the orderer inside their company, filled
+        // during post-approval profile completion.
+        contactRole: {
+            type: String,
+            trim: true,
+            maxlength: 80,
+        },
         googleId: {
             type: String,
             unique: true,
@@ -130,12 +169,50 @@ const UserSchema = new Schema<IUser>(
         },
         // Existing/admin-created users remain approved by default. Public
         // business registrations explicitly override this to "pending" and
-        // stay inactive until an administrator approves them.
+        // stay inactive until an administrator approves or rejects them.
         registrationStatus: {
             type: String,
-            enum: ['pending', 'approved'],
+            enum: ['pending', 'approved', 'rejected'],
             default: 'approved',
             index: true,
+        },
+        registrationMethod: {
+            type: String,
+            enum: ['password', 'google'],
+        },
+        registrationCompany: {
+            type: new Schema<IRegistrationCompany>(
+                {
+                    name: { type: String, trim: true, required: true },
+                    vatNumber: { type: String, trim: true, required: true },
+                    country: { type: String, trim: true, uppercase: true, required: true },
+                    phone: { type: String, trim: true },
+                },
+                { _id: false }
+            ),
+        },
+        // Admin-facing review hints, e.g. 'possible-duplicate-vat'. Never
+        // blocks the registration itself — flagged requests go to manual review.
+        registrationFlags: {
+            type: [String],
+            default: undefined,
+        },
+        // Best-effort delivery bookkeeping for the admin registrations screen.
+        // Never authoritative: a provider outage must not fail registration.
+        registrationNotifications: {
+            type: new Schema<IRegistrationNotifications>(
+                {
+                    pendingEmailStatus: { type: String, enum: ['sent', 'failed', 'skipped'] },
+                    pendingEmailAt: { type: Date },
+                    approvedEmailStatus: { type: String, enum: ['sent', 'failed', 'skipped'] },
+                    approvedEmailAt: { type: Date },
+                    rejectedEmailStatus: { type: String, enum: ['sent', 'failed', 'skipped'] },
+                    rejectedEmailAt: { type: Date },
+                    adminSmsStatus: { type: String, enum: ['sent', 'failed', 'skipped'] },
+                    adminSmsAt: { type: Date },
+                },
+                { _id: false }
+            ),
         },
         preferredLocale: {
             type: String,
@@ -148,6 +225,29 @@ const UserSchema = new Schema<IUser>(
         approvedBy: {
             type: Schema.Types.ObjectId,
             ref: 'User',
+        },
+        rejectedAt: {
+            type: Date,
+        },
+        rejectedBy: {
+            type: Schema.Types.ObjectId,
+            ref: 'User',
+        },
+        rejectionReason: {
+            type: String,
+            trim: true,
+            maxlength: 1000,
+        },
+        // Short-lived internal lock used while materialising the Company and
+        // activating a registration. It prevents approve/reject races and is
+        // recoverable after a stale timeout if the process exits mid-flow.
+        approvalInProgressAt: {
+            type: Date,
+            select: false,
+        },
+        approvalLock: {
+            type: String,
+            select: false,
         },
         // Soft delete — records are excluded from listings instead of removed,
         // preserving audit history and referential integrity.

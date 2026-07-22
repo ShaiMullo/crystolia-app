@@ -34,6 +34,8 @@ interface RegisterData {
     name: string;
     phone: string;
     companyName: string;
+    country: string;
+    vatNumber: string;
     locale: 'he' | 'en' | 'ru';
 }
 
@@ -100,6 +102,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 password: userData.password,
                 companyName: userData.companyName,
                 phone: userData.phone,
+                country: userData.country,
+                vatNumber: userData.vatNumber,
                 locale: userData.locale,
             };
 

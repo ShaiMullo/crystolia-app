@@ -7,6 +7,7 @@ import { protect, authorize } from '../middleware/auth.js';
 import Order from '../models/Order.js';
 import Invoice from '../models/Invoice.js';
 import User from '../models/User.js'; // Needed if we want to double-check user properties
+import Company from '../models/Company.js';
 import Settings from '../models/Settings.js';
 import { AppError } from '../utils/validation.js';
 import { logAudit } from '../services/auditService.js';
@@ -61,6 +62,21 @@ export const placeOrder = async (req: Request, res: Response, next: NextFunction
 
         if (!user.company) {
             return next(new AppError('User is not linked to a company', 400));
+        }
+
+        // Users who registered through the approval flow must complete the
+        // delivery/invoice details before their first order. Legacy accounts
+        // (no registrationMethod) are exempt so existing customers keep
+        // working unchanged.
+        if (user.registrationMethod) {
+            const company = await Company.findById(user.company)
+                .select('address city billingAddress billingEmail')
+                .lean();
+            const missing = (['address', 'city', 'billingAddress', 'billingEmail'] as const)
+                .filter((field) => !String(company?.[field] ?? '').trim());
+            if (missing.length > 0) {
+                return next(new AppError('ORDER_PROFILE_INCOMPLETE', 403));
+            }
         }
 
         const newOrder = await Order.create({

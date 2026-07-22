@@ -1,0 +1,287 @@
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import request from 'supertest';
+import {
+    buildTestApp,
+    startTestDb,
+    stopTestDb,
+    clearDb,
+    createAdmin,
+    authCookieFor,
+    VALID_REGISTRATION,
+} from './testApp.js';
+import User, { IUser } from '../models/User.js';
+import Company from '../models/Company.js';
+
+const app = buildTestApp();
+
+let adminCookie = '';
+
+beforeAll(async () => {
+    await startTestDb();
+});
+afterAll(async () => {
+    await stopTestDb();
+});
+beforeEach(async () => {
+    await clearDb();
+    const admin = await createAdmin();
+    adminCookie = authCookieFor(admin);
+});
+
+async function registerPendingUser(overrides: Record<string, unknown> = {}): Promise<IUser> {
+    const res = await request(app)
+        .post('/api/auth/register')
+        .send({ ...VALID_REGISTRATION, ...overrides });
+    expect(res.status).toBe(202);
+    const user = await User.findOne({ email: (overrides.email as string) ?? VALID_REGISTRATION.email });
+    return user!;
+}
+
+describe('POST /api/v1/users/:id/approve-registration', () => {
+    it('approves a pending registration: creates the company, activates the user, enables login', async () => {
+        const user = await registerPendingUser();
+
+        const res = await request(app)
+            .post(`/api/v1/users/${user._id}/approve-registration`)
+            .set('Cookie', adminCookie);
+        expect(res.status).toBe(200);
+        expect(res.body.data.alreadyApproved).toBe(false);
+
+        const updated = await User.findById(user._id);
+        expect(updated!.registrationStatus).toBe('approved');
+        expect(updated!.isActive).toBe(true);
+        expect(updated!.approvedAt).toBeInstanceOf(Date);
+        expect(String(updated!.approvedBy)).toHaveLength(24);
+        expect(updated!.isCompanyOwner).toBe(true);
+
+        const company = await Company.findById(updated!.company);
+        expect(company).not.toBeNull();
+        expect(company!.name).toBe(VALID_REGISTRATION.companyName);
+        expect(company!.vatNumber).toBe(VALID_REGISTRATION.vatNumber);
+        expect(company!.country).toBe('IL');
+        expect(String(company!.owner)).toBe(String(user._id));
+
+        const login = await request(app)
+            .post('/api/auth/login')
+            .send({ email: VALID_REGISTRATION.email, password: VALID_REGISTRATION.password });
+        expect(login.status).toBe(200);
+    });
+
+    it('is idempotent: a double-click neither re-sends email nor duplicates data', async () => {
+        const user = await registerPendingUser();
+
+        const first = await request(app)
+            .post(`/api/v1/users/${user._id}/approve-registration`)
+            .set('Cookie', adminCookie);
+        expect(first.body.data.alreadyApproved).toBe(false);
+        const afterFirst = await User.findById(user._id).lean();
+
+        const second = await request(app)
+            .post(`/api/v1/users/${user._id}/approve-registration`)
+            .set('Cookie', adminCookie);
+        expect(second.status).toBe(200);
+        expect(second.body.data.alreadyApproved).toBe(true);
+
+        const afterSecond = await User.findById(user._id).lean();
+        // No data mutation on the second call (incl. notification bookkeeping —
+        // the approved email is NOT re-attempted).
+        expect(afterSecond!.approvedAt).toEqual(afterFirst!.approvedAt);
+        expect(afterSecond!.registrationNotifications?.approvedEmailAt)
+            .toEqual(afterFirst!.registrationNotifications?.approvedEmailAt);
+        expect(await Company.countDocuments({})).toBe(1);
+    });
+
+    it('blocks a competing approve/reject while an approval lock is active', async () => {
+        const user = await registerPendingUser();
+        await User.updateOne(
+            { _id: user._id },
+            { $set: { approvalLock: 'active-lock', approvalInProgressAt: new Date() } },
+        );
+
+        const approve = await request(app)
+            .post(`/api/v1/users/${user._id}/approve-registration`)
+            .set('Cookie', adminCookie);
+        expect(approve.status).toBe(409);
+
+        const reject = await request(app)
+            .post(`/api/v1/users/${user._id}/reject-registration`)
+            .set('Cookie', adminCookie)
+            .send({});
+        expect(reject.status).toBe(409);
+
+        const unchanged = await User.findById(user._id);
+        expect(unchanged!.registrationStatus).toBe('pending');
+        expect(unchanged!.isActive).toBe(false);
+        expect(await Company.countDocuments({})).toBe(0);
+    });
+
+    it('recovers a Company created by an interrupted approval and links it safely', async () => {
+        const user = await registerPendingUser();
+        const orphan = await Company.create({
+            name: VALID_REGISTRATION.companyName,
+            vatNumber: VALID_REGISTRATION.vatNumber,
+            country: 'IL',
+            owner: user._id,
+        });
+
+        const res = await request(app)
+            .post(`/api/v1/users/${user._id}/approve-registration`)
+            .set('Cookie', adminCookie);
+        expect(res.status).toBe(200);
+
+        const updated = await User.findById(user._id);
+        expect(String(updated!.company)).toBe(String(orphan._id));
+        expect(updated!.registrationStatus).toBe('approved');
+        expect(updated!.isActive).toBe(true);
+        expect(await Company.countDocuments({ owner: user._id })).toBe(1);
+    });
+
+    it('returns 409 and stays pending when the company name already exists', async () => {
+        await Company.create({ name: VALID_REGISTRATION.companyName, vatNumber: '598765432' });
+        const user = await registerPendingUser();
+
+        const res = await request(app)
+            .post(`/api/v1/users/${user._id}/approve-registration`)
+            .set('Cookie', adminCookie);
+        expect(res.status).toBe(409);
+
+        const updated = await User.findById(user._id);
+        expect(updated!.registrationStatus).toBe('pending'); // rolled back for manual review
+        expect(updated!.isActive).toBe(false);
+    });
+
+    it('is admin-only', async () => {
+        const user = await registerPendingUser();
+        const anon = await request(app).post(`/api/v1/users/${user._id}/approve-registration`);
+        expect(anon.status).toBe(401);
+    });
+});
+
+describe('POST /api/v1/users/:id/reject-registration', () => {
+    it('rejects a pending registration and blocks login', async () => {
+        const user = await registerPendingUser();
+
+        const res = await request(app)
+            .post(`/api/v1/users/${user._id}/reject-registration`)
+            .set('Cookie', adminCookie)
+            .send({ reason: 'פרטי חברה לא תקינים', shareReason: true });
+        expect(res.status).toBe(200);
+        expect(res.body.data.alreadyRejected).toBe(false);
+
+        const updated = await User.findById(user._id);
+        expect(updated!.registrationStatus).toBe('rejected');
+        expect(updated!.isActive).toBe(false);
+        expect(updated!.rejectionReason).toBe('פרטי חברה לא תקינים');
+        expect(updated!.rejectedAt).toBeInstanceOf(Date);
+
+        const login = await request(app)
+            .post('/api/auth/login')
+            .send({ email: VALID_REGISTRATION.email, password: VALID_REGISTRATION.password });
+        expect(login.status).toBe(401);
+    });
+
+    it('is idempotent and cannot reject an approved account', async () => {
+        const user = await registerPendingUser();
+        await request(app)
+            .post(`/api/v1/users/${user._id}/reject-registration`)
+            .set('Cookie', adminCookie)
+            .send({});
+        const again = await request(app)
+            .post(`/api/v1/users/${user._id}/reject-registration`)
+            .set('Cookie', adminCookie)
+            .send({});
+        expect(again.status).toBe(200);
+        expect(again.body.data.alreadyRejected).toBe(true);
+
+        // Reverse via approve, then reject must refuse.
+        await request(app)
+            .post(`/api/v1/users/${user._id}/approve-registration`)
+            .set('Cookie', adminCookie);
+        const rejectApproved = await request(app)
+            .post(`/api/v1/users/${user._id}/reject-registration`)
+            .set('Cookie', adminCookie)
+            .send({});
+        expect(rejectApproved.status).toBe(409);
+    });
+});
+
+describe('registrations listing / count / resend', () => {
+    it('lists registration requests with pagination and filters by status', async () => {
+        await registerPendingUser();
+        await registerPendingUser({ email: 'second@example.com', vatNumber: '512345678', companyName: 'חברה שנייה' });
+
+        const list = await request(app)
+            .get('/api/v1/users/registrations?status=pending')
+            .set('Cookie', adminCookie);
+        expect(list.status).toBe(200);
+        expect(list.body.data).toHaveLength(2);
+        expect(list.body.pagination.total).toBe(2);
+        expect(list.body.data[0].registrationCompany).toBeDefined();
+        expect(list.body.data[0].password).toBeUndefined();
+
+        const count = await request(app)
+            .get('/api/v1/users/registrations/count')
+            .set('Cookie', adminCookie);
+        expect(count.body.data.pending).toBe(2);
+
+        const single = await request(app)
+            .get(`/api/v1/users/registrations/${list.body.data[0]._id}`)
+            .set('Cookie', adminCookie);
+        expect(single.status).toBe(200);
+        expect(single.body.data.email).toBeDefined();
+    });
+
+    it('resends the email matching the current status', async () => {
+        const user = await registerPendingUser();
+        const res = await request(app)
+            .post(`/api/v1/users/${user._id}/resend-registration-email`)
+            .set('Cookie', adminCookie);
+        expect(res.status).toBe(200);
+        expect(res.body.data.kind).toBe('pending');
+        // Providers unconfigured in tests → not sent, but the endpoint reports
+        // that truthfully instead of failing.
+        expect(res.body.data.sent).toBe(false);
+    });
+});
+
+describe('legacy PATCH /api/v1/users/:id { isActive: true } compatibility', () => {
+    it('still approves a pending registration and materializes the company snapshot', async () => {
+        const user = await registerPendingUser();
+
+        const res = await request(app)
+            .patch(`/api/v1/users/${user._id}`)
+            .set('Cookie', adminCookie)
+            .send({ isActive: true });
+        expect(res.status).toBe(200);
+
+        const updated = await User.findById(user._id);
+        expect(updated!.registrationStatus).toBe('approved');
+        expect(updated!.isActive).toBe(true);
+        expect(updated!.company).toBeDefined();
+        expect(await Company.countDocuments({ name: VALID_REGISTRATION.companyName })).toBe(1);
+    });
+
+    it('does not break existing approved users (regression)', async () => {
+        const company = await Company.create({ name: 'לקוח ותיק', vatNumber: '511111111' });
+        const legacy = await User.create({
+            name: 'לקוח ותיק',
+            email: 'legacy@example.com',
+            password: 'Legacy123',
+            role: 'customer',
+            company: company._id,
+            isActive: true,
+            registrationStatus: 'approved',
+        });
+
+        const login = await request(app)
+            .post('/api/auth/login')
+            .send({ email: 'legacy@example.com', password: 'Legacy123' });
+        expect(login.status).toBe(200);
+
+        const patch = await request(app)
+            .patch(`/api/v1/users/${legacy._id}`)
+            .set('Cookie', adminCookie)
+            .send({ phone: '050-9999999' });
+        expect(patch.status).toBe(200);
+    });
+});

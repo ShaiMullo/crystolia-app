@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Building2, Clock3, Loader2, Mail, ShieldCheck } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { COUNTRIES, isValidCompanyNumber } from "../lib/countries";
 
 type AuthLocale = "he" | "en" | "ru";
 
@@ -21,8 +22,16 @@ const COPY = {
         email: "אימייל",
         password: "סיסמה",
         confirmPassword: "אימות סיסמה",
-        companyName: "שם החברה",
+        companyName: "שם משפטי/מסחרי של החברה",
         companyPlaceholder: "שם החברה או העסק",
+        country: "מדינה",
+        countryPlaceholder: "בחרו מדינה",
+        companyNumberIL: "ח.פ. / עוסק מורשה",
+        companyNumberIntl: "VAT / Tax ID",
+        companyNumberPlaceholderIL: "לדוגמה: 515123456",
+        companyNumberPlaceholderIntl: "VAT / Tax ID",
+        invalidCompanyNumberIL: "נא להזין ח.פ. / עוסק מורשה תקין (8–9 ספרות).",
+        invalidCompanyNumberIntl: "נא להזין מספר VAT / Tax ID תקין.",
         phone: "טלפון",
         submitLogin: "כניסה",
         submitSignup: "שליחת הרשמה לאישור",
@@ -46,6 +55,11 @@ const COPY = {
         emailExists: "כבר קיימת הרשמה עם כתובת האימייל הזאת.",
         genericError: "לא הצלחנו להשלים את הפעולה. נסו שוב בעוד רגע.",
         pendingLoginError: "החשבון עדיין ממתין לאישור צוות קריסטוליה.",
+        googleAuthFailed: "ההתחברות עם Google לא הושלמה. אפשר לנסות שוב או להשתמש באימייל וסיסמה.",
+        googleUnavailable: "ההרשמה עם Google עדיין אינה זמינה. אפשר להירשם עם אימייל וסיסמה.",
+        googleAccountExists: "כתובת האימייל הזאת כבר רשומה עם סיסמה. התחברו עם האימייל והסיסמה שלכם.",
+        accountUnavailable: "לא ניתן להתחבר עם החשבון הזה. לפרטים אפשר לפנות לצוות קריסטוליה.",
+        registrationExpired: "תוקף תהליך ההרשמה פג. התחילו שוב עם כפתור Google.",
         pendingTitle: "ההרשמה התקבלה",
         pendingBody: "שלחנו אליך מייל אישור קבלה. איש צוות מקריסטוליה יעבור על הפרטים ויאשר את החשבון.",
         pendingBodyWithoutEmail: "איש צוות מקריסטוליה יעבור על הפרטים ויאשר את החשבון. בקשת ההרשמה נשמרה בהצלחה.",
@@ -62,8 +76,16 @@ const COPY = {
         email: "Email",
         password: "Password",
         confirmPassword: "Confirm password",
-        companyName: "Company name",
+        companyName: "Company legal/trade name",
         companyPlaceholder: "Company or business name",
+        country: "Country",
+        countryPlaceholder: "Select a country",
+        companyNumberIL: "Company number (ח.פ.)",
+        companyNumberIntl: "VAT / Tax ID",
+        companyNumberPlaceholderIL: "e.g. 515123456",
+        companyNumberPlaceholderIntl: "VAT / Tax ID",
+        invalidCompanyNumberIL: "Please enter a valid Israeli company number (8-9 digits).",
+        invalidCompanyNumberIntl: "Please enter a valid VAT / Tax ID.",
         phone: "Phone",
         submitLogin: "Sign in",
         submitSignup: "Submit registration for approval",
@@ -87,6 +109,11 @@ const COPY = {
         emailExists: "A registration with this email address already exists.",
         genericError: "We couldn't complete the request. Please try again shortly.",
         pendingLoginError: "This account is still awaiting approval by the Crystolia team.",
+        googleAuthFailed: "Sign-in with Google did not complete. Try again or use email and password.",
+        googleUnavailable: "Google registration is not available yet. You can register with email and password.",
+        googleAccountExists: "This email address is already registered with a password. Sign in with your email and password.",
+        accountUnavailable: "This account cannot be used to sign in. Contact the Crystolia team for details.",
+        registrationExpired: "The registration session expired. Start again with the Google button.",
         pendingTitle: "Registration received",
         pendingBody: "We sent you a confirmation email. A member of the Crystolia team will review the details and approve the account.",
         pendingBodyWithoutEmail: "A member of the Crystolia team will review the details and approve the account. Your registration request was saved successfully.",
@@ -103,8 +130,16 @@ const COPY = {
         email: "Электронная почта",
         password: "Пароль",
         confirmPassword: "Подтвердите пароль",
-        companyName: "Название компании",
+        companyName: "Юридическое/торговое название компании",
         companyPlaceholder: "Название компании или бизнеса",
+        country: "Страна",
+        countryPlaceholder: "Выберите страну",
+        companyNumberIL: "Номер компании (ח.פ.)",
+        companyNumberIntl: "VAT / налоговый номер",
+        companyNumberPlaceholderIL: "например, 515123456",
+        companyNumberPlaceholderIntl: "VAT / Tax ID",
+        invalidCompanyNumberIL: "Введите корректный израильский номер компании (8–9 цифр).",
+        invalidCompanyNumberIntl: "Введите корректный VAT / налоговый номер.",
         phone: "Телефон",
         submitLogin: "Войти",
         submitSignup: "Отправить регистрацию на проверку",
@@ -128,6 +163,11 @@ const COPY = {
         emailExists: "Регистрация с этим адресом электронной почты уже существует.",
         genericError: "Не удалось выполнить запрос. Повторите попытку позже.",
         pendingLoginError: "Аккаунт ещё ожидает подтверждения командой Crystolia.",
+        googleAuthFailed: "Вход через Google не был завершён. Попробуйте снова или используйте электронную почту и пароль.",
+        googleUnavailable: "Регистрация через Google пока недоступна. Используйте электронную почту и пароль.",
+        googleAccountExists: "Этот адрес уже зарегистрирован с паролем. Войдите с адресом электронной почты и паролем.",
+        accountUnavailable: "Вход с этим аккаунтом невозможен. За подробностями обратитесь к команде Crystolia.",
+        registrationExpired: "Сессия регистрации истекла. Начните заново с кнопки Google.",
         pendingTitle: "Регистрация получена",
         pendingBody: "Мы отправили вам подтверждение по электронной почте. Сотрудник Crystolia проверит данные и подтвердит аккаунт.",
         pendingBodyWithoutEmail: "Сотрудник Crystolia проверит данные и подтвердит аккаунт. Ваша заявка на регистрацию успешно сохранена.",
@@ -157,11 +197,14 @@ export default function AuthPage({ locale: rawLocale }: AuthPageProps) {
         companyName: "",
         email: "",
         phone: "",
+        country: "",
+        vatNumber: "",
         password: "",
         confirmPassword: "",
     });
     const [status, setStatus] = useState<"idle" | "loading">("idle");
     const [error, setError] = useState<string | null>(null);
+    const [googleAvailable, setGoogleAvailable] = useState(false);
     const { user, login, register } = useAuth();
     const router = useRouter();
 
@@ -169,6 +212,24 @@ export default function AuthPage({ locale: rawLocale }: AuthPageProps) {
         const params = new URLSearchParams(window.location.search);
         if (params.get("mode") === "register") setIsLogin(false);
         if (params.get("status") === "pending") setRegistrationPending(true);
+        const oauthError = params.get("error");
+        if (oauthError === "google_auth_failed") setError(t.googleAuthFailed);
+        else if (oauthError === "account_exists") setError(t.googleAccountExists);
+        else if (oauthError === "account_unavailable") setError(t.accountUnavailable);
+        else if (oauthError === "registration_expired") setError(t.registrationExpired);
+        else if (oauthError === "google_unavailable") setError(t.googleUnavailable);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+        fetch("/api/auth/capabilities", { credentials: "include" })
+            .then((response) => response.ok ? response.json() : null)
+            .then((payload) => {
+                if (!cancelled) setGoogleAvailable(payload?.data?.google === true);
+            })
+            .catch(() => undefined);
+        return () => { cancelled = true; };
     }, []);
 
     useEffect(() => {
@@ -189,13 +250,24 @@ export default function AuthPage({ locale: rawLocale }: AuthPageProps) {
             return false;
         }
         if (isLogin) return true;
-        if (!formData.contactName.trim() || !formData.companyName.trim() || !formData.phone.trim() || !formData.confirmPassword) {
+        if (
+            !formData.contactName.trim() ||
+            !formData.companyName.trim() ||
+            !formData.phone.trim() ||
+            !formData.country ||
+            !formData.vatNumber.trim() ||
+            !formData.confirmPassword
+        ) {
             setError(t.required);
             return false;
         }
         const phoneDigits = formData.phone.replace(/\D/g, "");
         if (phoneDigits.length < 9 || phoneDigits.length > 15) {
             setError(t.invalidPhone);
+            return false;
+        }
+        if (!isValidCompanyNumber(formData.country, formData.vatNumber)) {
+            setError(formData.country === "IL" ? t.invalidCompanyNumberIL : t.invalidCompanyNumberIntl);
             return false;
         }
         if (password.length < 8 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
@@ -226,6 +298,8 @@ export default function AuthPage({ locale: rawLocale }: AuthPageProps) {
                 companyName: formData.companyName.trim(),
                 email: formData.email.trim(),
                 phone: formData.phone.trim(),
+                country: formData.country,
+                vatNumber: formData.vatNumber.trim(),
                 password: formData.password,
                 locale,
             });
@@ -330,11 +404,11 @@ export default function AuthPage({ locale: rawLocale }: AuthPageProps) {
                                     <p className="mt-3 text-slate-600">{t.subtitle}</p>
                                 </div>
 
-                                {isLogin && (
+                                {googleAvailable && (
                                     <>
                                         <button
                                             type="button"
-                                            onClick={() => { window.location.href = "/api/auth/google"; }}
+                                            onClick={() => { window.location.href = `/api/auth/google?locale=${locale}`; }}
                                             className="flex min-h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-5 py-3 font-medium text-slate-700 shadow-sm transition-colors duration-200 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4a83a]"
                                         >
                                             <span aria-hidden="true" className="font-bold text-[#4285F4]">G</span>
@@ -370,9 +444,41 @@ export default function AuthPage({ locale: rawLocale }: AuthPageProps) {
                                     </Field>
 
                                     {!isLogin && (
-                                        <Field id="phone" label={t.phone}>
-                                            <input id="phone" name="tel" type="tel" inputMode="tel" autoComplete="tel" dir="ltr" maxLength={32} required value={formData.phone} onChange={(e) => updateField("phone", e.target.value)} placeholder="05X-XXX-XXXX" className="field-input" />
-                                        </Field>
+                                        <>
+                                            <Field id="phone" label={t.phone}>
+                                                <input id="phone" name="tel" type="tel" inputMode="tel" autoComplete="tel" dir="ltr" maxLength={32} required value={formData.phone} onChange={(e) => updateField("phone", e.target.value)} placeholder="05X-XXX-XXXX" className="field-input" />
+                                            </Field>
+                                            <Field id="country" label={t.country}>
+                                                <select
+                                                    id="country"
+                                                    name="country"
+                                                    autoComplete="country"
+                                                    required
+                                                    value={formData.country}
+                                                    onChange={(e) => updateField("country", e.target.value)}
+                                                    className="field-input"
+                                                >
+                                                    <option value="" disabled>{t.countryPlaceholder}</option>
+                                                    {COUNTRIES.map((c) => (
+                                                        <option key={c.code} value={c.code}>{c[locale]}</option>
+                                                    ))}
+                                                </select>
+                                            </Field>
+                                            <Field id="vatNumber" label={formData.country === "IL" || !formData.country ? t.companyNumberIL : t.companyNumberIntl}>
+                                                <input
+                                                    id="vatNumber"
+                                                    name="vatNumber"
+                                                    inputMode={formData.country === "IL" ? "numeric" : "text"}
+                                                    dir="ltr"
+                                                    maxLength={32}
+                                                    required
+                                                    value={formData.vatNumber}
+                                                    onChange={(e) => updateField("vatNumber", e.target.value)}
+                                                    placeholder={formData.country === "IL" || !formData.country ? t.companyNumberPlaceholderIL : t.companyNumberPlaceholderIntl}
+                                                    className="field-input"
+                                                />
+                                            </Field>
+                                        </>
                                     )}
 
                                     <Field id="password" label={t.password} hint={!isLogin ? t.passwordHint : undefined}>

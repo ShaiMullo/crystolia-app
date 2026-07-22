@@ -71,7 +71,8 @@
     "myAccount": "החשבון שלי",
     "settings": "הגדרות",
     "logout": "התנתק",
-    "administratorFallback": "מנהל"
+    "administratorFallback": "מנהל",
+    "registrations": "בקשות הרשמה"
   },
   "account": {
     "title": "החשבון שלי",
@@ -485,6 +486,114 @@
       "revealIntro": "שתף את הסיסמה החד-פעמית עם {name} באופן מאובטח. הוא יידרש להחליף אותה בהתחברות הבאה.",
       "warning": "הסיסמה לא תוצג שוב.",
       "copied": "הועתק"
+    }
+  },
+  "registrations": {
+    "page": {
+      "title": "בקשות הרשמה",
+      "subtitle": "בדיקה, אישור או דחייה של הרשמות לאזור העסקים."
+    },
+    "table": {
+      "date": "תאריך",
+      "contact": "איש קשר",
+      "company": "חברה",
+      "companyNumber": "ח.פ. / VAT",
+      "phone": "טלפון",
+      "email": "אימייל",
+      "country": "מדינה",
+      "locale": "שפה",
+      "method": "שיטת הרשמה",
+      "notifications": "התראות",
+      "status": "סטטוס",
+      "actions": "פעולות"
+    },
+    "method": {
+      "password": "סיסמה",
+      "google": "Google"
+    },
+    "status": {
+      "pending": "ממתין לאישור",
+      "approved": "אושר",
+      "rejected": "נדחה"
+    },
+    "notification": {
+      "sent": "נשלח",
+      "failed": "נכשל",
+      "skipped": "לא מוגדר",
+      "email": "מייל",
+      "sms": "SMS"
+    },
+    "filters": {
+      "status": "סטטוס",
+      "statusAll": "כל הסטטוסים"
+    },
+    "search": {
+      "placeholder": "חיפוש לפי שם, אימייל או חברה"
+    },
+    "empty": "אין עדיין בקשות הרשמה",
+    "emptyFiltered": "אין בקשות הרשמה שתואמות את הסינון הנוכחי",
+    "flags": {
+      "possibleDuplicateVat": "ייתכן ח.פ./VAT כפול",
+      "possibleDuplicateName": "ייתכן שם חברה כפול"
+    },
+    "actions": {
+      "view": "צפייה בפרטים",
+      "approve": "אישור",
+      "reject": "דחייה",
+      "resendEmail": "שליחה חוזרת של מייל",
+      "backToList": "חזרה לבקשות"
+    },
+    "details": {
+      "title": "פרטי הבקשה",
+      "contactName": "שם איש הקשר",
+      "email": "אימייל",
+      "phone": "טלפון",
+      "companyName": "שם החברה",
+      "companyNumber": "ח.פ. / VAT",
+      "country": "מדינה",
+      "language": "שפה",
+      "method": "שיטת הרשמה",
+      "submittedAt": "הוגשה",
+      "approvedAt": "אושרה בתאריך",
+      "approvedBy": "אושרה על ידי",
+      "rejectedAt": "נדחתה בתאריך",
+      "rejectedBy": "נדחתה על ידי",
+      "rejectionReason": "סיבת הדחייה",
+      "notifications": "התראות",
+      "pendingEmail": "מייל קבלת הרשמה",
+      "approvedEmail": "מייל אישור",
+      "rejectedEmail": "מייל דחייה",
+      "adminSms": "SMS למנהל",
+      "flagsTitle": "דגלים לבדיקה"
+    },
+    "confirm": {
+      "approveTitle": "אישור הרשמה",
+      "approveMessage": "לאשר את ההרשמה של {name}? תיווצר רשומת חברה ויישלח מייל אישור.",
+      "rejectTitle": "דחיית הרשמה",
+      "rejectMessage": "לדחות את ההרשמה של {name}?",
+      "reasonLabel": "סיבת הדחייה (נשמרת פנימית)",
+      "reasonPlaceholder": "מדוע הבקשה נדחית?",
+      "notifyCustomer": "שליחת מייל דחייה ללקוח",
+      "shareReason": "לכלול את הסיבה במייל"
+    },
+    "toasts": {
+      "approved": "ההרשמה אושרה",
+      "alreadyApproved": "ההרשמה כבר אושרה קודם",
+      "approveFailed": "האישור נכשל",
+      "rejected": "ההרשמה נדחתה",
+      "alreadyRejected": "ההרשמה כבר נדחתה קודם",
+      "rejectFailed": "הדחייה נכשלה",
+      "resent": "המייל נשלח",
+      "emailNotSent": "הפעולה נשמרה, אבל המייל לא נשלח. יש לבדוק את הגדרת SendGrid.",
+      "resendFailed": "שליחת המייל נכשלה",
+      "loadFailed": "טעינת בקשות ההרשמה נכשלה"
+    },
+    "widget": {
+      "title": "בקשות הרשמה",
+      "pendingLabel": "ממתינות לאישור",
+      "recentTitle": "הבקשות האחרונות",
+      "viewAll": "לכל הבקשות",
+      "empty": "אין בקשות ממתינות"
     }
   },
   "orders": {

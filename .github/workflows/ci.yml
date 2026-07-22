@@ -65,6 +65,10 @@ jobs:
         run: npm ci
       - name: TypeScript check
         run: npm run typecheck
+      # Vitest + mongodb-memory-server (downloads a mongod binary on first
+      # run; cached by the runner image's HOME cache within the job).
+      - name: Tests
+        run: npm test
       # Backend lint carries pre-Phase-9 `no-explicit-any` debt — advisory
       # until cleared. typecheck above is the hard gate. See Phase 9 report.
       - name: Lint (advisory)
