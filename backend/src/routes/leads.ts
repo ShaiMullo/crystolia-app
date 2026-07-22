@@ -6,7 +6,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { config } from '../config/index.js';
 import Lead from '../models/Lead.js';
 import { sendTextMessage, normalizePhoneNumber } from '../services/whatsappService.js';
-import { isSmsConfigured, sendSms } from '../services/smsService.js';
+import { buildLeadNotificationSms, isSmsConfigured, sendSms } from '../services/smsService.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { validate, AppError } from '../utils/validation.js';
 import { protect, authorize } from '../middleware/auth.js';
@@ -324,7 +324,17 @@ Open: ${leadUrl}`;
                 }
 
                 if (isSmsConfigured()) {
-                    const smsMessage = `Crystolia lead: ${name} (${phone}). ${sourceDomain || source}. Open: ${leadUrl}`;
+                    const smsMessage = buildLeadNotificationSms({
+                        name,
+                        phone,
+                        email,
+                        message,
+                        source,
+                        sourceDomain,
+                        sourcePage,
+                        contactCount: lead.contactCount,
+                        leadUrl,
+                    });
                     void sendSms(config.adminPhone, smsMessage)
                         .then((result) => {
                             const eventType = result.success ? 'sms_notified' : 'notification_failed';
