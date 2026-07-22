@@ -6,6 +6,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { config } from '../config/index.js';
 import Lead from '../models/Lead.js';
 import { sendTextMessage, normalizePhoneNumber } from '../services/whatsappService.js';
+import { isSmsConfigured, sendSms } from '../services/smsService.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { validate, AppError } from '../utils/validation.js';
 import { protect, authorize } from '../middleware/auth.js';
@@ -30,7 +31,7 @@ const createLeadLimiter = rateLimit({
 // 🔓 Public (Website) or Admin
 // 🛑 Blocked: Agent, Customer
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-router.post('/', createLeadLimiter, async (req: Request, res: Response, next: NextFunction) => {
+const createOrUpdateLead = async (req: Request, res: Response, next: NextFunction) => {
     try {
         // OPTIONAL SECURITY Check:
         // If a user *is* logged in, ensure they are allowed to post.
@@ -292,11 +293,15 @@ router.post('/', createLeadLimiter, async (req: Request, res: Response, next: Ne
         // No PII in server logs — the lead id is enough to find the record.
         console.log(`📬 Lead processed: ${lead._id} (status=${lead.status}, count=${lead.contactCount}, source=${source})`);
 
-        // ━━━ WhatsApp Notification (Fire-and-forget) ━━━
+        // ━━━ Administrator notifications (fire-and-forget) ━━━
+        // Notification delivery must never delay or roll back lead storage.
+        // A direct CRM link lets the administrator move from the alert to the
+        // protected lead record without searching by phone or name.
         try {
             if (!config.adminPhone) {
-                console.warn('⚠️ [WhatsApp] ADMIN_PHONE_NUMBER is not set. Notification skipped.');
+                console.warn('[Notifications] ADMIN_PHONE_NUMBER is not set. Delivery skipped.');
             } else {
+                const leadUrl = `${config.adminFrontendUrl.replace(/\/$/, '')}/admin/leads/${lead._id}`;
                 const waMessage = `🌻 Lead Update (${lead.status})
 Name: ${name}
 Phone: ${phone}
@@ -304,19 +309,34 @@ Message: ${message || 'N/A'}
 Source: ${source}${sourceDomain ? ` (${sourceDomain}${sourcePage || ''})` : ''}${locale ? `
 Language: ${locale}` : ''}
 Count: ${lead.contactCount}
-Status: ${lead.status}`;
+Status: ${lead.status}
+Open: ${leadUrl}`;
 
-                sendTextMessage(config.adminPhone, waMessage)
-                    .then(() => {
-                        // Add timeline event for WhatsApp notification
-                        Lead.findByIdAndUpdate(lead!._id, {
-                            $push: { timeline: { type: 'whatsapp_notified', at: new Date(), meta: { to: 'admin' } } }
-                        }).catch(() => { /* silent */ });
+                if (config.whatsapp.instanceId && config.whatsapp.token) {
+                    void sendTextMessage(config.adminPhone, waMessage)
+                    .then((result) => {
+                        const eventType = result.success ? 'whatsapp_notified' : 'notification_failed';
+                        return Lead.findByIdAndUpdate(lead!._id, {
+                            $push: { timeline: { type: eventType, at: new Date(), meta: { channel: 'whatsapp', to: 'admin' } } }
+                        });
                     })
-                    .catch((err: Error) => console.warn('⚠️ [WhatsApp] Background send failed:', err.message));
+                    .catch((err: Error) => console.warn('[WhatsApp] Background delivery crashed:', err.message));
+                }
+
+                if (isSmsConfigured()) {
+                    const smsMessage = `Crystolia lead: ${name} (${phone}). ${sourceDomain || source}. Open: ${leadUrl}`;
+                    void sendSms(config.adminPhone, smsMessage)
+                        .then((result) => {
+                            const eventType = result.success ? 'sms_notified' : 'notification_failed';
+                            return Lead.findByIdAndUpdate(lead!._id, {
+                                $push: { timeline: { type: eventType, at: new Date(), meta: { channel: 'sms', to: 'admin' } } }
+                            });
+                        })
+                        .catch((err: Error) => console.warn('[SMS] Background delivery crashed:', err.message));
+                }
             }
-        } catch (waError) {
-            console.warn('⚠️ [WhatsApp] Logic crash (should not happen):', waError);
+        } catch (notificationError) {
+            console.warn('[Notifications] Dispatch crashed:', notificationError);
         }
 
         // Public callers get only safe fields — the full lead document (timeline,
@@ -338,7 +358,13 @@ Status: ${lead.status}`;
     } catch (error) {
         next(error);
     }
-});
+};
+
+// Public website entry is rate-limited. The dedicated manual route is
+// authenticated and intentionally bypasses the public IP budget so a busy
+// office/network can still enter legitimate leads from the admin console.
+router.post('/', createLeadLimiter, createOrUpdateLead);
+router.post('/manual', protect, authorize('admin'), createOrUpdateLead);
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // GET /api/leads - Get all leads (Filtered & Sorted)

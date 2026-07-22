@@ -312,6 +312,7 @@ async function startServer(): Promise<void> {
   
   🔧 Environment: ${config.nodeEnv}
   📦 MongoDB:     ${isDatabaseConnected() ? 'Connected' : 'Disconnected'}
+  📲 Notifications: WhatsApp=${Boolean(config.adminPhone && config.whatsapp.instanceId && config.whatsapp.token) ? 'ready' : 'off'}, SMS=${Boolean(config.adminPhone && config.sms.accountSid && config.sms.authToken && config.sms.fromNumber) ? 'ready' : 'off'}
             `);
         });
 

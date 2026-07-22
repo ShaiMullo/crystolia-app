@@ -239,8 +239,22 @@
     "emptyHint": "Измените фильтры или дождитесь новых обращений.",
     "toasts": {
       "loadFailed": "Не удалось загрузить лиды",
+      "created": "Лид создан и сохранён",
+      "createFailed": "Не удалось создать лид",
       "updated": "Лид успешно обновлён",
       "updateFailed": "Не удалось обновить лид"
+    },
+    "create": {
+      "button": "Новый лид",
+      "title": "Создать новый лид",
+      "description": "Добавьте лид вручную и сохраните его непосредственно в CRM.",
+      "name": "Имя",
+      "phone": "Телефон",
+      "phoneInvalid": "Введите корректный номер телефона",
+      "email": "Эл. почта",
+      "message": "Детали обращения",
+      "messagePlaceholder": "Что запросил клиент или откуда он пришёл…",
+      "submit": "Создать лид"
     },
     "modal": {
       "editTitle": "Редактирование лида: {name}",
@@ -257,6 +271,11 @@
   "leadDetail": {
     "backToDashboard": "← Назад к дашборду",
     "noEmail": "Без эл. почты",
+    "actions": {
+      "call": "Позвонить",
+      "sms": "SMS",
+      "whatsapp": "WhatsApp"
+    },
     "info": {
       "title": "Информация о лиде",
       "source": "Источник",
@@ -1307,6 +1326,11 @@
   },
   "monitoring": {
     "diagnostics": "Диагностика",
+    "leadNotifications": "Уведомления о лидах",
+    "notificationRecipientReady": "Номер администратора настроен для уведомлений.",
+    "notificationRecipientMissing": "Укажите номер администратора перед включением WhatsApp или SMS.",
+    "ready": "Готово",
+    "off": "Выключено",
     "topology": "Топология",
     "transactions": "Транзакции",
     "txnSupported": "Поддерживаются",

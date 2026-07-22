@@ -9,7 +9,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 export interface ITimelineEvent {
-    type: string;   // lead_created, lead_updated, status_changed, note_added, whatsapp_notified, onboarding_step_completed
+    type: string;   // lead_created, status_changed, note_added, whatsapp_notified, sms_notified, notification_failed, ...
     at: Date;
     actorId?: string;
     meta?: Record<string, unknown>;

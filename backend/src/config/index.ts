@@ -24,6 +24,14 @@ interface Config {
         baseUrl: string;
     };
 
+    // SMS (Twilio)
+    sms: {
+        provider: 'twilio';
+        accountSid: string;
+        authToken: string;
+        fromNumber: string;
+    };
+
     // Green Invoice
     greenInvoice: {
         apiId: string;
@@ -91,6 +99,15 @@ export const config: Config = {
         instanceId: getEnvOrDefault('ULTRAMSG_INSTANCE_ID', ''),
         token: getEnvOrDefault('ULTRAMSG_TOKEN', ''),
         baseUrl: getEnvOrDefault('ULTRAMSG_BASE_URL', 'https://api.ultramsg.com'),
+    },
+
+    // SMS (Twilio) — optional. Lead storage is never blocked when disabled or
+    // when the provider is temporarily unavailable.
+    sms: {
+        provider: 'twilio',
+        accountSid: getEnvOrDefault('TWILIO_ACCOUNT_SID', ''),
+        authToken: getEnvOrDefault('TWILIO_AUTH_TOKEN', ''),
+        fromNumber: getEnvOrDefault('TWILIO_PHONE_NUMBER', ''),
     },
 
     // Green Invoice

@@ -12,7 +12,9 @@ import {
     Play,
     PlugZap,
     RefreshCw,
+    MessageCircle,
     ShieldCheck,
+    Smartphone,
     Wallet,
 } from "lucide-react";
 import {
@@ -125,6 +127,14 @@ export default function SystemPage() {
         );
     }
 
+    // Backward-compatible during rolling deploys where the frontend may become
+    // ready a few seconds before the backend exposes notification readiness.
+    const notifications = health.notifications ?? {
+        recipientConfigured: false,
+        whatsappConfigured: false,
+        smsConfigured: false,
+    };
+
     return (
         <div className="space-y-6">
             <PageHeader
@@ -191,6 +201,32 @@ export default function SystemPage() {
                     )}
                 </Card>
             </div>
+
+            <Card>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex items-start gap-3">
+                        <div className="rounded-lg bg-gray-100 p-2 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                            <Smartphone size={18} />
+                        </div>
+                        <div>
+                            <CardTitle>{t("monitoring.leadNotifications")}</CardTitle>
+                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                {notifications.recipientConfigured
+                                    ? t("monitoring.notificationRecipientReady")
+                                    : t("monitoring.notificationRecipientMissing")}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        <Badge tone={notifications.whatsappConfigured ? "success" : "neutral"}>
+                            <span className="inline-flex items-center gap-1.5"><MessageCircle size={13} /> WhatsApp · {t(notifications.whatsappConfigured ? "monitoring.ready" : "monitoring.off")}</span>
+                        </Badge>
+                        <Badge tone={notifications.smsConfigured ? "success" : "neutral"}>
+                            <span className="inline-flex items-center gap-1.5"><Smartphone size={13} /> SMS · {t(notifications.smsConfigured ? "monitoring.ready" : "monitoring.off")}</span>
+                        </Badge>
+                    </div>
+                </div>
+            </Card>
 
             {/* Operational KPIs */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
