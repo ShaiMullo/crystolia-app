@@ -61,6 +61,7 @@ const createOrUpdateLead = async (req: Request, res: Response, next: NextFunctio
             typeof v === 'string' ? v.trim().slice(0, max) : '';
 
         const name = str(req.body.name, 100);
+        const companyName = str(req.body.companyName, 120);
         const phone = str(req.body.phone, 32);
         const email = str(req.body.email, 254);
         const message = str(req.body.message, 2000);
@@ -116,8 +117,11 @@ const createOrUpdateLead = async (req: Request, res: Response, next: NextFunctio
         }
 
         // Validation
-        if (!name || !phone) {
-            throw new AppError('Name and phone are required', 400);
+        if (!name || !phone || (!req.user && !email)) {
+            throw new AppError(
+                req.user ? 'Name and phone are required' : 'Name, phone, and email are required',
+                400,
+            );
         }
 
         if (email && !validate.email(email)) {
@@ -212,6 +216,7 @@ const createOrUpdateLead = async (req: Request, res: Response, next: NextFunctio
             // Update metadata
             lead.lastContactAt = timestamp;
             if (name) lead.name = name;
+            if (companyName) lead.companyName = companyName;
             if (email) lead.email = email;
             if (source) lead.source = source;
             if (locale) lead.locale = locale;
@@ -240,6 +245,7 @@ const createOrUpdateLead = async (req: Request, res: Response, next: NextFunctio
             try {
                 lead = await Lead.create({
                     name,
+                    companyName: companyName || undefined,
                     phone: normalizedPhone,
                     email: email || undefined,
                     message: message || '',
@@ -304,6 +310,7 @@ const createOrUpdateLead = async (req: Request, res: Response, next: NextFunctio
                 const leadUrl = `${config.adminFrontendUrl.replace(/\/$/, '')}/admin/leads/${lead._id}`;
                 const waMessage = `🌻 Lead Update (${lead.status})
 Name: ${name}
+Company: ${companyName || 'N/A'}
 Phone: ${phone}
 Message: ${message || 'N/A'}
 Source: ${source}${sourceDomain ? ` (${sourceDomain}${sourcePage || ''})` : ''}${locale ? `
@@ -326,6 +333,7 @@ Open: ${leadUrl}`;
                 if (isSmsConfigured()) {
                     const smsMessage = buildLeadNotificationSms({
                         name,
+                        companyName,
                         phone,
                         email,
                         message,

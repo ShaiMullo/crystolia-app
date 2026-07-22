@@ -42,6 +42,7 @@ export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'proposal' | 'won' 
 
 export interface ILead extends Document {
     name: string;
+    companyName?: string;
     phone: string;
     email?: string;
     message?: string;
@@ -91,6 +92,12 @@ const LeadSchema = new Schema<ILead>(
             required: [true, 'Name is required'],
             trim: true,
             maxlength: [100, 'Name cannot exceed 100 characters'],
+        },
+        companyName: {
+            type: String,
+            trim: true,
+            maxlength: [120, 'Company name cannot exceed 120 characters'],
+            index: true,
         },
         phone: {
             type: String,

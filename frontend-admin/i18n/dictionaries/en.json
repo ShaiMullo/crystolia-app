@@ -249,6 +249,7 @@
       "title": "Create a new lead",
       "description": "Add a lead manually and save it directly to the CRM.",
       "name": "Name",
+      "companyName": "Company name",
       "phone": "Phone",
       "phoneInvalid": "Enter a valid phone number",
       "email": "Email",
@@ -278,6 +279,7 @@
     },
     "info": {
       "title": "Lead Info",
+      "companyName": "Company name",
       "source": "Source",
       "language": "Language",
       "sourceDomain": "Source page",

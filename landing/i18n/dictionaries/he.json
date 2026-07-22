@@ -149,8 +149,13 @@
     "form": {
       "name": "שם מלא",
       "namePlaceholder": "לדוגמה: ישראל ישראלי",
+      "companyName": "שם החברה",
+      "companyNamePlaceholder": "לדוגמה: שיווק ישראל בע״מ",
+      "optional": "לא חובה",
       "phone": "טלפון",
       "phonePlaceholder": "050-0000000",
+      "email": "אימייל",
+      "emailPlaceholder": "name@company.co.il",
       "message": "הודעה",
       "messagePlaceholder": "איך נוכל לעזור? כמה בקבוקים, לאיזה שימוש, ואיפה לקבלם?",
       "submit": "שליחה",
@@ -160,7 +165,9 @@
       "errors": {
         "name": "נא להזין שם.",
         "phone": "נא להזין מספר טלפון.",
-        "phoneInvalid": "נא להזין מספר טלפון תקין."
+        "phoneInvalid": "נא להזין מספר טלפון תקין.",
+        "email": "נא להזין כתובת אימייל.",
+        "emailInvalid": "נא להזין כתובת אימייל תקינה."
       }
     },
     "whatsapp": "דברו איתנו בוואטסאפ",

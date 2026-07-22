@@ -173,13 +173,16 @@ async function main(): Promise<void> {
     // or a second consecutive run.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- same loose shape as api() above
     const publicApi = async (path: string, bodyObj: unknown, origin: string | null = 'https://crystolia.com'): Promise<{ status: number; body: any }> => {
+        const bodyWithEmail = bodyObj && typeof bodyObj === 'object' && !Array.isArray(bodyObj)
+            ? { email: 'website-lead@example.com', ...(bodyObj as Record<string, unknown>) }
+            : bodyObj;
         const res = await fetch(`${BASE}${path}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 ...(origin ? { Origin: origin } : {}), // no auth cookie ever
             },
-            body: JSON.stringify(bodyObj),
+            body: JSON.stringify(bodyWithEmail),
         });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- same loose shape as api() above
         let body: any = null;
@@ -206,6 +209,7 @@ async function main(): Promise<void> {
     await test('leads: public create returns minimal safe response', async () => {
         const { status, body } = await publicApi('/api/v1/leads', {
             name: 'Crystolia Automated Test',
+            companyName: 'Crystolia Smoke Company',
             phone: LEAD_PHONE,
             message: 'TEST — DO NOT CONTACT (smoke)',
             locale: 'he',
@@ -253,6 +257,7 @@ async function main(): Promise<void> {
         const { body } = await api(`/api/v1/leads/${leadIds[0]}`);
         const lead = body?.lead;
         expect(lead?.status === 'new', `status is ${lead?.status}, not "new"`);
+        expect(lead?.companyName === 'Crystolia Smoke Company', `companyName is ${lead?.companyName}`);
         expect(lead?.locale === 'he', `locale is ${lead?.locale}`);
         expect(lead?.sourceDomain === 'crystolia.com', `sourceDomain is ${lead?.sourceDomain} (must come from the Origin header)`);
         expect(lead?.sourcePage === '/he', `sourcePage is ${lead?.sourcePage}`);
@@ -295,6 +300,13 @@ async function main(): Promise<void> {
 
     await test('leads: missing name rejected with 400', async () => {
         const { status } = await publicApi('/api/v1/leads', { phone: '0541111111' });
+        expect(status === 400, `returned ${status}`);
+    });
+
+    await test('leads: missing email rejected with 400', async () => {
+        const { status } = await publicApi('/api/v1/leads', {
+            name: 'Crystolia Automated Test', phone: '0541111111', email: '',
+        });
         expect(status === 400, `returned ${status}`);
     });
 
