@@ -60,6 +60,19 @@ export function rateLimit(options: RateLimitOptions) {
     };
 }
 
+/**
+ * Clears every rate-limit bucket. Exposed for the admin-only system endpoint so
+ * operational tooling (e.g. the smoke suite, which deliberately exhausts the
+ * lead budget to prove the 429 path) can restore a clean state — the store is
+ * in-memory and otherwise only resets when the window expires or the process
+ * restarts.
+ */
+export function resetRateLimitStore(): void {
+    for (const key of Object.keys(store)) {
+        delete store[key];
+    }
+}
+
 // Clean up store periodically to prevent memory leaks
 setInterval(() => {
     const now = Date.now();

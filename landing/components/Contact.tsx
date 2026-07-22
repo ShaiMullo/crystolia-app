@@ -34,8 +34,16 @@ interface ContactProps {
 }
 
 // The CRM lead API. All three landing domains post cross-origin to the same
-// backend; the env var exists only to point local dev at a local backend.
-const API_URL = process.env.NEXT_PUBLIC_LEADS_API_URL || "https://api.crystolia.com";
+// backend. Resolution is environment-safe (inlined at build time):
+//   - explicit NEXT_PUBLIC_LEADS_API_URL always wins (preview/test builds);
+//   - `next dev` defaults to the local backend so a developer can never
+//     silently submit test leads to the production CRM;
+//   - production builds default to the real API.
+const API_URL =
+  process.env.NEXT_PUBLIC_LEADS_API_URL ||
+  (process.env.NODE_ENV === "development"
+    ? "http://localhost:4000"
+    : "https://api.crystolia.com");
 
 // Lenient phone check: accepts international formats (+, spaces, dashes,
 // parentheses) and only requires 7–15 digits — never blocks a legitimate
@@ -82,6 +90,15 @@ export default function Contact({ locale, dict }: ContactProps) {
   // re-render, so N clicks in the same tick would all see stale "idle" state
   // and fire N concurrent requests — a ref blocks re-entry immediately.
   const submittingRef = useRef(false);
+  // Idempotency key: one per real submit attempt. Kept across failed retries
+  // of the SAME data (the server replays instead of duplicating), cleared on
+  // confirmed success — and on any field edit, so changed data is a new
+  // attempt and can never be swallowed by a replay of the old one.
+  const submissionIdRef = useRef<string | null>(null);
+  const updateField = (patch: Partial<typeof formData>) => {
+    submissionIdRef.current = null;
+    setFormData((prev) => ({ ...prev, ...patch }));
+  };
   const [fieldErrors, setFieldErrors] = useState<{ name: boolean; phone: "required" | "invalid" | false }>({
     name: false,
     phone: false,
@@ -122,6 +139,13 @@ export default function Contact({ locale, dict }: ContactProps) {
     submittingRef.current = true;
     setStatus("sending");
 
+    if (!submissionIdRef.current) {
+      submissionIdRef.current =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 14)}`;
+    }
+
     try {
       const res = await fetch(`${API_URL}/api/v1/leads`, {
         method: "POST",
@@ -130,11 +154,12 @@ export default function Contact({ locale, dict }: ContactProps) {
           name,
           phone,
           message: formData.message.trim(),
-          source: "website",
           locale,
-          sourceDomain: window.location.hostname,
+          // The server derives the domain from the validated Origin header;
+          // only the relative page path is sent from here.
           sourcePage: window.location.pathname,
           utm: collectUtm(),
+          submissionId: submissionIdRef.current,
           website: honeypot, // honeypot — empty for humans
         }),
       });
@@ -143,6 +168,7 @@ export default function Contact({ locale, dict }: ContactProps) {
       // from anything else (e.g. a CDN error page) is not a confirmation.
       const body = await res.json().catch(() => null);
       if (res.ok && body?.success === true) {
+        submissionIdRef.current = null; // next submission is a new attempt
         setStatus("success");
         setFormData({ name: "", phone: "", message: "" });
         setTimeout(() => setStatus("idle"), 6000);
@@ -211,7 +237,7 @@ export default function Contact({ locale, dict }: ContactProps) {
                 name="name"
                 value={formData.name}
                 onChange={(e) => {
-                  setFormData({ ...formData, name: e.target.value });
+                  updateField({ name: e.target.value });
                   if (fieldErrors.name) setFieldErrors((f) => ({ ...f, name: false }));
                 }}
                 required
@@ -244,7 +270,7 @@ export default function Contact({ locale, dict }: ContactProps) {
                 name="phone"
                 value={formData.phone}
                 onChange={(e) => {
-                  setFormData({ ...formData, phone: e.target.value });
+                  updateField({ phone: e.target.value });
                   if (fieldErrors.phone) setFieldErrors((f) => ({ ...f, phone: false }));
                 }}
                 required
@@ -279,7 +305,7 @@ export default function Contact({ locale, dict }: ContactProps) {
                 name="message"
                 value={formData.message}
                 onChange={(e) =>
-                  setFormData({ ...formData, message: e.target.value })
+                  updateField({ message: e.target.value })
                 }
                 rows={5}
                 disabled={status === "sending"}

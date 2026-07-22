@@ -63,13 +63,32 @@ router.post('/', createLeadLimiter, async (req: Request, res: Response, next: Ne
         const phone = str(req.body.phone, 32);
         const email = str(req.body.email, 254);
         const message = str(req.body.message, 2000);
-        const source = str(req.body.source, 100) || 'website';
+        // Public callers cannot label their own source — it is forced to
+        // "website". Authenticated staff may still label manual entries.
+        const source = req.user ? (str(req.body.source, 100) || 'website') : 'website';
 
         // Website attribution — validated/capped, never trusted raw.
         const VALID_LOCALES = ['en', 'he', 'ru'];
         const locale = VALID_LOCALES.includes(req.body.locale) ? (req.body.locale as string) : undefined;
-        const sourceDomain = str(req.body.sourceDomain, 100) || undefined;
-        const sourcePage = str(req.body.sourcePage, 300) || undefined;
+        // The domain comes from the Origin header — which already passed the
+        // csrf allow-list for this state-changing request — never from the body.
+        let sourceDomain: string | undefined;
+        try {
+            if (req.headers.origin) sourceDomain = new URL(req.headers.origin).hostname;
+        } catch { /* unparseable Origin → no domain attribution */ }
+        // sourcePage must be a safe RELATIVE path — never a full/external URL,
+        // never protocol-relative ("//evil"), and never backslash/whitespace
+        // trickery ("/\\evil" — browsers treat \\ as / in URLs).
+        const rawPage = str(req.body.sourcePage, 300);
+        const sourcePage = /^\/(?!\/)[^\s\\]*$/.test(rawPage) ? rawPage : undefined;
+
+        // Idempotency key: one per real submit attempt from the form. Repeats
+        // of the same attempt (network retry, double-fire, duplicated request)
+        // must not create a second lead or a second notification.
+        const submissionId =
+            typeof req.body.submissionId === 'string' && /^[0-9a-zA-Z-]{8,64}$/.test(req.body.submissionId)
+                ? req.body.submissionId
+                : undefined;
         const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'] as const;
         let utm: Record<string, string> | undefined;
         if (req.body.utm && typeof req.body.utm === 'object') {
@@ -105,6 +124,21 @@ router.post('/', createLeadLimiter, async (req: Request, res: Response, next: Ne
             throw new AppError('Invalid phone number', 400);
         }
 
+        // ━━━ Idempotent replay: this exact submission was already processed ━━━
+        if (submissionId) {
+            const processed = await Lead
+                .findOne({ $or: [{ submissionId }, { lastSubmissionId: submissionId }] })
+                .select('_id')
+                .lean();
+            if (processed) {
+                return res.status(201).json({
+                    success: true,
+                    message: 'Lead received successfully',
+                    leadId: processed._id,
+                });
+            }
+        }
+
         // ━━━ CRM Upsert Logic ━━━
         let lead = await Lead.findOne({ phone: normalizedPhone, isDeleted: false });
 
@@ -124,6 +158,23 @@ router.post('/', createLeadLimiter, async (req: Request, res: Response, next: Ne
 
         if (lead) {
             // ══════ UPDATE EXISTING LEAD ══════
+            // Atomically claim this submissionId: of two concurrent identical
+            // requests only one matches the $ne filter; the loser replays the
+            // success response instead of double-incrementing contactCount and
+            // double-notifying. Single-document op → safe across instances.
+            if (submissionId) {
+                const claimed = await Lead.findOneAndUpdate(
+                    { _id: lead._id, lastSubmissionId: { $ne: submissionId } },
+                    { $set: { lastSubmissionId: submissionId } },
+                ).select('_id').lean();
+                if (!claimed) {
+                    return res.status(201).json({
+                        success: true,
+                        message: 'Lead received successfully',
+                        leadId: lead._id,
+                    });
+                }
+            }
             console.log(`🔄 Updating existing lead: ${lead._id} (contact #${lead.contactCount + 1})`);
 
             // Increment contact count
@@ -162,30 +213,63 @@ router.post('/', createLeadLimiter, async (req: Request, res: Response, next: Ne
             if (sourcePage) lead.sourcePage = sourcePage;
             if (utm) lead.utm = utm;
 
-            await lead.save();
+            try {
+                await lead.save();
+            } catch (saveErr) {
+                // The claim above already recorded this submissionId; if the
+                // update itself failed, release the claim so an honest retry
+                // of the same attempt re-applies instead of being replayed as
+                // a success that never happened.
+                if (submissionId) {
+                    await Lead.updateOne(
+                        { _id: lead._id, lastSubmissionId: submissionId },
+                        { $unset: { lastSubmissionId: '' } },
+                    ).catch(() => { /* best effort — worst case is a replayed retry */ });
+                }
+                throw saveErr;
+            }
 
         } else {
             // ══════ CREATE NEW LEAD ══════
-            lead = await Lead.create({
-                name,
-                phone: normalizedPhone,
-                email: email || undefined,
-                message: message || '',
-                source,
-                ...attribution,
-                tags,
-                status: 'new',
-                contactCount: 1,
-                messages: message ? [newMessage] : [],
-                timeline: [{
-                    type: 'lead_created',
-                    at: timestamp,
-                    meta: { source, ...attribution },
-                }],
-                notes: [],
-                lastContactAt: timestamp,
-                isDeleted: false,
-            });
+            try {
+                lead = await Lead.create({
+                    name,
+                    phone: normalizedPhone,
+                    email: email || undefined,
+                    message: message || '',
+                    source,
+                    ...attribution,
+                    ...(submissionId && { submissionId, lastSubmissionId: submissionId }),
+                    tags,
+                    status: 'new',
+                    contactCount: 1,
+                    messages: message ? [newMessage] : [],
+                    timeline: [{
+                        type: 'lead_created',
+                        at: timestamp,
+                        meta: { source, ...attribution },
+                    }],
+                    notes: [],
+                    lastContactAt: timestamp,
+                    isDeleted: false,
+                });
+            } catch (createErr) {
+                // A concurrent request with the same submissionId won the
+                // unique-sparse index race — replay its success instead of
+                // failing, and send no second notification.
+                const isDup = (createErr as { code?: number })?.code === 11000;
+                if (isDup && submissionId) {
+                    const winner = await Lead.findOne({ submissionId }).select('_id').lean();
+                    if (winner) {
+                        return res.status(201).json({
+                            success: true,
+                            message: 'Lead received successfully',
+                            leadId: winner._id,
+                        });
+                    }
+                }
+                throw createErr;
+            }
             console.log(`✨ Created new lead: ${lead._id}`);
 
             // Audit Log (Only for creation)

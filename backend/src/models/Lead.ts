@@ -51,6 +51,9 @@ export interface ILead extends Document {
     sourceDomain?: string;
     sourcePage?: string;
     utm?: Record<string, string>;
+    // Idempotent public submissions — see routes/leads.ts.
+    submissionId?: string;
+    lastSubmissionId?: string;
     status: LeadStatus;
     tags: string[];
     assignedTo?: string;
@@ -131,6 +134,26 @@ const LeadSchema = new Schema<ILead>(
         },
         utm: {
             type: Schema.Types.Mixed,
+        },
+        // Idempotency key of the submission that CREATED this lead. Unique +
+        // sparse: only documents that have the field participate in the index,
+        // so existing data can never conflict and no migration is needed —
+        // while two concurrent creates with the same key still collide (the
+        // route turns that E11000 into an idempotent success replay).
+        submissionId: {
+            type: String,
+            trim: true,
+            unique: true,
+            sparse: true,
+        },
+        // Idempotency key of the last submission APPLIED to this lead —
+        // atomically claimed on the update path so a duplicated request can't
+        // double-increment contactCount or double-notify. Indexed: the replay
+        // pre-check queries it on every public POST.
+        lastSubmissionId: {
+            type: String,
+            trim: true,
+            index: true,
         },
         status: {
             type: String,
