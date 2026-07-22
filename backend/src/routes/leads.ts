@@ -71,11 +71,16 @@ router.post('/', createLeadLimiter, async (req: Request, res: Response, next: Ne
         const VALID_LOCALES = ['en', 'he', 'ru'];
         const locale = VALID_LOCALES.includes(req.body.locale) ? (req.body.locale as string) : undefined;
         // The domain comes from the Origin header — which already passed the
-        // csrf allow-list for this state-changing request — never from the body.
+        // csrf allow-list for this state-changing request — never from the
+        // body. PUBLIC submissions only: a staff manual entry (or a staff
+        // re-submit of an existing website lead) must not stamp the admin
+        // origin over genuine website attribution.
         let sourceDomain: string | undefined;
-        try {
-            if (req.headers.origin) sourceDomain = new URL(req.headers.origin).hostname;
-        } catch { /* unparseable Origin → no domain attribution */ }
+        if (!req.user) {
+            try {
+                if (req.headers.origin) sourceDomain = new URL(req.headers.origin).hostname;
+            } catch { /* unparseable Origin → no domain attribution */ }
+        }
         // sourcePage must be a safe RELATIVE path — never a full/external URL,
         // never protocol-relative ("//evil"), and never backslash/whitespace
         // trickery ("/\\evil" — browsers treat \\ as / in URLs).
