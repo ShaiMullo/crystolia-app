@@ -25,6 +25,17 @@ export interface LeadSmsDetails {
     leadUrl: string;
 }
 
+export interface RegistrationSmsDetails {
+    contactName: string;
+    companyName: string;
+    vatNumber: string;
+    phone: string;
+    email: string;
+    country: string;
+    method: 'password' | 'google';
+    registrationUrl: string;
+}
+
 type SmsHttpClient = Pick<typeof axios, 'post'>;
 
 export function isSmsConfigured(): boolean {
@@ -84,6 +95,28 @@ export function buildLeadNotificationSms(details: LeadSmsDetails): string {
     );
 
     return lines.join('\n');
+}
+
+/**
+ * Build the Hebrew admin alert for a new business registration request.
+ * User-provided fields are flattened and capped (same policy as the lead
+ * alert) so a hostile payload cannot inflate the billable segment count.
+ */
+export function buildRegistrationNotificationSms(details: RegistrationSmsDetails): string {
+    return [
+        '👤 בקשת הרשמה חדשה לקריסטוליה',
+        '',
+        `שם: ${compactSmsField(details.contactName, 70)}`,
+        `חברה: ${compactSmsField(details.companyName, 90)}`,
+        `ח.פ./VAT: ${compactSmsField(details.vatNumber, 32)}`,
+        `טלפון: ${compactSmsField(details.phone, 30)}`,
+        `מייל: ${compactSmsField(details.email, 80)}`,
+        `מדינה: ${compactSmsField(details.country, 40)}`,
+        `הרשמה: ${details.method === 'google' ? 'Google' : 'סיסמה'}`,
+        '',
+        'לאישור:',
+        details.registrationUrl,
+    ].join('\n');
 }
 
 /**

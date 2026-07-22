@@ -15,6 +15,7 @@ export interface ICompany extends Document {
     billingAddress?: string; // Legacy?
     address?: string;
     city?: string;
+    country?: string; // ISO-3166 alpha-2 code
     vatNumber?: string;
     phone?: string;
     owner?: mongoose.Types.ObjectId; // Optional for backward compatibility
@@ -56,6 +57,11 @@ const CompanySchema = new Schema<ICompany>(
         city: {
             type: String,
             trim: true,
+        },
+        country: {
+            type: String,
+            trim: true,
+            uppercase: true,
         },
         vatNumber: {
             type: String,

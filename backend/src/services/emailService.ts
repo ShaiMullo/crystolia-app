@@ -19,6 +19,11 @@ export interface RegistrationEmailDetails {
     locale: EmailLocale;
 }
 
+export interface RegistrationRejectedEmailDetails extends RegistrationEmailDetails {
+    /** Included in the email ONLY when the administrator chose to share it. */
+    reason?: string;
+}
+
 type EmailHttpClient = Pick<typeof axios, 'post'>;
 
 interface EmailCopy {
@@ -142,6 +147,101 @@ function approvedCopy(locale: EmailLocale, name: string): EmailCopy {
     };
 }
 
+function rejectedCopy(locale: EmailLocale, name: string, reason?: string): EmailCopy {
+    if (locale === 'en') {
+        return {
+            subject: 'Update on your Crystolia business registration',
+            eyebrow: 'REGISTRATION UPDATE',
+            title: 'We could not approve your registration',
+            greeting: `Hello ${name},`,
+            paragraphs: [
+                'Thank you for your interest in the Crystolia business portal. After reviewing the details, we are unable to approve the registration at this time.',
+                ...(reason ? [`Reason provided by our team: ${reason}`] : []),
+                'If you believe this is a mistake or you would like to provide additional details, simply reply to this email and the Crystolia team will be happy to take another look.',
+            ],
+            footer: 'This is a transactional message about your Crystolia registration request.',
+            direction: 'ltr',
+        };
+    }
+    if (locale === 'ru') {
+        return {
+            subject: 'Обновление по вашей регистрации в Crystolia',
+            eyebrow: 'СТАТУС РЕГИСТРАЦИИ',
+            title: 'Мы не смогли подтвердить регистрацию',
+            greeting: `Здравствуйте, ${name}!`,
+            paragraphs: [
+                'Благодарим за интерес к бизнес-порталу Crystolia. После проверки данных мы, к сожалению, не можем подтвердить регистрацию в данный момент.',
+                ...(reason ? [`Причина, указанная нашей командой: ${reason}`] : []),
+                'Если вы считаете, что произошла ошибка, или хотите предоставить дополнительные сведения — просто ответьте на это письмо, и команда Crystolia рассмотрит заявку повторно.',
+            ],
+            footer: 'Это сервисное сообщение о вашей заявке на регистрацию в Crystolia.',
+            direction: 'ltr',
+        };
+    }
+    return {
+        subject: 'עדכון לגבי בקשת ההרשמה שלך לקריסטוליה',
+        eyebrow: 'עדכון הרשמה',
+        title: 'לא אישרנו את בקשת ההרשמה',
+        greeting: `שלום ${name},`,
+        paragraphs: [
+            'תודה על ההתעניינות באזור העסקים של קריסטוליה. לאחר בדיקת הפרטים, לא נוכל לאשר את ההרשמה בשלב זה.',
+            ...(reason ? [`הסיבה שצוינה על ידי הצוות: ${reason}`] : []),
+            'אם לדעתכם מדובר בטעות, או שתרצו להוסיף פרטים — אפשר פשוט להשיב למייל הזה וצוות קריסטוליה ישמח לבדוק שוב.',
+        ],
+        footer: 'זוהי הודעה תפעולית בנוגע לבקשת ההרשמה שלך בקריסטוליה.',
+        direction: 'rtl',
+    };
+}
+
+function existingAccountCopy(locale: EmailLocale, name: string): EmailCopy {
+    if (locale === 'en') {
+        return {
+            subject: 'A registration was attempted with your Crystolia email',
+            eyebrow: 'ACCOUNT NOTICE',
+            title: 'This email address is already registered',
+            greeting: `Hello ${name},`,
+            paragraphs: [
+                'Someone (probably you) just tried to register to the Crystolia business portal with this email address, but an account already exists for it.',
+                'If this was you, simply sign in with your existing password. If you forgot it, reply to this email and the Crystolia team will help.',
+                'If this was not you, no action is needed — no new account was created and nothing changed.',
+            ],
+            button: 'Sign in to the business portal',
+            footer: 'This is a transactional message about your Crystolia account.',
+            direction: 'ltr',
+        };
+    }
+    if (locale === 'ru') {
+        return {
+            subject: 'Попытка регистрации с вашим адресом в Crystolia',
+            eyebrow: 'УВЕДОМЛЕНИЕ ОБ АККАУНТЕ',
+            title: 'Этот адрес уже зарегистрирован',
+            greeting: `Здравствуйте, ${name}!`,
+            paragraphs: [
+                'Кто-то (вероятно, вы) только что попытался зарегистрироваться в бизнес-портале Crystolia с этим адресом, но аккаунт с ним уже существует.',
+                'Если это были вы — просто войдите с существующим паролем. Если вы его забыли, ответьте на это письмо, и команда Crystolia поможет.',
+                'Если это были не вы — ничего делать не нужно: новый аккаунт не создан и ничего не изменилось.',
+            ],
+            button: 'Войти в бизнес-портал',
+            footer: 'Это сервисное сообщение о вашей учётной записи Crystolia.',
+            direction: 'ltr',
+        };
+    }
+    return {
+        subject: 'ניסיון הרשמה עם כתובת האימייל שלך בקריסטוליה',
+        eyebrow: 'עדכון חשבון',
+        title: 'כתובת האימייל כבר רשומה במערכת',
+        greeting: `שלום ${name},`,
+        paragraphs: [
+            'מישהו (כנראה אתם) ניסה כרגע להירשם לאזור העסקים של קריסטוליה עם כתובת האימייל הזאת, אבל כבר קיים חשבון עבורה.',
+            'אם זה הייתם אתם — אפשר פשוט להתחבר עם הסיסמה הקיימת. אם שכחתם אותה, השיבו למייל הזה וצוות קריסטוליה יסייע.',
+            'אם זה לא הייתם אתם — אין צורך לעשות דבר: לא נוצר חשבון חדש ושום דבר לא השתנה.',
+        ],
+        button: 'כניסה לאזור העסקים',
+        footer: 'זוהי הודעה תפעולית בנוגע לחשבון שלך בקריסטוליה.',
+        direction: 'rtl',
+    };
+}
+
 function renderEmail(copy: EmailCopy, actionUrl?: string): { text: string; html: string } {
     const text = [
         copy.title,
@@ -238,5 +338,22 @@ export async function sendRegistrationPendingEmail(details: RegistrationEmailDet
 export async function sendRegistrationApprovedEmail(details: RegistrationEmailDetails): Promise<SendEmailResult> {
     const locale = safeLocale(details.locale);
     const copy = approvedCopy(locale, details.name);
+    return sendEmail(details.to, copy.subject, renderEmail(copy, portalUrl(locale)));
+}
+
+export async function sendRegistrationRejectedEmail(details: RegistrationRejectedEmailDetails): Promise<SendEmailResult> {
+    const locale = safeLocale(details.locale);
+    const copy = rejectedCopy(locale, details.name, details.reason?.trim() || undefined);
+    return sendEmail(details.to, copy.subject, renderEmail(copy));
+}
+
+/**
+ * Sent when a public registration is attempted with an email that already has
+ * an account. The HTTP response stays generic (no account enumeration); only
+ * the mailbox owner learns an account exists.
+ */
+export async function sendRegistrationExistingAccountEmail(details: RegistrationEmailDetails): Promise<SendEmailResult> {
+    const locale = safeLocale(details.locale);
+    const copy = existingAccountCopy(locale, details.name);
     return sendEmail(details.to, copy.subject, renderEmail(copy, portalUrl(locale)));
 }

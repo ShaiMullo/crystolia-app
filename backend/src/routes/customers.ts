@@ -113,7 +113,11 @@ export const updateProfile = async (req: Request, res: Response, next: NextFunct
             return next(new AppError('No company found. Complete your profile first.', 404));
         }
 
-        const { companyName, vatNumber, address, city, phone, email } = req.body;
+        const { companyName, vatNumber, address, city, phone, email, billingAddress, billingEmail, contactRole } = req.body;
+
+        if (billingEmail !== undefined && billingEmail !== '' && !/^\S+@\S+\.\S+$/.test(String(billingEmail))) {
+            return next(new AppError('Please provide a valid invoice email address', 400));
+        }
 
         // Build update object from provided fields only
         const updateFields: Record<string, string> = {};
@@ -123,6 +127,16 @@ export const updateProfile = async (req: Request, res: Response, next: NextFunct
         if (city !== undefined) updateFields.city = city;
         if (phone !== undefined) updateFields.phone = phone;
         if (email !== undefined) updateFields.email = email;
+        if (billingAddress !== undefined) updateFields.billingAddress = billingAddress;
+        if (billingEmail !== undefined) updateFields.billingEmail = billingEmail;
+
+        // The orderer's role belongs to the user, not the company.
+        if (contactRole !== undefined) {
+            await User.updateOne(
+                { _id: user._id },
+                { $set: { contactRole: String(contactRole).trim().slice(0, 80) } },
+            );
+        }
 
         // user.company is the ObjectId from the verified JWT user — customer can
         // only ever update their own company, never another company's.

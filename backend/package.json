@@ -9,6 +9,8 @@
         "typecheck": "tsc --noEmit",
         "start": "node dist/index.js",
         "lint": "eslint src --ext .ts",
+        "test": "vitest run",
+        "test:watch": "vitest",
         "seed": "tsx src/scripts/seed.ts",
         "seed:demo": "tsx src/scripts/seedDemo.ts",
         "reset:demo": "tsx src/scripts/seedDemo.ts -- --reset",
@@ -45,10 +47,14 @@
         "@types/node": "^20.10.0",
         "@types/passport": "^1.0.17",
         "@types/passport-google-oauth20": "^2.0.17",
+        "@types/supertest": "^7.2.1",
         "@typescript-eslint/eslint-plugin": "^6.13.0",
         "@typescript-eslint/parser": "^6.13.0",
         "eslint": "^8.55.0",
+        "mongodb-memory-server": "^11.2.0",
+        "supertest": "^7.2.2",
         "tsx": "^4.6.0",
-        "typescript": "^5.3.0"
+        "typescript": "^5.3.0",
+        "vitest": "^4.1.10"
     }
 }
