@@ -159,7 +159,8 @@
       "error": "An error occurred. Please try again or contact us directly on WhatsApp.",
       "errors": {
         "name": "Please enter your name.",
-        "phone": "Please enter your phone number."
+        "phone": "Please enter your phone number.",
+        "phoneInvalid": "Please enter a valid phone number."
       }
     },
     "whatsapp": "Send WhatsApp Message",

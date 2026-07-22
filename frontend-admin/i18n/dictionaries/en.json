@@ -260,6 +260,9 @@
     "info": {
       "title": "Lead Info",
       "source": "Source",
+      "language": "Language",
+      "sourceDomain": "Source page",
+      "utm": "Campaign (UTM)",
       "tags": "Tags",
       "contactCount": "Contact Count",
       "lastContact": "Last Contact",

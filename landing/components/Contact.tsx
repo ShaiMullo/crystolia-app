@@ -24,6 +24,7 @@ interface ContactProps {
         errors: {
           name: string;
           phone: string;
+          phoneInvalid: string;
         };
       };
       whatsapp: string;
@@ -32,7 +33,46 @@ interface ContactProps {
   };
 }
 
-const API_URL = process.env.NEXT_PUBLIC_LEADS_API_URL || "";
+// The CRM lead API. All three landing domains post cross-origin to the same
+// backend. Resolution is environment-safe (inlined at build time):
+//   - explicit NEXT_PUBLIC_LEADS_API_URL always wins (preview/test builds);
+//   - `next dev` defaults to the local backend so a developer can never
+//     silently submit test leads to the production CRM;
+//   - production builds default to the real API.
+const API_URL =
+  process.env.NEXT_PUBLIC_LEADS_API_URL ||
+  (process.env.NODE_ENV === "development"
+    ? "http://localhost:4000"
+    : "https://api.crystolia.com");
+
+// Lenient phone check: accepts international formats (+, spaces, dashes,
+// parentheses) and only requires 7–15 digits — never blocks a legitimate
+// number, only obvious non-numbers. Numbers copy-pasted from chat apps or
+// RTL pages carry invisible Unicode format marks (LRM/RLM, bidi isolates,
+// zero-width chars) that neither trim() nor \s matches — strip them before
+// judging the visible characters, or real numbers get rejected.
+function isPlausiblePhone(raw: string): boolean {
+  const visible = raw
+    .replace(/[\u200B-\u200F\u2060\u2066-\u2069\u202A-\u202E\uFEFF]/g, "")
+    .trim();
+  const digits = visible.replace(/\D/g, "");
+  return digits.length >= 7 && digits.length <= 15 && /^[+0-9()\-.\s]+$/.test(visible);
+}
+
+// UTM parameters from the current URL, when present (paid/campaign traffic).
+function collectUtm(): Record<string, string> | undefined {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    let utm: Record<string, string> | undefined;
+    for (const key of ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"]) {
+      const value = params.get(key);
+      if (value) (utm ??= {})[key] = value.slice(0, 200);
+    }
+    return utm;
+  } catch {
+    return undefined;
+  }
+}
 
 export default function Contact({ locale, dict }: ContactProps) {
   const [formData, setFormData] = useState({
@@ -44,7 +84,22 @@ export default function Contact({ locale, dict }: ContactProps) {
   const errorRef = useRef<HTMLDivElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const phoneRef = useRef<HTMLInputElement>(null);
-  const [fieldErrors, setFieldErrors] = useState<{ name: boolean; phone: boolean }>({
+  // Honeypot: humans never see or fill this; bots that do are silently dropped.
+  const [honeypot, setHoneypot] = useState("");
+  // Synchronous double-submit guard. React state ("sending") only updates on
+  // re-render, so N clicks in the same tick would all see stale "idle" state
+  // and fire N concurrent requests — a ref blocks re-entry immediately.
+  const submittingRef = useRef(false);
+  // Idempotency key: one per real submit attempt. Kept across failed retries
+  // of the SAME data (the server replays instead of duplicating), cleared on
+  // confirmed success — and on any field edit, so changed data is a new
+  // attempt and can never be swallowed by a replay of the old one.
+  const submissionIdRef = useRef<string | null>(null);
+  const updateField = (patch: Partial<typeof formData>) => {
+    submissionIdRef.current = null;
+    setFormData((prev) => ({ ...prev, ...patch }));
+  };
+  const [fieldErrors, setFieldErrors] = useState<{ name: boolean; phone: "required" | "invalid" | false }>({
     name: false,
     phone: false,
   });
@@ -60,13 +115,16 @@ export default function Contact({ locale, dict }: ContactProps) {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (submittingRef.current) return; // double-submit guard (synchronous)
 
     // Field-level validation: name + phone are required (whitespace-only is
-    // rejected via trim). On failure, show inline errors and move focus to the
-    // first invalid field (name, then phone). The submit-level (network/server)
-    // error handling below is unchanged.
-    const nameInvalid = formData.name.trim() === "";
-    const phoneInvalid = formData.phone.trim() === "";
+    // rejected via trim); phone must also look like a real number. On failure,
+    // show inline errors and move focus to the first invalid field.
+    const name = formData.name.trim();
+    const phone = formData.phone.trim();
+    const nameInvalid = name === "";
+    const phoneInvalid: "required" | "invalid" | false =
+      phone === "" ? "required" : !isPlausiblePhone(phone) ? "invalid" : false;
     if (nameInvalid || phoneInvalid) {
       setFieldErrors({ name: nameInvalid, phone: phoneInvalid });
       if (nameInvalid) {
@@ -78,31 +136,52 @@ export default function Contact({ locale, dict }: ContactProps) {
     }
     setFieldErrors({ name: false, phone: false });
 
+    submittingRef.current = true;
     setStatus("sending");
 
+    if (!submissionIdRef.current) {
+      submissionIdRef.current =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 14)}`;
+    }
+
     try {
-      const res = await fetch(`${API_URL}/api/leads`, {
+      const res = await fetch(`${API_URL}/api/v1/leads`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: formData.name,
-          phone: formData.phone,
-          message: formData.message,
-          source: "landing-contact-form",
+          name,
+          phone,
+          message: formData.message.trim(),
+          locale,
+          // The server derives the domain from the validated Origin header;
+          // only the relative page path is sent from here.
+          sourcePage: window.location.pathname,
+          utm: collectUtm(),
+          submissionId: submissionIdRef.current,
+          website: honeypot, // honeypot — empty for humans
         }),
       });
 
-      if (res.ok) {
+      // Success only once the server confirms the lead was accepted — a 2xx
+      // from anything else (e.g. a CDN error page) is not a confirmation.
+      const body = await res.json().catch(() => null);
+      if (res.ok && body?.success === true) {
+        submissionIdRef.current = null; // next submission is a new attempt
         setStatus("success");
         setFormData({ name: "", phone: "", message: "" });
         setTimeout(() => setStatus("idle"), 6000);
       } else {
+        // Keep the entered data so the visitor can retry.
         setStatus("error");
         setTimeout(() => setStatus("idle"), 6000);
       }
     } catch {
       setStatus("error");
       setTimeout(() => setStatus("idle"), 6000);
+    } finally {
+      submittingRef.current = false;
     }
   };
 
@@ -158,7 +237,7 @@ export default function Contact({ locale, dict }: ContactProps) {
                 name="name"
                 value={formData.name}
                 onChange={(e) => {
-                  setFormData({ ...formData, name: e.target.value });
+                  updateField({ name: e.target.value });
                   if (fieldErrors.name) setFieldErrors((f) => ({ ...f, name: false }));
                 }}
                 required
@@ -191,7 +270,7 @@ export default function Contact({ locale, dict }: ContactProps) {
                 name="phone"
                 value={formData.phone}
                 onChange={(e) => {
-                  setFormData({ ...formData, phone: e.target.value });
+                  updateField({ phone: e.target.value });
                   if (fieldErrors.phone) setFieldErrors((f) => ({ ...f, phone: false }));
                 }}
                 required
@@ -206,7 +285,9 @@ export default function Contact({ locale, dict }: ContactProps) {
               />
               {fieldErrors.phone && (
                 <p id="phone-error" role="alert" className="mt-2 text-sm text-red-700">
-                  {dict.contact.form.errors.phone}
+                  {fieldErrors.phone === "invalid"
+                    ? dict.contact.form.errors.phoneInvalid
+                    : dict.contact.form.errors.phone}
                 </p>
               )}
             </div>
@@ -224,12 +305,31 @@ export default function Contact({ locale, dict }: ContactProps) {
                 name="message"
                 value={formData.message}
                 onChange={(e) =>
-                  setFormData({ ...formData, message: e.target.value })
+                  updateField({ message: e.target.value })
                 }
                 rows={5}
                 disabled={status === "sending"}
                 placeholder={dict.contact.form.messagePlaceholder}
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:border-[#F5C542] focus:ring-2 focus:ring-[#F5C542]/20 outline-none transition-all duration-300 font-light resize-none disabled:opacity-50"
+              />
+            </div>
+
+            {/* Honeypot — visually hidden and skipped by keyboard/AT; only bots
+                fill it. Positioned off-screen rather than display:none because
+                naive bots skip invisible fields. */}
+            <div
+              aria-hidden="true"
+              style={{ position: "absolute", left: "-9999px", top: "auto", width: "1px", height: "1px", overflow: "hidden" }}
+            >
+              <label htmlFor="website-field">Leave this field empty</label>
+              <input
+                type="text"
+                id="website-field"
+                name="website"
+                value={honeypot}
+                onChange={(e) => setHoneypot(e.target.value)}
+                tabIndex={-1}
+                autoComplete="off"
               />
             </div>
 

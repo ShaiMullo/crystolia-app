@@ -53,7 +53,66 @@ router.post('/', createLeadLimiter, async (req: Request, res: Response, next: Ne
             }
         }
 
-        const { name, phone, email, message, source, tags } = req.body;
+        // ━━━ Sanitize the public payload (whitelist + trim + cap) ━━━
+        // Only these fields are ever read from the body; anything else —
+        // including internal fields like status/ownerId/isDeleted — is ignored.
+        const str = (v: unknown, max: number): string =>
+            typeof v === 'string' ? v.trim().slice(0, max) : '';
+
+        const name = str(req.body.name, 100);
+        const phone = str(req.body.phone, 32);
+        const email = str(req.body.email, 254);
+        const message = str(req.body.message, 2000);
+        // Public callers cannot label their own source — it is forced to
+        // "website". Authenticated staff may still label manual entries.
+        const source = req.user ? (str(req.body.source, 100) || 'website') : 'website';
+
+        // Website attribution — validated/capped, never trusted raw.
+        const VALID_LOCALES = ['en', 'he', 'ru'];
+        const locale = VALID_LOCALES.includes(req.body.locale) ? (req.body.locale as string) : undefined;
+        // The domain comes from the Origin header — which already passed the
+        // csrf allow-list for this state-changing request — never from the
+        // body. PUBLIC submissions only: a staff manual entry (or a staff
+        // re-submit of an existing website lead) must not stamp the admin
+        // origin over genuine website attribution.
+        let sourceDomain: string | undefined;
+        if (!req.user) {
+            try {
+                if (req.headers.origin) sourceDomain = new URL(req.headers.origin).hostname;
+            } catch { /* unparseable Origin → no domain attribution */ }
+        }
+        // sourcePage must be a safe RELATIVE path — never a full/external URL,
+        // never protocol-relative ("//evil"), and never backslash/whitespace
+        // trickery ("/\\evil" — browsers treat \\ as / in URLs).
+        const rawPage = str(req.body.sourcePage, 300);
+        const sourcePage = /^\/(?!\/)[^\s\\]*$/.test(rawPage) ? rawPage : undefined;
+
+        // Idempotency key: one per real submit attempt from the form. Repeats
+        // of the same attempt (network retry, double-fire, duplicated request)
+        // must not create a second lead or a second notification.
+        const submissionId =
+            typeof req.body.submissionId === 'string' && /^[0-9a-zA-Z-]{8,64}$/.test(req.body.submissionId)
+                ? req.body.submissionId
+                : undefined;
+        const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'] as const;
+        let utm: Record<string, string> | undefined;
+        if (req.body.utm && typeof req.body.utm === 'object') {
+            for (const key of UTM_KEYS) {
+                const value = str((req.body.utm as Record<string, unknown>)[key], 200);
+                if (value) (utm ??= {})[key] = value;
+            }
+        }
+
+        // Tags are an internal CRM concept — only an authenticated admin may set them.
+        const tags = req.user && Array.isArray(req.body.tags)
+            ? (req.body.tags as unknown[]).filter((t): t is string => typeof t === 'string').map((t) => t.slice(0, 50))
+            : [];
+
+        // ━━━ Honeypot: bots fill the hidden "website" field; humans never see it.
+        // Pretend success without creating anything (don't tip the bot off).
+        if (str(req.body.website, 200)) {
+            return res.status(201).json({ success: true, message: 'Lead received successfully' });
+        }
 
         // Validation
         if (!name || !phone) {
@@ -66,6 +125,24 @@ router.post('/', createLeadLimiter, async (req: Request, res: Response, next: Ne
 
         // ━━━ Normalize phone BEFORE lookup ━━━
         const normalizedPhone = normalizePhoneNumber(phone);
+        if (normalizedPhone.length < 7 || normalizedPhone.length > 15) {
+            throw new AppError('Invalid phone number', 400);
+        }
+
+        // ━━━ Idempotent replay: this exact submission was already processed ━━━
+        if (submissionId) {
+            const processed = await Lead
+                .findOne({ $or: [{ submissionId }, { lastSubmissionId: submissionId }] })
+                .select('_id')
+                .lean();
+            if (processed) {
+                return res.status(201).json({
+                    success: true,
+                    message: 'Lead received successfully',
+                    leadId: processed._id,
+                });
+            }
+        }
 
         // ━━━ CRM Upsert Logic ━━━
         let lead = await Lead.findOne({ phone: normalizedPhone, isDeleted: false });
@@ -73,12 +150,36 @@ router.post('/', createLeadLimiter, async (req: Request, res: Response, next: Ne
         const timestamp = new Date();
         const newMessage = {
             content: message || '',
-            source: source || 'website',
+            source,
             createdAt: timestamp,
+        };
+        // Attribution captured in the timeline too, so it survives later edits.
+        const attribution = {
+            ...(locale && { locale }),
+            ...(sourceDomain && { sourceDomain }),
+            ...(sourcePage && { sourcePage }),
+            ...(utm && { utm }),
         };
 
         if (lead) {
             // ══════ UPDATE EXISTING LEAD ══════
+            // Atomically claim this submissionId: of two concurrent identical
+            // requests only one matches the $ne filter; the loser replays the
+            // success response instead of double-incrementing contactCount and
+            // double-notifying. Single-document op → safe across instances.
+            if (submissionId) {
+                const claimed = await Lead.findOneAndUpdate(
+                    { _id: lead._id, lastSubmissionId: { $ne: submissionId } },
+                    { $set: { lastSubmissionId: submissionId } },
+                ).select('_id').lean();
+                if (!claimed) {
+                    return res.status(201).json({
+                        success: true,
+                        message: 'Lead received successfully',
+                        leadId: lead._id,
+                    });
+                }
+            }
             console.log(`🔄 Updating existing lead: ${lead._id} (contact #${lead.contactCount + 1})`);
 
             // Increment contact count
@@ -93,7 +194,7 @@ router.post('/', createLeadLimiter, async (req: Request, res: Response, next: Ne
             lead.timeline.push({
                 type: 'lead_updated',
                 at: timestamp,
-                meta: { source: source || 'website', contactCount: lead.contactCount },
+                meta: { source, contactCount: lead.contactCount, ...attribution },
             });
 
             // Re-engagement logic
@@ -112,32 +213,69 @@ router.post('/', createLeadLimiter, async (req: Request, res: Response, next: Ne
             if (name) lead.name = name;
             if (email) lead.email = email;
             if (source) lead.source = source;
+            if (locale) lead.locale = locale;
+            if (sourceDomain) lead.sourceDomain = sourceDomain;
+            if (sourcePage) lead.sourcePage = sourcePage;
+            if (utm) lead.utm = utm;
 
-            await lead.save();
+            try {
+                await lead.save();
+            } catch (saveErr) {
+                // The claim above already recorded this submissionId; if the
+                // update itself failed, release the claim so an honest retry
+                // of the same attempt re-applies instead of being replayed as
+                // a success that never happened.
+                if (submissionId) {
+                    await Lead.updateOne(
+                        { _id: lead._id, lastSubmissionId: submissionId },
+                        { $unset: { lastSubmissionId: '' } },
+                    ).catch(() => { /* best effort — worst case is a replayed retry */ });
+                }
+                throw saveErr;
+            }
 
         } else {
             // ══════ CREATE NEW LEAD ══════
-            console.log(`✨ Creating new lead for phone: ${normalizedPhone}`);
-
-            lead = await Lead.create({
-                name,
-                phone: normalizedPhone,
-                email,
-                message: message || '',
-                source: source || 'website',
-                tags: tags || [],
-                status: 'new',
-                contactCount: 1,
-                messages: message ? [newMessage] : [],
-                timeline: [{
-                    type: 'lead_created',
-                    at: timestamp,
-                    meta: { source: source || 'website' },
-                }],
-                notes: [],
-                lastContactAt: timestamp,
-                isDeleted: false,
-            });
+            try {
+                lead = await Lead.create({
+                    name,
+                    phone: normalizedPhone,
+                    email: email || undefined,
+                    message: message || '',
+                    source,
+                    ...attribution,
+                    ...(submissionId && { submissionId, lastSubmissionId: submissionId }),
+                    tags,
+                    status: 'new',
+                    contactCount: 1,
+                    messages: message ? [newMessage] : [],
+                    timeline: [{
+                        type: 'lead_created',
+                        at: timestamp,
+                        meta: { source, ...attribution },
+                    }],
+                    notes: [],
+                    lastContactAt: timestamp,
+                    isDeleted: false,
+                });
+            } catch (createErr) {
+                // A concurrent request with the same submissionId won the
+                // unique-sparse index race — replay its success instead of
+                // failing, and send no second notification.
+                const isDup = (createErr as { code?: number })?.code === 11000;
+                if (isDup && submissionId) {
+                    const winner = await Lead.findOne({ submissionId }).select('_id').lean();
+                    if (winner) {
+                        return res.status(201).json({
+                            success: true,
+                            message: 'Lead received successfully',
+                            leadId: winner._id,
+                        });
+                    }
+                }
+                throw createErr;
+            }
+            console.log(`✨ Created new lead: ${lead._id}`);
 
             // Audit Log (Only for creation)
             if (req.user) {
@@ -151,7 +289,8 @@ router.post('/', createLeadLimiter, async (req: Request, res: Response, next: Ne
             }
         }
 
-        console.log(`📬 Lead processed: ${name} - ${normalizedPhone} (status=${lead.status}, count=${lead.contactCount})`);
+        // No PII in server logs — the lead id is enough to find the record.
+        console.log(`📬 Lead processed: ${lead._id} (status=${lead.status}, count=${lead.contactCount}, source=${source})`);
 
         // ━━━ WhatsApp Notification (Fire-and-forget) ━━━
         try {
@@ -162,7 +301,8 @@ router.post('/', createLeadLimiter, async (req: Request, res: Response, next: Ne
 Name: ${name}
 Phone: ${phone}
 Message: ${message || 'N/A'}
-Source: ${source || 'N/A'}
+Source: ${source}${sourceDomain ? ` (${sourceDomain}${sourcePage || ''})` : ''}${locale ? `
+Language: ${locale}` : ''}
 Count: ${lead.contactCount}
 Status: ${lead.status}`;
 
@@ -179,12 +319,22 @@ Status: ${lead.status}`;
             console.warn('⚠️ [WhatsApp] Logic crash (should not happen):', waError);
         }
 
-        // Return same shape as before for backward compatibility
-        res.status(201).json({
-            success: true,
-            message: 'Lead received successfully',
-            lead: lead,
-        });
+        // Public callers get only safe fields — the full lead document (timeline,
+        // notes, ownerId, …) is internal CRM data. Authenticated staff keep the
+        // original full-lead shape for backward compatibility.
+        if (req.user) {
+            res.status(201).json({
+                success: true,
+                message: 'Lead received successfully',
+                lead: lead,
+            });
+        } else {
+            res.status(201).json({
+                success: true,
+                message: 'Lead received successfully',
+                leadId: lead._id,
+            });
+        }
     } catch (error) {
         next(error);
     }

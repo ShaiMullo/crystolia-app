@@ -260,6 +260,9 @@
     "info": {
       "title": "פרטי הליד",
       "source": "מקור",
+      "language": "שפה",
+      "sourceDomain": "עמוד מקור",
+      "utm": "קמפיין (UTM)",
       "tags": "תגיות",
       "contactCount": "מספר פניות",
       "lastContact": "מועד יצירת קשר אחרון",

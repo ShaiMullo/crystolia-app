@@ -16,6 +16,7 @@ import { reconciliationStatus } from '../services/reconciliationService.js';
 import { getReplicaDiagnostics } from '../services/diagnosticsService.js';
 import { createBackupManifest, verifyBackupManifest, listBackupManifests } from '../services/backupService.js';
 import { runJobNow, JOB_DEFINITIONS } from '../jobs/scheduler.js';
+import { resetRateLimitStore } from '../middleware/rateLimit.js';
 
 const router = Router();
 router.use(protect);
@@ -129,6 +130,20 @@ router.post('/jobs/:key/run', async (req: Request, res: Response, next: NextFunc
         if (!result.ok && result.error === 'Unknown job') throw new AppError('Job not found', 404);
         await logAudit({ action: 'UPDATE', entity: 'ScheduledJob', entityId: req.params.key, req, details: { manualRun: true } });
         res.json({ success: true, data: result });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /rate-limit/reset — clear the in-memory rate-limit buckets (admin only).
+// Lets operational tooling (e.g. the smoke suite, which deliberately exhausts
+// the public-lead budget to prove the 429 path) restore a clean state without
+// restarting the backend.
+router.post('/rate-limit/reset', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        resetRateLimitStore();
+        await logAudit({ action: 'UPDATE', entity: 'System', entityId: 'rate-limit', req, details: { reset: true } });
+        res.json({ success: true, message: 'Rate-limit buckets cleared' });
     } catch (err) {
         next(err);
     }

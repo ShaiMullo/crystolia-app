@@ -46,6 +46,14 @@ export interface ILead extends Document {
     email?: string;
     message?: string;
     source?: string;
+    // Website attribution (public contact form) — all optional & additive.
+    locale?: string;
+    sourceDomain?: string;
+    sourcePage?: string;
+    utm?: Record<string, string>;
+    // Idempotent public submissions — see routes/leads.ts.
+    submissionId?: string;
+    lastSubmissionId?: string;
     status: LeadStatus;
     tags: string[];
     assignedTo?: string;
@@ -105,6 +113,46 @@ const LeadSchema = new Schema<ILead>(
         source: {
             type: String,
             default: 'website',
+            index: true,
+        },
+        // Website attribution (public contact form). Optional/additive — the
+        // route whitelists and caps these before they reach the model.
+        locale: {
+            type: String,
+            trim: true,
+            maxlength: [8, 'Locale cannot exceed 8 characters'],
+        },
+        sourceDomain: {
+            type: String,
+            trim: true,
+            maxlength: [100, 'Source domain cannot exceed 100 characters'],
+        },
+        sourcePage: {
+            type: String,
+            trim: true,
+            maxlength: [300, 'Source page cannot exceed 300 characters'],
+        },
+        utm: {
+            type: Schema.Types.Mixed,
+        },
+        // Idempotency key of the submission that CREATED this lead. Unique +
+        // sparse: only documents that have the field participate in the index,
+        // so existing data can never conflict and no migration is needed —
+        // while two concurrent creates with the same key still collide (the
+        // route turns that E11000 into an idempotent success replay).
+        submissionId: {
+            type: String,
+            trim: true,
+            unique: true,
+            sparse: true,
+        },
+        // Idempotency key of the last submission APPLIED to this lead —
+        // atomically claimed on the update path so a duplicated request can't
+        // double-increment contactCount or double-notify. Indexed: the replay
+        // pre-check queries it on every public POST.
+        lastSubmissionId: {
+            type: String,
+            trim: true,
             index: true,
         },
         status: {
