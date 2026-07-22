@@ -1,451 +1,429 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
-import { useAuth } from "../context/AuthContext";
 import { useRouter } from "next/navigation";
+import { ArrowLeft, ArrowRight, Building2, Clock3, Loader2, Mail, ShieldCheck } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+
+type AuthLocale = "he" | "en" | "ru";
 
 interface AuthPageProps {
     locale: string;
 }
 
-export default function AuthPage({ locale }: AuthPageProps) {
+const COPY = {
+    he: {
+        login: "כניסה לאזור העסקים",
+        signup: "הרשמה לאזור העסקים",
+        contactName: "שם מלא של איש הקשר",
+        contactNamePlaceholder: "לדוגמה: ישראל ישראלי",
+        email: "אימייל",
+        password: "סיסמה",
+        confirmPassword: "אימות סיסמה",
+        companyName: "שם החברה",
+        companyPlaceholder: "שם החברה או העסק",
+        phone: "טלפון",
+        submitLogin: "כניסה",
+        submitSignup: "שליחת הרשמה לאישור",
+        loading: "שולח…",
+        or: "או",
+        continueWithGoogle: "המשך עם Google",
+        noAccount: "אין לך חשבון?",
+        hasAccount: "כבר נרשמת?",
+        signupNow: "הרשמה לעסקים",
+        loginNow: "כניסה לחשבון",
+        forgotPassword: "שכחת סיסמה?",
+        backToSite: "חזרה לאתר",
+        businessPortal: "אזור העסקים של Crystolia",
+        subtitle: "מבצעים הזמנות ועוקבים אחריהן במקום אחד",
+        passwordHint: "לפחות 8 תווים, אות גדולה ומספר",
+        required: "נא למלא את כל השדות.",
+        invalidPhone: "נא להזין מספר טלפון תקין.",
+        invalidPassword: "הסיסמה חייבת להכיל לפחות 8 תווים, אות גדולה ומספר.",
+        passwordMismatch: "הסיסמאות אינן תואמות.",
+        invalidCredentials: "האימייל או הסיסמה אינם נכונים.",
+        emailExists: "כבר קיימת הרשמה עם כתובת האימייל הזאת.",
+        genericError: "לא הצלחנו להשלים את הפעולה. נסו שוב בעוד רגע.",
+        pendingLoginError: "החשבון עדיין ממתין לאישור צוות קריסטוליה.",
+        pendingTitle: "ההרשמה התקבלה",
+        pendingBody: "שלחנו אליך מייל אישור קבלה. איש צוות מקריסטוליה יעבור על הפרטים ויאשר את החשבון.",
+        pendingBodyWithoutEmail: "איש צוות מקריסטוליה יעבור על הפרטים ויאשר את החשבון. בקשת ההרשמה נשמרה בהצלחה.",
+        pendingAccess: "עד לאישור, לא ניתן להתחבר או לבצע הזמנות. אין צורך להירשם שוב.",
+        pendingEmail: "נעדכן אתכם במייל ברגע שהחשבון יהיה מוכן.",
+        pendingEmailWithoutEmail: "צוות קריסטוליה יעדכן אתכם כשהחשבון יהיה מוכן.",
+        pendingBackToLogin: "חזרה למסך הכניסה",
+    },
+    en: {
+        login: "Business portal login",
+        signup: "Business portal registration",
+        contactName: "Contact full name",
+        contactNamePlaceholder: "For example: John Smith",
+        email: "Email",
+        password: "Password",
+        confirmPassword: "Confirm password",
+        companyName: "Company name",
+        companyPlaceholder: "Company or business name",
+        phone: "Phone",
+        submitLogin: "Sign in",
+        submitSignup: "Submit registration for approval",
+        loading: "Submitting…",
+        or: "or",
+        continueWithGoogle: "Continue with Google",
+        noAccount: "Don't have an account?",
+        hasAccount: "Already registered?",
+        signupNow: "Register your business",
+        loginNow: "Sign in",
+        forgotPassword: "Forgot password?",
+        backToSite: "Back to website",
+        businessPortal: "Crystolia Business Portal",
+        subtitle: "Place and track orders in one place",
+        passwordHint: "At least 8 characters, one uppercase letter and one number",
+        required: "Please complete all fields.",
+        invalidPhone: "Please enter a valid phone number.",
+        invalidPassword: "Password must contain at least 8 characters, one uppercase letter and one number.",
+        passwordMismatch: "Passwords do not match.",
+        invalidCredentials: "The email or password is incorrect.",
+        emailExists: "A registration with this email address already exists.",
+        genericError: "We couldn't complete the request. Please try again shortly.",
+        pendingLoginError: "This account is still awaiting approval by the Crystolia team.",
+        pendingTitle: "Registration received",
+        pendingBody: "We sent you a confirmation email. A member of the Crystolia team will review the details and approve the account.",
+        pendingBodyWithoutEmail: "A member of the Crystolia team will review the details and approve the account. Your registration request was saved successfully.",
+        pendingAccess: "Until approval, sign-in and ordering remain locked. There is no need to register again.",
+        pendingEmail: "We'll email you as soon as the account is ready.",
+        pendingEmailWithoutEmail: "The Crystolia team will update you when the account is ready.",
+        pendingBackToLogin: "Back to sign in",
+    },
+    ru: {
+        login: "Вход в бизнес-портал",
+        signup: "Регистрация в бизнес-портале",
+        contactName: "Имя контактного лица",
+        contactNamePlaceholder: "Например: Иван Иванов",
+        email: "Электронная почта",
+        password: "Пароль",
+        confirmPassword: "Подтвердите пароль",
+        companyName: "Название компании",
+        companyPlaceholder: "Название компании или бизнеса",
+        phone: "Телефон",
+        submitLogin: "Войти",
+        submitSignup: "Отправить регистрацию на проверку",
+        loading: "Отправка…",
+        or: "или",
+        continueWithGoogle: "Продолжить с Google",
+        noAccount: "Нет аккаунта?",
+        hasAccount: "Уже зарегистрированы?",
+        signupNow: "Зарегистрировать бизнес",
+        loginNow: "Войти",
+        forgotPassword: "Забыли пароль?",
+        backToSite: "Вернуться на сайт",
+        businessPortal: "Бизнес-портал Crystolia",
+        subtitle: "Оформляйте и отслеживайте заказы в одном месте",
+        passwordHint: "Не менее 8 символов, заглавная буква и цифра",
+        required: "Заполните все поля.",
+        invalidPhone: "Введите корректный номер телефона.",
+        invalidPassword: "Пароль должен содержать не менее 8 символов, заглавную букву и цифру.",
+        passwordMismatch: "Пароли не совпадают.",
+        invalidCredentials: "Неверный адрес электронной почты или пароль.",
+        emailExists: "Регистрация с этим адресом электронной почты уже существует.",
+        genericError: "Не удалось выполнить запрос. Повторите попытку позже.",
+        pendingLoginError: "Аккаунт ещё ожидает подтверждения командой Crystolia.",
+        pendingTitle: "Регистрация получена",
+        pendingBody: "Мы отправили вам подтверждение по электронной почте. Сотрудник Crystolia проверит данные и подтвердит аккаунт.",
+        pendingBodyWithoutEmail: "Сотрудник Crystolia проверит данные и подтвердит аккаунт. Ваша заявка на регистрацию успешно сохранена.",
+        pendingAccess: "До подтверждения вход и оформление заказов недоступны. Повторно регистрироваться не нужно.",
+        pendingEmail: "Мы сообщим по электронной почте, когда аккаунт будет готов.",
+        pendingEmailWithoutEmail: "Команда Crystolia сообщит вам, когда аккаунт будет готов.",
+        pendingBackToLogin: "Вернуться ко входу",
+    },
+} as const;
+
+function landingUrl(locale: AuthLocale): string {
+    if (locale === "he") return "https://crystolia.co.il/he";
+    if (locale === "ru") return "https://crystolia.ru/ru";
+    return "https://crystolia.com/en";
+}
+
+export default function AuthPage({ locale: rawLocale }: AuthPageProps) {
+    const locale: AuthLocale = rawLocale === "en" || rawLocale === "ru" ? rawLocale : "he";
+    const t = COPY[locale];
+    const isRTL = locale === "he";
     const [isLogin, setIsLogin] = useState(true);
+    const [registrationPending, setRegistrationPending] = useState(false);
+    const [registrationEmailSent, setRegistrationEmailSent] = useState(false);
+    const [pendingAddress, setPendingAddress] = useState("");
     const [formData, setFormData] = useState({
-        email: "",
-        password: "",
+        contactName: "",
         companyName: "",
+        email: "",
         phone: "",
+        password: "",
         confirmPassword: "",
     });
-    const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-    const { user } = useAuth();
+    const [status, setStatus] = useState<"idle" | "loading">("idle");
+    const [error, setError] = useState<string | null>(null);
+    const { user, login, register } = useAuth();
     const router = useRouter();
 
     useEffect(() => {
-        if (user) {
-            if (user.role === 'admin') {
-                router.push(`/${locale}/admin`);
-            } else {
-                router.push(`/${locale}/dashboard`);
-            }
-        }
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("mode") === "register") setIsLogin(false);
+        if (params.get("status") === "pending") setRegistrationPending(true);
+    }, []);
+
+    useEffect(() => {
+        if (!user) return;
+        router.replace(`/${locale}/dashboard`);
     }, [user, locale, router]);
 
-    const isRTL = locale === "he";
-
-    const translations = {
-        he: {
-            login: "כניסה לאזור לקוחות",
-            signup: "הרשמה לעסקים",
-            email: "אימייל",
-            password: "סיסמה",
-            confirmPassword: "אימות סיסמה",
-            companyName: "שם החברה",
-            phone: "טלפון",
-            submitLogin: "כניסה",
-            submitSignup: "הרשמה",
-            or: "או",
-            continueWith: "המשך עם",
-            google: "Google",
-            apple: "Apple",
-            noAccount: "אין לך חשבון?",
-            hasAccount: "יש לך חשבון?",
-            signupNow: "הירשם עכשיו",
-            loginNow: "התחבר עכשיו",
-            forgotPassword: "שכחת סיסמה?",
-            backToSite: "חזרה לאתר",
-            businessPortal: "אזור עסקים",
-            subtitle: "ניהול הזמנות וחשבוניות במקום אחד",
-        },
-        en: {
-            login: "Business Login",
-            signup: "Business Registration",
-            email: "Email",
-            password: "Password",
-            confirmPassword: "Confirm Password",
-            companyName: "Company Name",
-            phone: "Phone",
-            submitLogin: "Login",
-            submitSignup: "Sign Up",
-            or: "or",
-            continueWith: "Continue with",
-            google: "Google",
-            apple: "Apple",
-            noAccount: "Don't have an account?",
-            hasAccount: "Already have an account?",
-            signupNow: "Sign up now",
-            loginNow: "Login now",
-            forgotPassword: "Forgot password?",
-            backToSite: "Back to site",
-            businessPortal: "Business Portal",
-            subtitle: "Manage orders and invoices in one place",
-        },
-        ru: {
-            login: "Вход для бизнеса",
-            signup: "Регистрация бизнеса",
-            email: "Электронная почта",
-            password: "Пароль",
-            confirmPassword: "Подтвердите пароль",
-            companyName: "Название компании",
-            phone: "Телефон",
-            submitLogin: "Войти",
-            submitSignup: "Зарегистрироваться",
-            or: "или",
-            continueWith: "Продолжить с",
-            google: "Google",
-            apple: "Apple",
-            noAccount: "Нет аккаунта?",
-            hasAccount: "Уже есть аккаунт?",
-            signupNow: "Зарегистрируйтесь",
-            loginNow: "Войти",
-            forgotPassword: "Забыли пароль?",
-            backToSite: "Назад на сайт",
-            businessPortal: "Бизнес-портал",
-            subtitle: "Управление заказами и счетами в одном месте",
-        },
+    const updateField = (field: keyof typeof formData, value: string) => {
+        setFormData((current) => ({ ...current, [field]: value }));
+        if (error) setError(null);
     };
 
-    const t = translations[locale as keyof typeof translations] || translations.he;
-
-    const [error, setError] = useState<string | null>(null);
-    const { login, register } = useAuth();
-    // Use useRouter to get access to navigation
-    // Note: router is already used inside AuthContext but we might need it for specific error handling
-
-    // Parse names from single company/contact field or ask user to split
-    // For now we will use simple defaults or update the form to match backend DTO
-
-    // Helper to validate inputs
-    const validateForm = () => {
-        if (!formData.email || !formData.password) return false;
-        if (!isLogin) {
-            if (formData.password !== formData.confirmPassword) {
-                setError(isRTL ? "הסיסמאות אינן תואמות" : "Passwords do not match");
-                return false;
-            }
-            if (!formData.companyName || !formData.phone) return false;
+    const validate = (): boolean => {
+        const email = formData.email.trim();
+        const password = formData.password;
+        if (!email || !password) {
+            setError(t.required);
+            return false;
+        }
+        if (isLogin) return true;
+        if (!formData.contactName.trim() || !formData.companyName.trim() || !formData.phone.trim() || !formData.confirmPassword) {
+            setError(t.required);
+            return false;
+        }
+        const phoneDigits = formData.phone.replace(/\D/g, "");
+        if (phoneDigits.length < 9 || phoneDigits.length > 15) {
+            setError(t.invalidPhone);
+            return false;
+        }
+        if (password.length < 8 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+            setError(t.invalidPassword);
+            return false;
+        }
+        if (password !== formData.confirmPassword) {
+            setError(t.passwordMismatch);
+            return false;
         }
         return true;
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
         setError(null);
-
-        if (!validateForm()) return;
-
+        if (!validate()) return;
         setStatus("loading");
 
         try {
             if (isLogin) {
-                await login({
-                    email: formData.email,
-                    password: formData.password
-                });
-            } else {
-                // Split company name to first/last name for now as placeholder
-                // In real app, we should probably have separate fields
-                const nameParts = formData.companyName.split(' ');
-                const firstName = nameParts[0] || 'Business';
-                const lastName = nameParts.slice(1).join(' ') || 'User';
-
-                await register({
-                    email: formData.email,
-                    password: formData.password,
-                    firstName: firstName,
-                    lastName: lastName,
-                    phone: formData.phone,
-                    role: 'customer', // Default role
-                    companyName: formData.companyName
-                });
-            }
-            setStatus("success");
-            // Redirect happens in AuthContext
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic axios error shape; preserved as-is to avoid changing error handling
-        } catch (err: any) {
-            console.error('Full Auth Error:', err);
-            setStatus("error");
-
-            // Constructs a detailed debug message
-            let errorMessage = "Debug Error: ";
-            if (err.response) {
-                // Server responded
-                errorMessage += `Status ${err.response.status} | Data: ${JSON.stringify(err.response.data)}`;
-            } else if (err.request) {
-                // Request made but no response
-                errorMessage += `No Response (Network/CORS) | ${err.message}`;
-            } else {
-                // Setup error
-                errorMessage += `Setup Error | ${err.message}`;
+                await login({ email: formData.email.trim(), password: formData.password });
+                return;
             }
 
-            setError(errorMessage);
+            const registration = await register({
+                name: formData.contactName.trim(),
+                companyName: formData.companyName.trim(),
+                email: formData.email.trim(),
+                phone: formData.phone.trim(),
+                password: formData.password,
+                locale,
+            });
+            setPendingAddress(formData.email.trim());
+            setRegistrationEmailSent(registration.emailNotificationSent);
+            setRegistrationPending(true);
+            setFormData((current) => ({ ...current, password: "", confirmPassword: "" }));
+        } catch (caught: unknown) {
+            const serverMessage = (caught as { response?: { data?: { error?: string } } }).response?.data?.error || "";
+            if (serverMessage === "Account is awaiting approval") setError(t.pendingLoginError);
+            else if (serverMessage === "Incorrect email or password") setError(t.invalidCredentials);
+            else if (serverMessage === "Email already exists" || serverMessage.includes("Duplicate value")) setError(t.emailExists);
+            else setError(t.genericError);
         } finally {
-            if (status !== "success") setStatus("idle");
+            setStatus("idle");
         }
     };
 
-    const handleSocialLogin = (provider: string) => {
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-        if (provider === 'google') {
-            window.location.href = `${API_URL}/auth/google`;
-        } else if (provider === 'apple') {
-            // Apple login flow usually requires a specific setup with frontend JS or redirect
-            // For this MVP we redirect to backend which might just show "Not Implemented"
-            window.location.href = `${API_URL}/auth/apple`;
-        }
+    const switchMode = (loginMode: boolean) => {
+        setIsLogin(loginMode);
+        setRegistrationPending(false);
+        setRegistrationEmailSent(false);
+        setError(null);
+        const nextUrl = `/${locale}/auth?mode=${loginMode ? "login" : "register"}`;
+        window.history.replaceState(null, "", nextUrl);
     };
 
     return (
-        <div className={`min-h-screen flex ${isRTL ? "rtl" : "ltr"}`}>
-            {/* Left Side - Image/Branding */}
-            <div className="hidden lg:flex lg:w-1/2 relative bg-gradient-to-br from-[#F5C542] to-[#d4a83a]">
-                {/* Background Image */}
-                <div className="absolute inset-0">
-                    <Image
-                        src="/sunflower-bg.jpg"
-                        alt="Sunflower field"
-                        fill
-                        className="object-cover opacity-30"
-                    />
-                </div>
-
-                {/* Content */}
-                <div className="relative z-10 flex flex-col justify-center items-center w-full p-12 text-white">
-                    {/* Logo */}
-                    <div className="flex items-center gap-4 mb-8">
-                        <div className="relative w-16 h-16">
-                            <Image
-                                src="/crystolia-logo.png"
-                                alt="Crystolia"
-                                fill
-                                className="object-contain"
-                            />
+        <main className="min-h-screen bg-white" dir={isRTL ? "rtl" : "ltr"}>
+            <div className="min-h-screen lg:grid lg:grid-cols-2">
+                <section className="relative hidden overflow-hidden bg-gradient-to-br from-[#8b6508] via-[#d4a83a] to-[#f5c542] lg:flex lg:items-center lg:justify-center">
+                    <Image src="/sunflower-bg.jpg" alt="" fill priority className="object-cover opacity-25" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/10 to-[#3D2914]/35" />
+                    <div className="relative z-10 max-w-lg px-12 text-center text-white">
+                        <div className="mx-auto mb-8 flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-white shadow-2xl">
+                            <Image src="/crystolia-logo.png" alt="Crystolia" width={80} height={80} className="h-full w-full object-cover" />
                         </div>
-                        <span className="text-4xl font-light tracking-tight">Crystolia</span>
-                    </div>
-
-                    <h2 className="text-3xl font-extralight text-center mb-4">
-                        {t.businessPortal}
-                    </h2>
-                    <p className="text-lg font-light text-white/80 text-center max-w-md">
-                        {t.subtitle}
-                    </p>
-
-                    {/* Decorative Elements */}
-                    <div className="absolute bottom-12 left-12">
-                        <div className="text-6xl">🌻</div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Right Side - Form */}
-            <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 sm:p-12 bg-white relative">
-                {/* Mobile Logo */}
-                <div className="lg:hidden flex items-center gap-3 mb-8">
-                    <div className="relative w-10 h-10">
-                        <Image
-                            src="/crystolia-logo.png"
-                            alt="Crystolia"
-                            fill
-                            className="object-contain"
-                        />
-                    </div>
-                    <span className="text-2xl font-light tracking-tight text-gray-900">
-                        Crystolia
-                    </span>
-                </div>
-
-                {/* Back to Site Link */}
-                <Link
-                    href={`/${locale}`}
-                    className="absolute top-6 right-6 text-sm font-light text-gray-500 hover:text-[#F5C542] transition-colors flex items-center gap-2"
-                >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                    </svg>
-                    {t.backToSite}
-                </Link>
-
-                <div className="w-full max-w-md">
-                    {/* Title */}
-                    <h1 className="text-3xl md:text-4xl font-extralight tracking-tight text-gray-900 mb-8 text-center">
-                        {isLogin ? t.login : t.signup}
-                    </h1>
-
-                    {/* Social Login Buttons */}
-                    <div className="space-y-3 mb-8">
-                        {/* Google Button */}
-                        <button
-                            onClick={() => handleSocialLogin("google")}
-                            className="w-full px-6 py-3.5 bg-white border border-gray-200 rounded-xl font-light text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all duration-300 flex items-center justify-center gap-3 shadow-sm hover:shadow"
-                        >
-                            <svg className="w-5 h-5" viewBox="0 0 24 24">
-                                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                            </svg>
-                            {t.continueWith} {t.google}
-                        </button>
-                    </div>
-
-                    {/* Divider */}
-                    <div className="relative mb-8">
-                        <div className="absolute inset-0 flex items-center">
-                            <div className="w-full border-t border-gray-200"></div>
-                        </div>
-                        <div className="relative flex justify-center text-sm">
-                            <span className="px-4 bg-white text-gray-500 font-light">{t.or}</span>
-                        </div>
-                    </div>
-
-                    {/* Error Message */}
-                    {error && (
-                        <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-sm font-light flex flex-col gap-2">
-                            <div className="flex items-center gap-2">
-                                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <span className="font-bold">{error}</span>
+                        <p className="mb-4 text-sm font-semibold uppercase tracking-[0.22em] text-white/80">Crystolia</p>
+                        <h2 className="text-4xl font-light tracking-tight">{t.businessPortal}</h2>
+                        <p className="mx-auto mt-5 max-w-md text-lg leading-8 text-white/90">{t.subtitle}</p>
+                        <div className="mx-auto mt-10 grid max-w-sm grid-cols-2 gap-3 text-sm">
+                            <div className="rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur-sm">
+                                <Building2 className="mx-auto mb-2" aria-hidden="true" />
+                                {t.companyName}
                             </div>
-                            <div className="text-xs font-mono text-gray-500 mt-2 bg-gray-100 p-2 rounded">
-                                <p><strong>Debug Info:</strong></p>
-                                <p>API URL: {process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'}</p>
-                                <p>Time: {new Date().toISOString()}</p>
+                            <div className="rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur-sm">
+                                <ShieldCheck className="mx-auto mb-2" aria-hidden="true" />
+                                {isLogin ? t.submitLogin : t.submitSignup}
                             </div>
                         </div>
-                    )}
+                    </div>
+                </section>
 
-                    {/* Form */}
-                    <form onSubmit={handleSubmit} className="space-y-5">
-                        {/* Company Name (Signup only) */}
-                        {!isLogin && (
-                            <div>
-                                <label className="block text-sm font-light text-gray-700 mb-2">
-                                    {t.companyName}
-                                </label>
-                                <input
-                                    type="text"
-                                    value={formData.companyName}
-                                    onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                                    required
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:border-[#F5C542] focus:ring-2 focus:ring-[#F5C542]/20 outline-none transition-all duration-300 font-light"
-                                    placeholder="שם החברה / העסק"
-                                />
-                            </div>
-                        )}
+                <section className="relative flex min-h-screen items-center justify-center px-5 py-24 sm:px-10">
+                    <a
+                        href={landingUrl(locale)}
+                        className="absolute top-6 inline-flex min-h-11 items-center gap-2 rounded-full px-3 text-sm font-medium text-slate-600 transition-colors duration-200 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4a83a] start-5 sm:start-8"
+                    >
+                        {isRTL ? <ArrowRight size={18} aria-hidden="true" /> : <ArrowLeft size={18} aria-hidden="true" />}
+                        {t.backToSite}
+                    </a>
 
-                        {/* Email */}
-                        <div>
-                            <label className="block text-sm font-light text-gray-700 mb-2">
-                                {t.email}
-                            </label>
-                            <input
-                                type="email"
-                                value={formData.email}
-                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                required
-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:border-[#F5C542] focus:ring-2 focus:ring-[#F5C542]/20 outline-none transition-all duration-300 font-light"
-                                placeholder="example@company.com"
-                            />
+                    <div className="w-full max-w-md">
+                        <div className="mb-8 flex items-center justify-center gap-3 lg:hidden">
+                            <Image src="/crystolia-logo.png" alt="Crystolia" width={48} height={48} className="rounded-full" />
+                            <span className="text-2xl font-light tracking-tight text-slate-900">Crystolia</span>
                         </div>
 
-                        {/* Phone (Signup only) */}
-                        {!isLogin && (
-                            <div>
-                                <label className="block text-sm font-light text-gray-700 mb-2">
-                                    {t.phone}
-                                </label>
-                                <input
-                                    type="tel"
-                                    value={formData.phone}
-                                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                    required
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:border-[#F5C542] focus:ring-2 focus:ring-[#F5C542]/20 outline-none transition-all duration-300 font-light"
-                                    placeholder="05X-XXX-XXXX"
-                                />
-                            </div>
-                        )}
-
-                        {/* Password */}
-                        <div>
-                            <label className="block text-sm font-light text-gray-700 mb-2">
-                                {t.password}
-                            </label>
-                            <input
-                                type="password"
-                                value={formData.password}
-                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                required
-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:border-[#F5C542] focus:ring-2 focus:ring-[#F5C542]/20 outline-none transition-all duration-300 font-light"
-                                placeholder="••••••••"
-                            />
-                        </div>
-
-                        {/* Confirm Password (Signup only) */}
-                        {!isLogin && (
-                            <div>
-                                <label className="block text-sm font-light text-gray-700 mb-2">
-                                    {t.confirmPassword}
-                                </label>
-                                <input
-                                    type="password"
-                                    value={formData.confirmPassword}
-                                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                                    required
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:border-[#F5C542] focus:ring-2 focus:ring-[#F5C542]/20 outline-none transition-all duration-300 font-light"
-                                    placeholder="••••••••"
-                                />
-                            </div>
-                        )}
-
-                        {/* Forgot Password (Login only) */}
-                        {isLogin && (
-                            <div className="text-right">
+                        {registrationPending ? (
+                            <div className="rounded-3xl border border-amber-200 bg-amber-50/70 p-7 text-center shadow-sm sm:p-9" role="status">
+                                <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#F5C542]/25 text-[#8b6508]">
+                                    <Clock3 size={30} aria-hidden="true" />
+                                </span>
+                                <h1 className="mt-6 text-3xl font-semibold tracking-tight text-slate-900">{t.pendingTitle}</h1>
+                                <p className="mt-4 text-base leading-7 text-slate-700">
+                                    {registrationEmailSent ? t.pendingBody : t.pendingBodyWithoutEmail}
+                                </p>
+                                {pendingAddress && (
+                                    <p className="mt-4 inline-flex max-w-full items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm">
+                                        <Mail size={16} aria-hidden="true" />
+                                        <span className="truncate" dir="ltr">{pendingAddress}</span>
+                                    </p>
+                                )}
+                                <p className="mt-5 text-sm leading-6 text-slate-600">{t.pendingAccess}</p>
+                                <p className="mt-2 text-sm font-medium text-[#8b6508]">
+                                    {registrationEmailSent ? t.pendingEmail : t.pendingEmailWithoutEmail}
+                                </p>
                                 <button
                                     type="button"
-                                    className="text-sm font-light text-[#F5C542] hover:text-[#d4a83a] transition-colors"
+                                    onClick={() => switchMode(true)}
+                                    className="mt-7 min-h-12 w-full cursor-pointer rounded-full border border-[#d4a83a] bg-white px-6 py-3 font-semibold text-[#7c5907] transition-colors duration-200 hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4a83a] focus-visible:ring-offset-2"
                                 >
-                                    {t.forgotPassword}
+                                    {t.pendingBackToLogin}
                                 </button>
                             </div>
+                        ) : (
+                            <>
+                                <div className="mb-8 text-center">
+                                    <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+                                        {isLogin ? t.login : t.signup}
+                                    </h1>
+                                    <p className="mt-3 text-slate-600">{t.subtitle}</p>
+                                </div>
+
+                                {isLogin && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => { window.location.href = "/api/auth/google"; }}
+                                            className="flex min-h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-5 py-3 font-medium text-slate-700 shadow-sm transition-colors duration-200 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4a83a]"
+                                        >
+                                            <span aria-hidden="true" className="font-bold text-[#4285F4]">G</span>
+                                            {t.continueWithGoogle}
+                                        </button>
+                                        <div className="relative my-7">
+                                            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200" /></div>
+                                            <div className="relative flex justify-center text-sm"><span className="bg-white px-4 text-slate-500">{t.or}</span></div>
+                                        </div>
+                                    </>
+                                )}
+
+                                {error && (
+                                    <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800" role="alert">
+                                        {error}
+                                    </div>
+                                )}
+
+                                <form onSubmit={handleSubmit} className="space-y-5">
+                                    {!isLogin && (
+                                        <>
+                                            <Field id="contactName" label={t.contactName}>
+                                                <input id="contactName" name="name" autoComplete="name" maxLength={120} required value={formData.contactName} onChange={(e) => updateField("contactName", e.target.value)} placeholder={t.contactNamePlaceholder} className="field-input" />
+                                            </Field>
+                                            <Field id="companyName" label={t.companyName}>
+                                                <input id="companyName" name="organization" autoComplete="organization" maxLength={160} required value={formData.companyName} onChange={(e) => updateField("companyName", e.target.value)} placeholder={t.companyPlaceholder} className="field-input" />
+                                            </Field>
+                                        </>
+                                    )}
+
+                                    <Field id="email" label={t.email}>
+                                        <input id="email" name="email" type="email" inputMode="email" autoComplete="email" dir="ltr" maxLength={254} required value={formData.email} onChange={(e) => updateField("email", e.target.value)} placeholder="name@company.com" className="field-input" />
+                                    </Field>
+
+                                    {!isLogin && (
+                                        <Field id="phone" label={t.phone}>
+                                            <input id="phone" name="tel" type="tel" inputMode="tel" autoComplete="tel" dir="ltr" maxLength={32} required value={formData.phone} onChange={(e) => updateField("phone", e.target.value)} placeholder="05X-XXX-XXXX" className="field-input" />
+                                        </Field>
+                                    )}
+
+                                    <Field id="password" label={t.password} hint={!isLogin ? t.passwordHint : undefined}>
+                                        <input id="password" name="password" type="password" autoComplete={isLogin ? "current-password" : "new-password"} minLength={8} required value={formData.password} onChange={(e) => updateField("password", e.target.value)} placeholder="••••••••" className="field-input" />
+                                    </Field>
+
+                                    {!isLogin && (
+                                        <Field id="confirmPassword" label={t.confirmPassword}>
+                                            <input id="confirmPassword" name="confirmPassword" type="password" autoComplete="new-password" minLength={8} required value={formData.confirmPassword} onChange={(e) => updateField("confirmPassword", e.target.value)} placeholder="••••••••" className="field-input" />
+                                        </Field>
+                                    )}
+
+                                    {isLogin && (
+                                        <div className="text-end">
+                                            <button type="button" className="min-h-11 cursor-pointer rounded-lg px-2 text-sm font-medium text-[#8b6508] transition-colors hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4a83a]">
+                                                {t.forgotPassword}
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    <button
+                                        type="submit"
+                                        disabled={status === "loading"}
+                                        className="flex min-h-14 w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[#F5C542] px-8 py-4 text-base font-semibold text-[#3D2914] shadow-lg shadow-[#F5C542]/25 transition-colors duration-200 hover:bg-[#e5b832] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b6508] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                        {status === "loading" && <Loader2 className="animate-spin" size={20} aria-hidden="true" />}
+                                        {status === "loading" ? t.loading : isLogin ? t.submitLogin : t.submitSignup}
+                                    </button>
+                                </form>
+
+                                <p className="mt-8 text-center text-sm text-slate-600">
+                                    {isLogin ? t.noAccount : t.hasAccount}{" "}
+                                    <button type="button" onClick={() => switchMode(!isLogin)} className="min-h-11 cursor-pointer rounded-lg px-2 font-semibold text-[#8b6508] transition-colors hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4a83a]">
+                                        {isLogin ? t.signupNow : t.loginNow}
+                                    </button>
+                                </p>
+                            </>
                         )}
-
-                        {/* Submit Button */}
-                        <button
-                            type="submit"
-                            disabled={status === "loading"}
-                            className="w-full px-8 py-4 bg-[#F5C542] text-white rounded-full font-light text-base tracking-wide hover:bg-[#d4a83a] transition-all duration-300 hover:scale-[1.02] active:scale-98 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed mt-6"
-                        >
-                            {status === "loading" ? (
-                                <span className="flex items-center justify-center gap-2">
-                                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                    </svg>
-                                    Loading...
-                                </span>
-                            ) : (
-                                isLogin ? t.submitLogin : t.submitSignup
-                            )}
-                        </button>
-                    </form>
-
-                    {/* Toggle Login/Signup */}
-                    <p className="mt-8 text-center text-sm font-light text-gray-600">
-                        {isLogin ? t.noAccount : t.hasAccount}{" "}
-                        <button
-                            onClick={() => setIsLogin(!isLogin)}
-                            className="text-[#F5C542] hover:text-[#d4a83a] font-medium transition-colors"
-                        >
-                            {isLogin ? t.signupNow : t.loginNow}
-                        </button>
-                    </p>
-                </div>
+                    </div>
+                </section>
             </div>
+        </main>
+    );
+}
+
+function Field({ id, label, hint, children }: { id: string; label: string; hint?: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <label htmlFor={id} className="mb-2 block text-sm font-medium text-slate-700">{label}</label>
+            {children}
+            {hint && <p className="mt-2 text-xs leading-5 text-slate-500">{hint}</p>}
         </div>
     );
 }

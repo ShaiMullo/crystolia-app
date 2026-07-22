@@ -26,6 +26,10 @@ export interface IUser extends Document {
     isCompanyOwner: boolean;
 
     isActive: boolean;
+    registrationStatus: 'pending' | 'approved';
+    preferredLocale: 'he' | 'en' | 'ru';
+    approvedAt?: Date;
+    approvedBy?: mongoose.Types.ObjectId;
     isDeleted: boolean;
     deletedAt?: Date;
     mustChangePassword: boolean;
@@ -123,6 +127,27 @@ const UserSchema = new Schema<IUser>(
         isActive: {
             type: Boolean,
             default: true,
+        },
+        // Existing/admin-created users remain approved by default. Public
+        // business registrations explicitly override this to "pending" and
+        // stay inactive until an administrator approves them.
+        registrationStatus: {
+            type: String,
+            enum: ['pending', 'approved'],
+            default: 'approved',
+            index: true,
+        },
+        preferredLocale: {
+            type: String,
+            enum: ['he', 'en', 'ru'],
+            default: 'he',
+        },
+        approvedAt: {
+            type: Date,
+        },
+        approvedBy: {
+            type: Schema.Types.ObjectId,
+            ref: 'User',
         },
         // Soft delete — records are excluded from listings instead of removed,
         // preserving audit history and referential integrity.

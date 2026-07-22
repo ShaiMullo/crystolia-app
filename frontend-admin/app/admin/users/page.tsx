@@ -26,7 +26,7 @@ import { UserFormModal, type UserFormMode } from "@/components/users/UserFormMod
 import { ResetPasswordModal } from "@/components/users/ResetPasswordModal";
 
 type TabId = Extract<UserRole, "admin" | "agent" | "customer">;
-type StatusFilter = "" | "active" | "inactive";
+type StatusFilter = "" | "active" | "inactive" | "pending";
 
 const LIMIT = 25;
 
@@ -193,7 +193,11 @@ export default function UsersPage() {
         } else {
             run({
                 request: () => updateUser(user._id, { isActive: !user.isActive }),
-                successMessage: user.isActive ? t("users.toasts.deactivated") : t("users.toasts.activated"),
+                successMessage: user.registrationStatus === "pending"
+                    ? t("users.toasts.approved")
+                    : user.isActive
+                        ? t("users.toasts.deactivated")
+                        : t("users.toasts.activated"),
                 errorMessage: t("users.toasts.actionFailed"),
                 onSuccess: () => {
                     closeConfirm();
@@ -213,6 +217,14 @@ export default function UsersPage() {
                 message: t("users.confirm.deleteMessage", { name }),
                 confirmLabel: t("common.delete"),
                 variant: "danger" as const,
+            };
+        }
+        if (confirmState.user.registrationStatus === "pending") {
+            return {
+                title: t("users.confirm.approveTitle"),
+                message: t("users.confirm.approveMessage", { name }),
+                confirmLabel: t("users.approve"),
+                variant: "success" as const,
             };
         }
         return confirmState.user.isActive
@@ -269,6 +281,7 @@ export default function UsersPage() {
                     <option value="">{t("users.filters.statusAll")}</option>
                     <option value="active">{t("users.filters.statusActive")}</option>
                     <option value="inactive">{t("users.filters.statusInactive")}</option>
+                    <option value="pending">{t("users.filters.statusPending")}</option>
                 </Select>
 
                 {tab === "customer" && companies.length > 0 && (

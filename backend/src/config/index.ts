@@ -32,6 +32,15 @@ interface Config {
         fromNumber: string;
     };
 
+    // Transactional email (Twilio SendGrid)
+    email: {
+        provider: 'sendgrid';
+        apiKey: string;
+        fromAddress: string;
+        fromName: string;
+        replyTo: string;
+    };
+
     // Green Invoice
     greenInvoice: {
         apiId: string;
@@ -110,6 +119,16 @@ export const config: Config = {
         fromNumber: getEnvOrDefault('TWILIO_PHONE_NUMBER', ''),
     },
 
+    // Twilio SendGrid uses a separate API key from Twilio Messaging. Email
+    // delivery is optional at boot so a provider outage never takes down auth.
+    email: {
+        provider: 'sendgrid',
+        apiKey: getEnvOrDefault('SENDGRID_API_KEY', ''),
+        fromAddress: getEnvOrDefault('EMAIL_FROM_ADDRESS', ''),
+        fromName: getEnvOrDefault('EMAIL_FROM_NAME', 'Crystolia'),
+        replyTo: getEnvOrDefault('EMAIL_REPLY_TO', getEnvOrDefault('EMAIL_FROM_ADDRESS', '')),
+    },
+
     // Green Invoice
     greenInvoice: {
         apiId: getEnvOrDefault('GREEN_INVOICE_API_ID', ''),
@@ -147,6 +166,7 @@ export const config: Config = {
     // credentials:true, so the exact-origin allow-list is required.
     corsOrigins: [...new Set([
         ...getEnvOrDefault('CORS_ALLOW_ORIGINS', 'http://localhost:3000,http://localhost:3001').split(',').map(s => s.trim()),
+        'https://business.crystolia.com',
         'https://crystolia.com',
         'https://www.crystolia.com',
         'https://crystolia.ru',

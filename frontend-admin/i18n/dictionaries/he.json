@@ -400,6 +400,7 @@
       "statusAll": "כל הסטטוסים",
       "statusActive": "פעיל",
       "statusInactive": "לא פעיל",
+      "statusPending": "ממתין לאישור",
       "company": "חברה",
       "companyAll": "כל החברות"
     },
@@ -409,6 +410,7 @@
       "resetPassword": "איפוס סיסמה",
       "deactivate": "השבתה",
       "activate": "הפעלה",
+      "approve": "אישור הרשמה",
       "comingSoon": "בקרוב",
       "delete": "מחיקה",
       "selfHint": "לא ניתן לבצע פעולה זו על החשבון שלך"
@@ -416,14 +418,17 @@
     "emptyFiltered": "לא נמצאו משתמשים התואמים לסינון.",
     "active": "פעיל",
     "inactive": "לא פעיל",
+    "pendingApproval": "ממתין לאישור",
     "empty": "אין עדיין משתמשים",
     "deactivate": "השבת",
     "activate": "הפעל",
+    "approve": "אשר הרשמה",
     "confirmToggle": "האם להשבית את המשתמש?",
     "confirmActivate": "האם להפעיל את המשתמש?",
     "toasts": {
       "deactivated": "המשתמש הושבת",
       "activated": "המשתמש הופעל",
+      "approved": "ההרשמה אושרה והחשבון הופעל",
       "actionFailed": "הפעולה נכשלה",
       "created": "המשתמש נוצר בהצלחה",
       "updated": "המשתמש עודכן בהצלחה",
@@ -452,7 +457,9 @@
       "deactivateTitle": "השבתת משתמש",
       "deactivateMessage": "להשבית את {name}? המשתמש ינותק ולא יוכל להתחבר עד להפעלה מחדש.",
       "activateTitle": "הפעלת משתמש",
-      "activateMessage": "להפעיל מחדש את {name}? המשתמש יוכל להתחבר שוב."
+      "activateMessage": "להפעיל מחדש את {name}? המשתמש יוכל להתחבר שוב.",
+      "approveTitle": "אישור הרשמה עסקית",
+      "approveMessage": "לאשר את ההרשמה של {name}? החשבון יופעל והמערכת תנסה לשלוח ללקוח מייל עם קישור לכניסה."
     },
     "form": {
       "viewTitle": "פרטי משתמש: {label}",

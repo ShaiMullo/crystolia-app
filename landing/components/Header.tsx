@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import LanguageSwitcher from "./LanguageSwitcher";
 import Image from "next/image";
+import { Building2 } from "lucide-react";
 import type { Locale } from "../i18n/config";
 
 interface HeaderProps {
@@ -15,6 +16,7 @@ interface HeaderProps {
       about: string;
       faq: string;
       contact: string;
+      businessLogin: string;
     };
   };
 }
@@ -33,6 +35,7 @@ export default function Header({ locale, dict }: HeaderProps) {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [sunflowers, setSunflowers] = useState<Sunflower[]>([]);
   const isRTL = locale === "he";
+  const businessPortalUrl = (process.env.NEXT_PUBLIC_BUSINESS_PORTAL_URL || "https://business.crystolia.com").replace(/\/$/, "");
 
   useEffect(() => {
     const handleScroll = () => {
@@ -117,7 +120,7 @@ export default function Header({ locale, dict }: HeaderProps) {
           </button>
 
           {/* Navigation Links - Desktop */}
-          <div className="hidden md:flex items-center gap-10">
+          <div className="hidden md:flex items-center gap-6 lg:gap-10">
             {(["home", "products", "features", "about", "faq", "contact"] as const).map((key) => (
               <a
                 key={key}
@@ -133,8 +136,16 @@ export default function Header({ locale, dict }: HeaderProps) {
             ))}
           </div>
 
-          {/* Language Switcher */}
+          {/* Business portal + language switcher */}
           <div className="flex items-center gap-4">
+            <a
+              href={`${businessPortalUrl}/${locale}/auth`}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#F5C542] px-3 py-2.5 text-sm font-semibold text-[#3D2914] shadow-lg shadow-[#F5C542]/25 transition-colors duration-200 hover:bg-[#e5b832] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3D2914] focus-visible:ring-offset-2 sm:px-5"
+              aria-label={dict.nav.businessLogin}
+            >
+              <Building2 aria-hidden="true" size={17} />
+              <span className="hidden sm:inline">{dict.nav.businessLogin}</span>
+            </a>
             <LanguageSwitcher currentLocale={locale} />
           </div>
         </nav>

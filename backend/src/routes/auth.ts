@@ -7,11 +7,12 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import Company from '../models/Company.js';
 import { protect } from '../middleware/auth.js';
-import { AppError } from '../utils/validation.js';
+import { AppError, validate } from '../utils/validation.js';
 import { config } from '../config/index.js';
 import passport from 'passport';
 import { authLimiter } from '../middleware/rateLimiter.js';
 import { logAudit } from '../services/auditService.js';
+import { sendRegistrationPendingEmail, type EmailLocale } from '../services/emailService.js';
 
 const router = Router();
 
@@ -32,6 +33,13 @@ router.get(
     async (req: Request, res: Response) => {
         try {
             const user = req.user as any;
+
+            // New Google users also require manual approval. Do not create an
+            // auth cookie while the account is pending.
+            if (!user.isActive || user.registrationStatus === 'pending') {
+                res.redirect(`${config.frontendUrl}/en/auth?status=pending`);
+                return;
+            }
 
             // Check if user has company
             const hasCompany = !!user.company;
@@ -108,10 +116,29 @@ const createSendToken = (user: any, statusCode: number, res: Response) => {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 router.post('/register', authLimiter, async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { name, email, password, companyName, phone } = req.body;
+        const text = (value: unknown, max: number): string =>
+            typeof value === 'string' ? value.trim().slice(0, max) : '';
+        const name = text(req.body.name, 120);
+        const email = text(req.body.email, 254).toLowerCase();
+        const password = typeof req.body.password === 'string' ? req.body.password : '';
+        const companyName = text(req.body.companyName, 160);
+        const phone = text(req.body.phone, 32);
+        const locale: EmailLocale = req.body.locale === 'en' || req.body.locale === 'ru'
+            ? req.body.locale
+            : 'he';
 
-        if (!email || !password || !name || !companyName) {
-            return next(new AppError('Please provide name, email, password and company name', 400));
+        if (!email || !password || !name || !companyName || !phone) {
+            return next(new AppError('Please provide name, email, phone, password and company name', 400));
+        }
+        if (!validate.email(email)) {
+            return next(new AppError('Please provide a valid email address', 400));
+        }
+        const phoneDigits = phone.replace(/\D/g, '');
+        if (phoneDigits.length < 9 || phoneDigits.length > 15 || !/^[+0-9()\-.\s]+$/.test(phone)) {
+            return next(new AppError('Please provide a valid phone number', 400));
+        }
+        if (password.length < 8 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+            return next(new AppError('Password must contain at least 8 characters, one uppercase letter and one number', 400));
         }
 
         // 1. Check if user exists
@@ -134,8 +161,9 @@ router.post('/register', authLimiter, async (req: Request, res: Response, next: 
             // Create new company
             const newCompany = await Company.create({
                 name: companyName,
-                // Optional fields if provided
-                phone: phone || undefined,
+                phone,
+                email,
+                billingEmail: email,
             });
             companyId = newCompany._id;
             isOwner = true; // First user is owner
@@ -149,11 +177,38 @@ router.post('/register', authLimiter, async (req: Request, res: Response, next: 
             role: 'customer', // STRICT ENFORCEMENT
             company: companyId,
             isCompanyOwner: isOwner,
-            isActive: true
+            phone,
+            isActive: false,
+            registrationStatus: 'pending',
+            preferredLocale: locale,
         });
 
-        // 4. Send token
-        createSendToken(newUser, 201, res);
+        // 4. A pending registration never receives a token. Email delivery is
+        // best-effort so a temporary provider outage does not lose the request.
+        const emailResult = await sendRegistrationPendingEmail({
+            to: newUser.email,
+            name: newUser.name,
+            companyName,
+            locale,
+        });
+        if (!emailResult.success) {
+            console.warn('[Registration] Pending email was not delivered:', emailResult.error);
+        }
+
+        await logAudit({
+            action: 'CREATE',
+            entity: 'User',
+            entityId: newUser._id.toString(),
+            req,
+            details: { role: 'customer', registrationStatus: 'pending' },
+        });
+
+        res.status(202).json({
+            success: true,
+            status: 'pending_approval',
+            emailNotificationSent: emailResult.success,
+            message: 'Registration received and awaiting approval',
+        });
     } catch (error) {
         next(error);
     }
@@ -178,9 +233,18 @@ router.post('/login', authLimiter, async (req: Request, res: Response, next: Nex
             return next(new AppError('Incorrect email or password', 401));
         }
 
+        // A correct password may reveal the pending state to its owner, but no
+        // token is issued until an administrator approves the registration.
+        if (user.isDeleted) {
+            return next(new AppError('Incorrect email or password', 401));
+        }
+        if (user.registrationStatus === 'pending') {
+            return next(new AppError('Account is awaiting approval', 403));
+        }
+
         // 2b. Deactivated or soft-deleted accounts cannot obtain a token.
-        //     Keep the message generic so it doesn't reveal account state.
-        if (!user.isActive || user.isDeleted) {
+        // Keep the message generic so it doesn't reveal account state.
+        if (!user.isActive) {
             return next(new AppError('Incorrect email or password', 401));
         }
 

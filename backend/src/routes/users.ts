@@ -8,6 +8,7 @@ import { protect, authorize } from '../middleware/auth.js';
 import { AppError } from '../utils/validation.js';
 import { logAudit } from '../services/auditService.js';
 import { generateTempPassword } from '../utils/password.js';
+import { sendRegistrationApprovedEmail } from '../services/emailService.js';
 
 const router = Router();
 
@@ -55,7 +56,10 @@ router.get('/', protect, authorize('admin'), async (req: Request, res: Response,
         const query: Record<string, unknown> = { isDeleted: { $ne: true } };
         if (role) query.role = role;
         if (status === 'active') query.isActive = true;
-        else if (status === 'inactive') query.isActive = false;
+        else if (status === 'inactive') {
+            query.isActive = false;
+            query.registrationStatus = { $ne: 'pending' };
+        } else if (status === 'pending') query.registrationStatus = 'pending';
         if (company) query.company = company;
         if (search) {
             const rx = new RegExp(escapeRegex(search), 'i');
@@ -111,6 +115,9 @@ router.post('/', protect, authorize('admin'), async (req: Request, res: Response
             role,
             phone,
             isActive: true,
+            registrationStatus: 'approved',
+            approvedAt: new Date(),
+            approvedBy: req.user?._id,
             mustChangePassword: Boolean(mustChangePassword),
         });
         // Company only applies to customers (schema requires null for admin/agent).
@@ -148,6 +155,7 @@ router.patch('/:id', protect, authorize('admin'), async (req: Request, res: Resp
         }
 
         const isSelf = String(userToUpdate._id) === String(req.user?._id);
+        const wasPendingRegistration = userToUpdate.registrationStatus === 'pending';
         const newRole = role ?? userToUpdate.role;
         const newActive = isActive ?? userToUpdate.isActive;
 
@@ -174,7 +182,14 @@ router.patch('/:id', protect, authorize('admin'), async (req: Request, res: Resp
         if (email !== undefined) userToUpdate.email = email;
         if (phone !== undefined) userToUpdate.phone = phone;
         if (role !== undefined) userToUpdate.role = role;
-        if (isActive !== undefined) userToUpdate.isActive = isActive;
+        if (isActive !== undefined) {
+            userToUpdate.isActive = isActive;
+            if (isActive && wasPendingRegistration) {
+                userToUpdate.registrationStatus = 'approved';
+                userToUpdate.approvedAt = new Date();
+                userToUpdate.approvedBy = req.user?._id;
+            }
+        }
 
         // Company: only customers may have one; clear it for admin/agent.
         if (newRole === 'customer') {
@@ -193,12 +208,26 @@ router.patch('/:id', protect, authorize('admin'), async (req: Request, res: Resp
 
         await userToUpdate.save();
 
+        if (isActive === true && wasPendingRegistration) {
+            const emailResult = await sendRegistrationApprovedEmail({
+                to: userToUpdate.email,
+                name: userToUpdate.name,
+                locale: userToUpdate.preferredLocale,
+            });
+            if (!emailResult.success) {
+                console.warn('[Registration] Approval email was not delivered:', emailResult.error);
+            }
+        }
+
         await logAudit({
             action: 'UPDATE',
             entity: 'User',
             entityId: userToUpdate._id.toString(),
             req,
-            details: { updates: Object.keys(req.body) }, // key names only — never values
+            details: {
+                updates: Object.keys(req.body),
+                ...(isActive === true && wasPendingRegistration ? { registrationApproved: true } : {}),
+            }, // key names only — never values
         });
 
         userToUpdate.password = undefined;

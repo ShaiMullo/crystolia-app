@@ -1,6 +1,7 @@
 import api from "@/app/lib/api";
 
 export type UserRole = "admin" | "agent" | "customer";
+export type RegistrationStatus = "pending" | "approved";
 
 /**
  * Shape returned by GET /api/users for the admin users page. Kept separate from
@@ -12,6 +13,9 @@ export interface AdminUser {
     email: string;
     role: UserRole;
     isActive: boolean;
+    registrationStatus?: RegistrationStatus;
+    preferredLocale?: "he" | "en" | "ru";
+    approvedAt?: string;
     company?: { _id: string; name: string } | null;
     phone?: string;
     lastLogin?: string;
@@ -28,7 +32,7 @@ export interface UsersPagination {
 
 export interface ListUsersParams {
     role?: UserRole;
-    status?: "active" | "inactive";
+    status?: "active" | "inactive" | "pending";
     search?: string;
     company?: string;
     page?: number;
