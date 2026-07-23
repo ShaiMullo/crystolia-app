@@ -27,6 +27,10 @@ import {
     isValidCompanyNumber,
     normalizeCompanyNumber,
 } from '../utils/countries.js';
+import {
+    isGoogleAvatarUrl,
+    normalizeGoogleAvatarUrl,
+} from '../utils/avatar.js';
 
 const router = Router();
 
@@ -207,6 +211,7 @@ router.get(
             const email: string | undefined = profile?.emails?.[0]?.value?.toLowerCase();
             const emailVerified =
                 profile?._json?.email_verified === true || profile?._json?.email_verified === 'true';
+            const googleAvatar = normalizeGoogleAvatarUrl(profile?.photos?.[0]?.value);
 
             // Only verified Google emails may enter the flow — an unverified
             // address could be used to squat someone else's mailbox.
@@ -239,6 +244,11 @@ router.get(
                     return;
                 }
 
+                // Refresh a Google-managed avatar when Google supplies a newer
+                // URL, but never overwrite a custom image uploaded in-app.
+                if (googleAvatar && (!user.avatar || isGoogleAvatarUrl(user.avatar))) {
+                    user.avatar = googleAvatar;
+                }
                 const token = signToken(String(user._id), user.role, user.tokenVersion ?? 0);
                 res.cookie('auth_token', token, {
                     expires: new Date(Date.now() + config.cookieExpiresIn * 24 * 60 * 60 * 1000),
@@ -265,7 +275,7 @@ router.get(
                 googleId: String(profile.id),
                 email,
                 name: typeof profile.displayName === 'string' ? profile.displayName.slice(0, 120) : '',
-                avatar: profile.photos?.[0]?.value,
+                avatar: googleAvatar,
                 locale,
             };
             const ticketToken = jwt.sign(ticket, jwtSecret, { expiresIn: '30m' });
@@ -292,7 +302,10 @@ router.get('/google/registration-context', (req: Request, res: Response) => {
         res.status(401).json({ success: false, error: 'Registration session expired' });
         return;
     }
-    res.json({ success: true, data: { email: ticket.email, name: ticket.name, locale: ticket.locale } });
+    res.json({
+        success: true,
+        data: { email: ticket.email, name: ticket.name, avatar: ticket.avatar, locale: ticket.locale },
+    });
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

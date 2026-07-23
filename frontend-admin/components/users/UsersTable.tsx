@@ -19,12 +19,9 @@ import { formatDateTime } from "@/lib/format";
 import type { Locale } from "@/i18n";
 import type { Tone } from "@/lib/status";
 import type { AdminUser } from "@/lib/usersApi";
+import { UserAvatar } from "./UserAvatar";
 
 const ROLE_TONE: Record<string, Tone> = { admin: "indigo", agent: "teal", customer: "neutral" };
-
-function initial(u: AdminUser): string {
-    return (u.name || u.email || "?").trim().charAt(0).toUpperCase();
-}
 
 function companyName(u: AdminUser): string | null {
     return u.company && typeof u.company === "object" ? u.company.name : null;
@@ -91,9 +88,7 @@ export function UsersTable({
                             return (
                                 <TR key={u._id}>
                                     <TD>
-                                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-yellow-500 text-xs font-semibold text-white">
-                                            {initial(u)}
-                                        </span>
+                                        <UserAvatar avatar={u.avatar} name={u.name} email={u.email} />
                                     </TD>
                                     <TD className="font-medium">{u.name || "—"}</TD>
                                     <TD muted>{u.email}</TD>

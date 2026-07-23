@@ -12,6 +12,7 @@ import {
     type NotificationStatus,
     type RegistrationRequest,
 } from "@/lib/registrationsApi";
+import { UserAvatar } from "@/components/users/UserAvatar";
 
 const NOTIFICATION_TONE: Record<NotificationStatus, Tone> = { sent: "success", failed: "danger", skipped: "neutral" };
 const FLAG_KEYS: Record<string, string> = {
@@ -46,6 +47,14 @@ export function RegistrationDetails({ registration }: { registration: Registrati
 
     return (
         <div className="space-y-6">
+            <div className="flex items-center gap-3">
+                <UserAvatar avatar={r.avatar} name={r.name} email={r.email} size={56} />
+                <div className="min-w-0">
+                    <p className="truncate font-medium text-gray-900 dark:text-gray-100">{r.name || "—"}</p>
+                    <p className="truncate text-sm text-gray-500 dark:text-gray-400" dir="ltr">{r.email}</p>
+                </div>
+            </div>
+
             {r.registrationFlags && r.registrationFlags.length > 0 && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/40">
                     <p className="mb-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300">

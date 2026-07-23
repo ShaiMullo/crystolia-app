@@ -36,6 +36,7 @@ export interface RegistrationRequest {
     name?: string;
     email: string;
     phone?: string;
+    avatar?: string;
     createdAt?: string;
     registrationStatus?: RegistrationStatus;
     registrationMethod?: RegistrationMethod;

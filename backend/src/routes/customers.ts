@@ -38,6 +38,7 @@ export const getMyProfile = async (req: Request, res: Response, next: NextFuncti
             data: {
                 name: user.name,
                 email: user.email,
+                avatar: user.avatar || null,
                 companyName: company ? company.name : null,
                 isCompanyOwner: user.isCompanyOwner
             }
