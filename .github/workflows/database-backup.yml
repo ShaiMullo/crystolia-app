@@ -77,7 +77,7 @@ jobs:
           mkdir -p backup
           BACKUP_NAME="crystolia-$(date -u +%Y-%m-%dT%H-%M-%SZ).archive.gz"
           ssh -p "$SSH_PORT" -i ~/.ssh/id_backup "${SSH_USER}@${SSH_HOST}" \
-            'set -euo pipefail; set -a; . /opt/crystolia/backend/.env.demo; set +a; docker run --rm mongo:7 mongodump --uri "$MONGO_URI" --archive --gzip' \
+            'set -euo pipefail; BACKEND_ID="$(docker ps --filter label=com.docker.compose.service=backend --format "{{.ID}}" | head -n 1)"; test -n "$BACKEND_ID"; MONGO_URI="$(docker exec "$BACKEND_ID" printenv MONGO_URI)"; test -n "$MONGO_URI"; docker run --rm mongo:7 mongodump --uri "$MONGO_URI" --archive --gzip' \
             > "backup/$BACKUP_NAME"
           test -s "backup/$BACKUP_NAME"
           gzip -t "backup/$BACKUP_NAME"
