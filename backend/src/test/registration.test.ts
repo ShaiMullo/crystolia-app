@@ -103,6 +103,36 @@ describe('POST /api/auth/register (password registration)', () => {
         expect(await User.countDocuments({ email: VALID_REGISTRATION.email })).toBe(1);
     });
 
+    it('completes an incomplete legacy pending request on a valid resubmission', async () => {
+        const legacy = await User.create({
+            name: 'Legacy Pending',
+            email: VALID_REGISTRATION.email,
+            password: 'OldPassword1',
+            role: 'customer',
+            isActive: false,
+            registrationStatus: 'pending',
+        });
+
+        const res = await request(app).post('/api/auth/register').send(VALID_REGISTRATION);
+
+        expect(res.status).toBe(202);
+        expect(res.body.status).toBe('pending_approval');
+        expect(await User.countDocuments({ email: VALID_REGISTRATION.email })).toBe(1);
+
+        const updated = await User.findById(legacy._id).select('+password');
+        expect(updated!.name).toBe(VALID_REGISTRATION.name);
+        expect(updated!.phone).toBe(VALID_REGISTRATION.phone);
+        expect(updated!.registrationMethod).toBe('password');
+        expect(updated!.registrationCompany).toMatchObject({
+            name: VALID_REGISTRATION.companyName,
+            vatNumber: VALID_REGISTRATION.vatNumber,
+            country: 'IL',
+        });
+        expect(updated!.registrationNotifications?.pendingEmailStatus).toBe('skipped');
+        expect(updated!.registrationNotifications?.adminSmsStatus).toBe('skipped');
+        expect(await updated!.comparePassword(VALID_REGISTRATION.password)).toBe(true);
+    });
+
     it('keeps the generic 202 response under a simultaneous duplicate-email race', async () => {
         const [first, second] = await Promise.all([
             request(app).post('/api/auth/register').send(VALID_REGISTRATION),

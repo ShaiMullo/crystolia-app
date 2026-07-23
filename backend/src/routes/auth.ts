@@ -414,14 +414,22 @@ function validateRegistrationBusinessFields(fields: {
  * (that would leak which numbers exist) — they are flagged for manual review
  * on the admin registrations screen instead.
  */
-async function collectDuplicateFlags(companyName: string, vatNumber: string): Promise<string[]> {
+async function collectDuplicateFlags(
+    companyName: string,
+    vatNumber: string,
+    excludeUserId?: unknown,
+): Promise<string[]> {
     const flags: string[] = [];
+    const pendingVatQuery: Record<string, unknown> = {
+        'registrationCompany.vatNumber': vatNumber,
+        registrationStatus: 'pending',
+    };
+    if (excludeUserId) {
+        pendingVatQuery._id = { $ne: excludeUserId };
+    }
     const [companyByVat, pendingByVat, companyByName] = await Promise.all([
         Company.findOne({ vatNumber }).select('_id').lean(),
-        User.findOne({
-            'registrationCompany.vatNumber': vatNumber,
-            registrationStatus: 'pending',
-        }).select('_id').lean(),
+        User.findOne(pendingVatQuery).select('_id').lean(),
         Company.findOne({ name: companyName }).select('_id').lean(),
     ]);
     if (companyByVat || pendingByVat) flags.push('possible-duplicate-vat');
@@ -466,6 +474,60 @@ router.post('/register', authLimiter, async (req: Request, res: Response, next: 
         // told (by email) that an account already exists.
         const existingUser = await User.findOne({ email });
         if (existingUser) {
+            // Legacy pending customers created before the complete business
+            // registration flow existed have neither a company snapshot nor a
+            // registration method. Treat their next valid password submission
+            // as completion of the original request instead of silently
+            // discarding the newly supplied business details.
+            const canCompleteLegacyPending =
+                existingUser.role === 'customer'
+                && existingUser.registrationStatus === 'pending'
+                && !existingUser.isActive
+                && !existingUser.isDeleted
+                && !existingUser.googleId
+                && (!existingUser.registrationMethod || !existingUser.registrationCompany);
+
+            if (canCompleteLegacyPending) {
+                const registrationFlags = await collectDuplicateFlags(
+                    companyName,
+                    vatNumber,
+                    existingUser._id,
+                );
+
+                existingUser.name = name;
+                existingUser.phone = phone;
+                existingUser.password = password;
+                existingUser.registrationMethod = 'password';
+                existingUser.registrationCompany = { name: companyName, vatNumber, country, phone };
+                existingUser.registrationFlags = registrationFlags.length ? registrationFlags : undefined;
+                existingUser.preferredLocale = locale;
+                await existingUser.save();
+
+                const [emailResult] = await Promise.all([
+                    sendRegistrationEmail(existingUser, 'pending', { companyName }),
+                    notifyAdminOfRegistration(existingUser),
+                ]);
+
+                await logAudit({
+                    action: 'UPDATE',
+                    entity: 'User',
+                    entityId: existingUser._id.toString(),
+                    req,
+                    details: {
+                        registrationCompletedFromLegacyPending: true,
+                        registrationMethod: 'password',
+                    },
+                });
+
+                res.status(202).json({
+                    success: true,
+                    status: 'pending_approval',
+                    emailNotificationSent: emailResult.success,
+                    message: 'Registration received and awaiting approval',
+                });
+                return;
+            }
+
             const reminder = await sendRegistrationExistingAccountEmail({
                 to: email,
                 name: existingUser.name,
