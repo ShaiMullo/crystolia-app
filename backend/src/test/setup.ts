@@ -8,6 +8,7 @@ process.env.AUTH_RATE_LIMIT_MAX = '10000';
 // Providers stay unconfigured by default: emailService/smsService then return
 // { success: false, error: 'Configuration missing' } without network calls.
 delete process.env.SENDGRID_API_KEY;
+delete process.env.EMAIL_PROVIDER;
 delete process.env.EMAIL_FROM_ADDRESS;
 delete process.env.TWILIO_ACCOUNT_SID;
 delete process.env.TWILIO_AUTH_TOKEN;

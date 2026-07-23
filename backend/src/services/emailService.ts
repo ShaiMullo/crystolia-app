@@ -1,5 +1,5 @@
 // ===============================================
-// Transactional Email Service (Twilio SendGrid)
+// Transactional Email Service (Twilio Email + SendGrid fallback)
 // ===============================================
 
 import axios from 'axios';
@@ -288,7 +288,10 @@ function renderEmail(copy: EmailCopy, actionUrl?: string): { text: string; html:
 }
 
 export function isEmailConfigured(): boolean {
-    return Boolean(config.email.apiKey && config.email.fromAddress);
+    const providerConfigured = config.email.provider === 'twilio'
+        ? Boolean(config.sms.accountSid && config.sms.authToken)
+        : Boolean(config.email.apiKey);
+    return Boolean(providerConfigured && config.email.fromAddress);
 }
 
 export async function sendEmail(
@@ -302,25 +305,48 @@ export async function sendEmail(
     }
 
     try {
-        await httpClient.post('https://api.sendgrid.com/v3/mail/send', {
-            personalizations: [{ to: [{ email: to }], subject }],
-            from: { email: config.email.fromAddress, name: config.email.fromName },
-            ...(config.email.replyTo ? { reply_to: { email: config.email.replyTo, name: config.email.fromName } } : {}),
-            content: [
-                { type: 'text/plain', value: content.text },
-                { type: 'text/html', value: content.html },
-            ],
-        }, {
-            headers: {
-                Authorization: `Bearer ${config.email.apiKey}`,
-                'Content-Type': 'application/json',
-            },
-            timeout: 8000,
-        });
+        if (config.email.provider === 'twilio') {
+            await httpClient.post('https://comms.twilio.com/v1/Emails', {
+                from: {
+                    address: config.email.fromAddress,
+                    name: config.email.fromName,
+                },
+                to: [{ address: to }],
+                content: {
+                    subject,
+                    text: content.text,
+                    html: content.html,
+                },
+            }, {
+                auth: {
+                    username: config.sms.accountSid,
+                    password: config.sms.authToken,
+                },
+                headers: { 'Content-Type': 'application/json' },
+                timeout: 8000,
+            });
+        } else {
+            await httpClient.post('https://api.sendgrid.com/v3/mail/send', {
+                personalizations: [{ to: [{ email: to }], subject }],
+                from: { email: config.email.fromAddress, name: config.email.fromName },
+                ...(config.email.replyTo ? { reply_to: { email: config.email.replyTo, name: config.email.fromName } } : {}),
+                content: [
+                    { type: 'text/plain', value: content.text },
+                    { type: 'text/html', value: content.html },
+                ],
+            }, {
+                headers: {
+                    Authorization: `Bearer ${config.email.apiKey}`,
+                    'Content-Type': 'application/json',
+                },
+                timeout: 8000,
+            });
+        }
         return { success: true };
     } catch (error: unknown) {
+        const providerName = config.email.provider === 'twilio' ? 'Twilio Email' : 'SendGrid';
         const detail = axios.isAxiosError(error)
-            ? `SendGrid request failed (${error.response?.status || 'network'})`
+            ? `${providerName} request failed (${error.response?.status || 'network'})`
             : error instanceof Error
                 ? error.message
                 : 'Unknown email provider error';
