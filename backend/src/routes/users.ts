@@ -97,7 +97,11 @@ router.get('/registrations', protect, authorize('admin'), async (req: Request, r
             User.find(query)
                 .select('-password')
                 .populate(REGISTRATION_POPULATE as any)
-                .sort({ createdAt: -1 })
+                // A legacy pending request can be completed by a later valid
+                // resubmission. Sort by the latest activity so that request
+                // immediately surfaces for administrators without rewriting
+                // its original creation timestamp.
+                .sort({ updatedAt: -1, createdAt: -1 })
                 .skip((p - 1) * l)
                 .limit(l)
                 .lean(),
