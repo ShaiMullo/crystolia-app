@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, type ChangeEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -8,6 +8,7 @@ import api from "@/app/lib/api";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 import { dashboardTranslations } from "./dashboardTranslations";
+import { prepareAvatar } from "@/app/lib/avatar";
 
 interface CustomerDashboardProps {
     locale: string;
@@ -52,11 +53,13 @@ interface BusinessSettings {
 
 
 export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
-    const { user, logout } = useAuth();
+    const { user, logout, updateUser } = useAuth();
     const router = useRouter();
+    const avatarInputRef = useRef<HTMLInputElement>(null);
     const [activeTab, setActiveTab] = useState<"orders" | "invoices" | "profile" | "newOrder">("orders");
     const [isEditingProfile, setIsEditingProfile] = useState(false);
     const [showProfileMenu, setShowProfileMenu] = useState(false);
+    const [avatarUploading, setAvatarUploading] = useState(false);
 
     // Initial profile state from user context, will be updated by API
     const [profile, setProfile] = useState({
@@ -312,25 +315,42 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
     };
 
     const handleProfileImageUpload = () => {
-        // TODO: Implement file upload
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/*';
-        input.onchange = (e) => {
-            const file = (e.target as HTMLInputElement).files?.[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    setProfile(prev => ({ ...prev, profileImage: e.target?.result as string }));
-                };
-                reader.readAsDataURL(file);
-            }
-        };
-        input.click();
+        if (!avatarUploading) avatarInputRef.current?.click();
     };
+
+    const handleAvatarFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        setAvatarUploading(true);
+        try {
+            const preparedAvatar = await prepareAvatar(file);
+            const response = await api.patch("/v1/me/avatar", { avatar: preparedAvatar });
+            const savedAvatar = response.data?.data?.avatar || preparedAvatar;
+            setProfile((current) => ({ ...current, profileImage: savedAvatar }));
+            updateUser({ avatar: savedAvatar });
+            toast.success(t.avatarUploadSuccess);
+        } catch (error) {
+            console.error("Failed to upload avatar:", error);
+            toast.error(t.avatarUploadError);
+        } finally {
+            setAvatarUploading(false);
+            event.target.value = "";
+        }
+    };
+
+    const avatarSrc = profile.profileImage || user?.avatar || user?.profilePicture || null;
 
     return (
         <div className={`min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 ${isRTL ? "rtl" : "ltr"}`}>
+            <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleAvatarFileChange}
+                className="sr-only"
+                tabIndex={-1}
+            />
             {/* Premium Header */}
             <header className="bg-white/80 backdrop-blur-xl border-b border-gray-100 sticky top-0 z-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -354,7 +374,9 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                         <div className="relative">
                             <button
                                 onClick={() => setShowProfileMenu(!showProfileMenu)}
-                                className="flex items-center gap-4 p-2 rounded-2xl hover:bg-gray-50 transition-all duration-300"
+                                className="flex min-h-11 items-center gap-4 rounded-2xl p-2 transition-all duration-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5C542]"
+                                aria-label={t.profileMenu}
+                                aria-expanded={showProfileMenu}
                             >
                                 <div className="text-right hidden sm:block">
                                     <p className="text-sm font-medium text-gray-900">{profile.companyName}</p>
@@ -364,12 +386,16 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                 {/* Profile Picture */}
                                 <div className="relative group">
                                     <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-[#F5C542] to-[#d4a83a] flex items-center justify-center text-white font-medium text-lg shadow-lg shadow-[#F5C542]/20 overflow-hidden">
-                                        {user?.avatar ? (
-                                            <Image src={user.avatar} alt="Profile" fill className="object-cover" sizes="48px" />
-                                        ) : user?.profilePicture ? (
-                                            <Image src={user.profilePicture} alt="Profile" fill className="object-cover" sizes="48px" />
-                                        ) : profile.profileImage ? (
-                                            <Image src={profile.profileImage} alt="Profile" fill className="object-cover" sizes="48px" />
+                                        {avatarSrc ? (
+                                            <Image
+                                                src={avatarSrc}
+                                                alt={t.profilePhotoAlt}
+                                                fill
+                                                className="object-cover"
+                                                sizes="48px"
+                                                unoptimized={avatarSrc.startsWith("data:")}
+                                                referrerPolicy="no-referrer"
+                                            />
                                         ) : (
                                             profile.companyName.charAt(0) || user?.firstName?.charAt(0) || '?'
                                         )}
@@ -387,12 +413,13 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                 <div className="absolute left-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50">
                                     <button
                                         onClick={() => { handleProfileImageUpload(); setShowProfileMenu(false); }}
-                                        className="w-full px-4 py-3 text-right text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors"
+                                        disabled={avatarUploading}
+                                        className="flex min-h-11 w-full items-center gap-3 px-4 py-3 text-right text-sm text-gray-700 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#F5C542] disabled:cursor-wait disabled:opacity-60"
                                     >
                                         <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                         </svg>
-                                        {t.uploadPhoto}
+                                        {avatarUploading ? t.uploadingPhoto : t.uploadPhoto}
                                     </button>
                                     <button
                                         onClick={() => { setActiveTab("profile"); setShowProfileMenu(false); }}
@@ -682,11 +709,21 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                         {/* Profile Picture with Upload */}
                                         <button
                                             onClick={handleProfileImageUpload}
-                                            className="relative group"
+                                            disabled={avatarUploading}
+                                            aria-label={t.uploadPhoto}
+                                            className="group relative min-h-11 min-w-11 rounded-3xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5C542] focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-70"
                                         >
                                             <div className="relative w-24 h-24 rounded-3xl bg-gradient-to-br from-[#F5C542] to-[#d4a83a] flex items-center justify-center text-white font-light text-3xl shadow-xl shadow-[#F5C542]/30 overflow-hidden">
-                                                {profile.profileImage ? (
-                                                    <Image src={profile.profileImage} alt="Profile" fill className="object-cover" sizes="96px" />
+                                                {avatarSrc ? (
+                                                    <Image
+                                                        src={avatarSrc}
+                                                        alt={t.profilePhotoAlt}
+                                                        fill
+                                                        className="object-cover"
+                                                        sizes="96px"
+                                                        unoptimized={avatarSrc.startsWith("data:")}
+                                                        referrerPolicy="no-referrer"
+                                                    />
                                                 ) : (
                                                     profile.companyName.charAt(0)
                                                 )}
@@ -701,6 +738,9 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                         <div className="flex-1">
                                             <h3 className="text-2xl font-light text-gray-900 mb-1">{profile.companyName}</h3>
                                             <p className="text-gray-500">{profile.email}</p>
+                                            <p className="mt-1 text-xs text-gray-400">
+                                                {avatarUploading ? t.uploadingPhoto : t.photoRequirements}
+                                            </p>
                                         </div>
                                         {!isEditingProfile && (
                                             <button

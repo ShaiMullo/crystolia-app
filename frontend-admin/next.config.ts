@@ -5,6 +5,14 @@ const nextConfig = {
     // lockfile (which causes mismatched chunk paths in dev).
     root: import.meta.dirname,
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+      },
+    ],
+  },
   async rewrites() {
     // BACKEND_URL is set by docker-compose to http://backend:4000.
     // Local `next dev` falls back to http://localhost:4000 so it works without env setup.

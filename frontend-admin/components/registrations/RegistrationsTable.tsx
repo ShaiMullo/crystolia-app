@@ -25,6 +25,7 @@ import {
     type NotificationStatus,
     type RegistrationRequest,
 } from "@/lib/registrationsApi";
+import { UserAvatar } from "@/components/users/UserAvatar";
 
 const STATUS_TONE: Record<string, Tone> = { pending: "warning", approved: "success", rejected: "danger" };
 const NOTIFICATION_TONE: Record<NotificationStatus, Tone> = { sent: "success", failed: "danger", skipped: "neutral" };
@@ -98,7 +99,12 @@ export function RegistrationsTable({
                             return (
                                 <TR key={r._id}>
                                     <TD muted>{r.createdAt ? formatDateTime(r.createdAt, locale as Locale) : "—"}</TD>
-                                    <TD className="font-medium">{r.name || "—"}</TD>
+                                    <TD className="font-medium">
+                                        <div className="flex items-center gap-2">
+                                            <UserAvatar avatar={r.avatar} name={r.name} email={r.email} />
+                                            <span>{r.name || "—"}</span>
+                                        </div>
+                                    </TD>
                                     <TD>{company?.name || "—"}</TD>
                                     <TD muted>
                                         <span dir="ltr">{company?.vatNumber || "—"}</span>

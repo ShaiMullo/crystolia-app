@@ -18,6 +18,7 @@ export interface AdminUser {
     approvedAt?: string;
     company?: { _id: string; name: string } | null;
     phone?: string;
+    avatar?: string;
     lastLogin?: string;
     createdAt?: string;
     mustChangePassword?: boolean;

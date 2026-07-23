@@ -31,6 +31,7 @@ function ticketCookie(overrides: Record<string, unknown> = {}): string {
             googleId: 'google-sub-123',
             email: 'google.user@example.com',
             name: 'Google User',
+            avatar: 'https://lh3.googleusercontent.com/a/test-avatar',
             locale: 'he',
             ...overrides,
         },
@@ -54,6 +55,7 @@ describe('Google registration completion', () => {
             .set('Cookie', ticketCookie());
         expect(res.status).toBe(200);
         expect(res.body.data.email).toBe('google.user@example.com');
+        expect(res.body.data.avatar).toBe('https://lh3.googleusercontent.com/a/test-avatar');
 
         const noTicket = await request(app).get('/api/auth/google/registration-context');
         expect(noTicket.status).toBe(401);
@@ -73,6 +75,7 @@ describe('Google registration completion', () => {
         expect(user!.registrationStatus).toBe('pending');
         expect(user!.registrationMethod).toBe('google');
         expect(user!.googleId).toBe('google-sub-123');
+        expect(user!.avatar).toBe('https://lh3.googleusercontent.com/a/test-avatar');
         expect(user!.isActive).toBe(false);
         expect(user!.company).toBeUndefined();
         expect(user!.registrationCompany?.name).toBe(COMPLETION_BODY.companyName);

@@ -116,6 +116,7 @@ const UserSchema = new Schema<IUser>(
 
         avatar: {
             type: String,
+            maxlength: 360_000,
         },
         phone: {
             type: String,
