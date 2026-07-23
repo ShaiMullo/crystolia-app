@@ -32,9 +32,9 @@ interface Config {
         fromNumber: string;
     };
 
-    // Transactional email (Twilio SendGrid)
+    // Transactional email (Twilio Email API, with legacy SendGrid fallback)
     email: {
-        provider: 'sendgrid';
+        provider: 'twilio' | 'sendgrid';
         apiKey: string;
         fromAddress: string;
         fromName: string;
@@ -119,10 +119,14 @@ export const config: Config = {
         fromNumber: getEnvOrDefault('TWILIO_PHONE_NUMBER', ''),
     },
 
-    // Twilio SendGrid uses a separate API key from Twilio Messaging. Email
+    // Twilio Email reuses the same account credentials as Messaging. Existing
+    // SendGrid keys remain supported as a fallback during migration. Email
     // delivery is optional at boot so a provider outage never takes down auth.
     email: {
-        provider: 'sendgrid',
+        provider: getEnvOrDefault(
+            'EMAIL_PROVIDER',
+            getEnvOrDefault('SENDGRID_API_KEY', '') ? 'sendgrid' : 'twilio',
+        ) === 'sendgrid' ? 'sendgrid' : 'twilio',
         apiKey: getEnvOrDefault('SENDGRID_API_KEY', ''),
         fromAddress: getEnvOrDefault('EMAIL_FROM_ADDRESS', ''),
         fromName: getEnvOrDefault('EMAIL_FROM_NAME', 'Crystolia'),
