@@ -1,8 +1,6 @@
 const nextConfig = {
   // Required for Docker deployment
   output: "standalone",
-  // TODO: re-enable once ESLint issues are resolved. Added to unblock staging CI.
-  eslint: { ignoreDuringBuilds: true },
   // Consolidated images configuration
   images: {
     qualities: [75, 90],

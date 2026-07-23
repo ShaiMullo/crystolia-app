@@ -66,6 +66,8 @@ export interface IUser extends Document {
     deletedAt?: Date;
     mustChangePassword: boolean;
     tokenVersion: number;
+    passwordResetTokenHash?: string;
+    passwordResetExpiresAt?: Date;
     lastLogin?: Date;
     createdAt: Date;
     updatedAt: Date;
@@ -274,6 +276,15 @@ const UserSchema = new Schema<IUser>(
         tokenVersion: {
             type: Number,
             default: 0,
+        },
+        passwordResetTokenHash: {
+            type: String,
+            select: false,
+            index: true,
+        },
+        passwordResetExpiresAt: {
+            type: Date,
+            select: false,
         },
         lastLogin: {
             type: Date,

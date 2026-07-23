@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, type ChangeEvent } from "react";
+import { useState, useEffect, useRef, useCallback, type ChangeEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -85,7 +85,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
     // Invoices State
     const [invoices, setInvoices] = useState<Invoice[]>([]);
 
-    const fetchOrders = async () => {
+    const fetchOrders = useCallback(async () => {
         if (!user) return;
         try {
             const response = await api.get('/v1/me/orders');
@@ -93,7 +93,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
         } catch (error) {
             console.error("Failed to fetch orders:", error);
         }
-    };
+    }, [user]);
 
     useEffect(() => {
 
@@ -169,13 +169,12 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
         };
 
         if (user) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetch on user change; behavior preserved
             fetchOrders();
             fetchInvoices();
             fetchProfile();
             fetchSettings();
         }
-    }, [user]);
+    }, [user, fetchOrders, locale, router]);
 
     const handleSaveProfile = async () => {
         try {
@@ -213,10 +212,10 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
         }
 
         const activeBoxPrices = settings?.boxPrices.filter(b => b.isActive) ?? [];
-        const items: { productName: string; quantity: number; price: number }[] = [];
+        const items: { sku: string; quantity: number }[] = [];
         for (const bp of activeBoxPrices) {
             const qty = orderQuantities[bp.sku] || 0;
-            if (qty > 0) items.push({ productName: bp.label, quantity: qty, price: bp.pricePerUnit });
+            if (qty > 0) items.push({ sku: bp.sku, quantity: qty });
         }
 
         if (items.length === 0) {
@@ -224,7 +223,10 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
             return;
         }
 
-        const orderTotal = items.reduce((sum, item) => sum + item.quantity * item.price, 0);
+        const orderTotal = activeBoxPrices.reduce(
+            (sum, product) => sum + product.pricePerUnit * (orderQuantities[product.sku] || 0),
+            0,
+        );
         const minAmount = settings?.minimumOrderAmount ?? 0;
         const currencySymbol = settings?.currency === 'USD' ? '$' : settings?.currency === 'EUR' ? '€' : '₪';
         if (minAmount > 0 && orderTotal < minAmount) {

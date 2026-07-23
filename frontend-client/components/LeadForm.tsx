@@ -59,7 +59,7 @@ export default function LeadForm() {
             toast.success("Thank you! We'll be in touch soon.");
             reset();
             setStep(0);
-        } catch (error) {
+        } catch {
             toast.error("Something went wrong. Please try again.");
         }
     };

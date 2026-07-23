@@ -36,15 +36,36 @@ export interface RegistrationSmsDetails {
     registrationUrl: string;
 }
 
+export interface NewOrderSmsDetails {
+    orderId: string;
+    customerName: string;
+    companyName: string;
+    phone?: string;
+    itemCount: number;
+    totalAmount: number;
+    orderUrl: string;
+}
+
+export interface OrderStatusSmsDetails {
+    customerName: string;
+    orderId: string;
+    statusLabel: string;
+    totalAmount: number;
+    dashboardUrl: string;
+}
+
 type SmsHttpClient = Pick<typeof axios, 'post'>;
 
-export function isSmsConfigured(): boolean {
+export function isSmsTransportConfigured(): boolean {
     return Boolean(
         config.sms.accountSid &&
         config.sms.authToken &&
-        config.sms.fromNumber &&
-        config.adminPhone,
+        config.sms.fromNumber,
     );
+}
+
+export function isSmsConfigured(): boolean {
+    return Boolean(isSmsTransportConfigured() && config.adminPhone);
 }
 
 function toE164(phone: string): string {
@@ -119,6 +140,33 @@ export function buildRegistrationNotificationSms(details: RegistrationSmsDetails
     ].join('\n');
 }
 
+export function buildNewOrderNotificationSms(details: NewOrderSmsDetails): string {
+    const lines = [
+        '📦 הזמנה חדשה בקריסטוליה',
+        `מספר: #${compactSmsField(details.orderId, 12)}`,
+        `לקוח: ${compactSmsField(details.customerName, 70)}`,
+        `חברה: ${compactSmsField(details.companyName, 90)}`,
+    ];
+    if (details.phone) lines.push(`טלפון: ${compactSmsField(details.phone, 30)}`);
+    lines.push(
+        `פריטים: ${details.itemCount}`,
+        `סה״כ: ₪${details.totalAmount.toLocaleString('he-IL')}`,
+        '',
+        `לצפייה: ${details.orderUrl}`,
+    );
+    return lines.join('\n');
+}
+
+export function buildOrderStatusNotificationSms(details: OrderStatusSmsDetails): string {
+    return [
+        `שלום ${compactSmsField(details.customerName, 70)},`,
+        `הזמנה #${compactSmsField(details.orderId, 12)} עודכנה: ${compactSmsField(details.statusLabel, 40)}.`,
+        `סכום ההזמנה: ₪${details.totalAmount.toLocaleString('he-IL')}`,
+        `לצפייה: ${details.dashboardUrl}`,
+        'צוות Crystolia',
+    ].join('\n');
+}
+
 /**
  * Send a transactional SMS to the configured administrator. Provider errors
  * are returned to the caller instead of thrown so lead ingestion can stay
@@ -129,7 +177,7 @@ export async function sendSms(
     message: string,
     httpClient: SmsHttpClient = axios,
 ): Promise<SendSmsResult> {
-    if (!isSmsConfigured()) {
+    if (!isSmsTransportConfigured()) {
         return { success: false, error: 'Configuration missing' };
     }
 

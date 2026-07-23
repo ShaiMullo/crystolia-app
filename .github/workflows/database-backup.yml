@@ -1,0 +1,143 @@
+name: Database Backup
+
+on:
+  schedule:
+    - cron: "30 2 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: production-database-backup
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backup-and-restore-test:
+    name: Encrypted backup and restore test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate backup configuration
+        env:
+          BACKUP_BUCKET: ${{ vars.BACKUP_S3_BUCKET }}
+          SSH_HOST: ${{ secrets.DEMO_SSH_HOST }}
+          SSH_USER: ${{ secrets.DEMO_SSH_USER }}
+          SSH_KEY: ${{ secrets.DEMO_SSH_KEY }}
+        run: |
+          test -n "$BACKUP_BUCKET"
+          test -n "$SSH_HOST"
+          test -n "$SSH_USER"
+          test -n "$SSH_KEY"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.BACKUP_AWS_REGION || 'us-east-1' }}
+
+      - name: Temporarily allow this runner to use SSH
+        id: ssh-firewall
+        env:
+          INSTANCE_NAME: ${{ vars.DEMO_INSTANCE_NAME || 'crystolia-prod' }}
+          SSH_PORT: ${{ vars.DEMO_SSH_PORT || '22' }}
+        run: |
+          RUNNER_IP="$(curl --fail --silent --show-error https://checkip.amazonaws.com | tr -d '[:space:]')"
+          if ! [[ "$RUNNER_IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+            echo "Could not determine a valid GitHub runner IPv4 address" >&2
+            exit 1
+          fi
+          RUNNER_CIDR="${RUNNER_IP}/32"
+          aws lightsail open-instance-public-ports \
+            --instance-name "$INSTANCE_NAME" \
+            --port-info "fromPort=${SSH_PORT},toPort=${SSH_PORT},protocol=tcp,cidrs=[${RUNNER_CIDR}]"
+          echo "runner_cidr=${RUNNER_CIDR}" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare SSH
+        env:
+          SSH_KEY: ${{ secrets.DEMO_SSH_KEY }}
+          SSH_HOST: ${{ secrets.DEMO_SSH_HOST }}
+          SSH_PORT: ${{ vars.DEMO_SSH_PORT || '22' }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_backup
+          chmod 600 ~/.ssh/id_backup
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Create MongoDB archive from production
+        id: dump
+        env:
+          SSH_HOST: ${{ secrets.DEMO_SSH_HOST }}
+          SSH_USER: ${{ secrets.DEMO_SSH_USER }}
+          SSH_PORT: ${{ vars.DEMO_SSH_PORT || '22' }}
+        run: |
+          mkdir -p backup
+          BACKUP_NAME="crystolia-$(date -u +%Y-%m-%dT%H-%M-%SZ).archive.gz"
+          ssh -p "$SSH_PORT" -i ~/.ssh/id_backup "${SSH_USER}@${SSH_HOST}" \
+            'set -euo pipefail; set -a; . /opt/crystolia/backend/.env.demo; set +a; docker run --rm mongo:7 mongodump --uri "$MONGO_URI" --archive --gzip' \
+            > "backup/$BACKUP_NAME"
+          test -s "backup/$BACKUP_NAME"
+          gzip -t "backup/$BACKUP_NAME"
+          sha256sum "backup/$BACKUP_NAME" > "backup/$BACKUP_NAME.sha256"
+          echo "backup_name=$BACKUP_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Restore-test the archive in an isolated MongoDB
+        env:
+          BACKUP_NAME: ${{ steps.dump.outputs.backup_name }}
+        run: |
+          docker run -d --name crystolia-restore-test mongo:7
+          for attempt in {1..20}; do
+            if docker exec crystolia-restore-test mongosh --quiet --eval 'db.runCommand({ping:1}).ok' | grep -q 1; then
+              break
+            fi
+            sleep 1
+          done
+          docker run --rm \
+            --network container:crystolia-restore-test \
+            -v "$PWD/backup:/backup:ro" \
+            mongo:7 \
+            mongorestore --host 127.0.0.1 --archive="/backup/$BACKUP_NAME" --gzip --drop
+          RESTORED_COLLECTIONS="$(docker exec crystolia-restore-test mongosh --quiet --eval \
+            'db.adminCommand({listDatabases:1}).databases.filter(d => !["admin","config","local"].includes(d.name)).reduce((n,d) => n + db.getSiblingDB(d.name).getCollectionNames().length, 0)')"
+          test "${RESTORED_COLLECTIONS:-0}" -gt 0
+          echo "Restored and verified $RESTORED_COLLECTIONS collections."
+
+      - name: Upload encrypted archive and checksum
+        env:
+          BACKUP_BUCKET: ${{ vars.BACKUP_S3_BUCKET }}
+          BACKUP_NAME: ${{ steps.dump.outputs.backup_name }}
+        run: |
+          PREFIX="mongodb/$(date -u +%Y/%m/%d)"
+          aws s3 cp "backup/$BACKUP_NAME" "s3://$BACKUP_BUCKET/$PREFIX/$BACKUP_NAME" \
+            --sse AES256 --only-show-errors
+          aws s3 cp "backup/$BACKUP_NAME.sha256" "s3://$BACKUP_BUCKET/$PREFIX/$BACKUP_NAME.sha256" \
+            --sse AES256 --only-show-errors
+          aws s3api head-object \
+            --bucket "$BACKUP_BUCKET" \
+            --key "$PREFIX/$BACKUP_NAME" \
+            --query '{bytes:ContentLength,encryption:ServerSideEncryption}' \
+            --output json
+
+      - name: Remove temporary runner SSH access
+        if: always() && steps.ssh-firewall.outputs.runner_cidr != ''
+        env:
+          INSTANCE_NAME: ${{ vars.DEMO_INSTANCE_NAME || 'crystolia-prod' }}
+          SSH_PORT: ${{ vars.DEMO_SSH_PORT || '22' }}
+          RUNNER_CIDR: ${{ steps.ssh-firewall.outputs.runner_cidr }}
+        run: |
+          aws lightsail close-instance-public-ports \
+            --instance-name "$INSTANCE_NAME" \
+            --port-info "fromPort=${SSH_PORT},toPort=${SSH_PORT},protocol=tcp,cidrs=[${RUNNER_CIDR}]"
+
+      - name: Summary
+        if: always()
+        env:
+          BACKUP_NAME: ${{ steps.dump.outputs.backup_name }}
+        run: |
+          echo "### Production MongoDB backup" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Archive: \`${BACKUP_NAME:-not-created}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Restore test: \`${{ job.status }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Retention: 35 days (non-current versions: 7 days)" >> "$GITHUB_STEP_SUMMARY"

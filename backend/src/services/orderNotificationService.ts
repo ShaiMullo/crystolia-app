@@ -1,0 +1,99 @@
+import type { IOrder } from '../models/Order.js';
+import Company from '../models/Company.js';
+import User from '../models/User.js';
+import { config } from '../config/index.js';
+import {
+    buildNewOrderNotificationSms,
+    buildOrderStatusNotificationSms,
+    sendSms,
+    type SendSmsResult,
+} from './smsService.js';
+import {
+    sendOrderStatusEmail,
+    type SendEmailResult,
+    type EmailLocale,
+} from './emailService.js';
+
+type CustomerNotifiableStatus = 'approved' | 'shipped' | 'completed' | 'cancelled';
+
+const HEBREW_STATUS: Record<CustomerNotifiableStatus, string> = {
+    approved: 'אושרה',
+    shipped: 'יצאה למשלוח',
+    completed: 'הושלמה',
+    cancelled: 'בוטלה',
+};
+
+export async function notifyAdminOfNewOrder(order: IOrder): Promise<SendSmsResult> {
+    if (!config.adminPhone) return { success: false, error: 'Configuration missing' };
+
+    const [company, customer] = await Promise.all([
+        Company.findById(order.company).select('name phone').lean(),
+        User.findById(order.createdBy).select('name phone').lean(),
+    ]);
+    const shortId = order._id.toString().slice(-8).toUpperCase();
+    const orderUrl = `${config.adminFrontendUrl.replace(/\/$/, '')}/admin/orders/${order._id}`;
+    const message = buildNewOrderNotificationSms({
+        orderId: shortId,
+        customerName: customer?.name || 'לקוח עסקי',
+        companyName: company?.name || 'לא ידוע',
+        phone: customer?.phone || company?.phone,
+        itemCount: order.items.length,
+        totalAmount: order.totalAmount,
+        orderUrl,
+    });
+    return sendSms(config.adminPhone, message);
+}
+
+export async function notifyCustomerOfOrderStatus(
+    order: IOrder,
+    status: CustomerNotifiableStatus,
+): Promise<{ email: SendEmailResult; sms: SendSmsResult }> {
+    let customer = await User.findById(order.createdBy)
+        .select('name email phone preferredLocale role isActive')
+        .lean();
+    if (!customer || customer.role !== 'customer') {
+        customer = await User.findOne({
+            company: order.company,
+            role: 'customer',
+            isActive: true,
+            isDeleted: { $ne: true },
+        }).sort({ isCompanyOwner: -1, createdAt: 1 })
+            .select('name email phone preferredLocale role isActive')
+            .lean();
+    }
+
+    if (!customer?.email) {
+        return {
+            email: { success: false, error: 'Customer email missing' },
+            sms: { success: false, error: 'Customer phone missing' },
+        };
+    }
+
+    const locale = (customer.preferredLocale || 'he') as EmailLocale;
+    const shortId = order._id.toString().slice(-8).toUpperCase();
+    const dashboardUrl = `${config.frontendUrl.replace(/\/$/, '')}/${locale}/dashboard`;
+    const [email, sms] = await Promise.all([
+        sendOrderStatusEmail({
+            to: customer.email,
+            name: customer.name,
+            locale,
+            orderId: order._id.toString(),
+            status,
+            totalAmount: order.totalAmount,
+        }),
+        customer.phone
+            ? sendSms(customer.phone, buildOrderStatusNotificationSms({
+                customerName: customer.name,
+                orderId: shortId,
+                statusLabel: HEBREW_STATUS[status],
+                totalAmount: order.totalAmount,
+                dashboardUrl,
+            }))
+            : Promise.resolve({ success: false, error: 'Customer phone missing' }),
+    ]);
+    return { email, sms };
+}
+
+export function isCustomerNotifiableStatus(status: string): status is CustomerNotifiableStatus {
+    return status === 'approved' || status === 'shipped' || status === 'completed' || status === 'cancelled';
+}

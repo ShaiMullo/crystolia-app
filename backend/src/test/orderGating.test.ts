@@ -11,10 +11,12 @@ import {
 } from './testApp.js';
 import User from '../models/User.js';
 import Company from '../models/Company.js';
+import Settings from '../models/Settings.js';
+import Order from '../models/Order.js';
 
 const app = buildTestApp();
 
-const ORDER_BODY = { items: [{ productName: 'שמן חמניות 5 ליטר', quantity: 2, price: 60 }] };
+const ORDER_BODY = { items: [{ sku: 'SUN-5L', quantity: 2 }] };
 
 beforeAll(async () => {
     await startTestDb();
@@ -24,6 +26,19 @@ afterAll(async () => {
 });
 beforeEach(async () => {
     await clearDb();
+    await Settings.create({
+        key: 'business',
+        minimumOrderAmount: 0,
+        currency: 'ILS',
+        boxPrices: [
+            {
+                label: 'שמן חמניות 5 ליטר',
+                sku: 'SUN-5L',
+                pricePerUnit: 60,
+                isActive: true,
+            },
+        ],
+    });
 });
 
 async function approvedFlowUser() {
@@ -94,5 +109,68 @@ describe('order gating for approval-flow users', () => {
             .set('Cookie', authCookieFor(legacy))
             .send(ORDER_BODY);
         expect(res.status).toBe(201);
+    });
+
+    it('ignores client-supplied product names and prices', async () => {
+        const company = await Company.create({ name: 'לקוח מאובטח', vatNumber: '522222222' });
+        const customer = await User.create({
+            name: 'לקוח מאובטח',
+            email: 'secure-order@example.com',
+            password: 'SecurePass1',
+            role: 'customer',
+            company: company._id,
+            isActive: true,
+            registrationStatus: 'approved',
+        });
+
+        const res = await request(app)
+            .post('/api/v1/me/orders')
+            .set('Cookie', authCookieFor(customer))
+            .send({
+                items: [{
+                    sku: 'SUN-5L',
+                    quantity: 2,
+                    productName: 'מוצר מזויף',
+                    price: 0.01,
+                }],
+            });
+
+        expect(res.status).toBe(201);
+        expect(res.body.data.totalAmount).toBe(120);
+        expect(res.body.data.items[0]).toMatchObject({
+            sku: 'SUN-5L',
+            productName: 'שמן חמניות 5 ליטר',
+            quantity: 2,
+            price: 60,
+        });
+
+        const stored = await Order.findById(res.body.data._id).lean();
+        expect(stored?.totalAmount).toBe(120);
+    });
+
+    it('rejects unknown SKUs and non-integer quantities', async () => {
+        const company = await Company.create({ name: 'לקוח בדיקה', vatNumber: '533333333' });
+        const customer = await User.create({
+            name: 'לקוח בדיקה',
+            email: 'invalid-order@example.com',
+            password: 'SecurePass1',
+            role: 'customer',
+            company: company._id,
+            isActive: true,
+            registrationStatus: 'approved',
+        });
+        const cookie = authCookieFor(customer);
+
+        const unknown = await request(app)
+            .post('/api/v1/me/orders')
+            .set('Cookie', cookie)
+            .send({ items: [{ sku: 'NOT-REAL', quantity: 1 }] });
+        expect(unknown.status).toBe(400);
+
+        const fractional = await request(app)
+            .post('/api/v1/me/orders')
+            .set('Cookie', cookie)
+            .send({ items: [{ sku: 'SUN-5L', quantity: 1.5 }] });
+        expect(fractional.status).toBe(400);
     });
 });

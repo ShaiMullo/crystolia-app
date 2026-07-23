@@ -15,6 +15,7 @@ import { authLimiter } from '../middleware/rateLimiter.js';
 import { logAudit } from '../services/auditService.js';
 import {
     isEmailConfigured,
+    sendPasswordResetEmail,
     sendRegistrationExistingAccountEmail,
     type EmailLocale,
 } from '../services/emailService.js';
@@ -677,6 +678,105 @@ router.post('/login', authLimiter, async (req: Request, res: Response, next: Nex
 
         // 4. Send token
         createSendToken(user, 200, res);
+    } catch (error) {
+        next(error);
+    }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// POST /api/auth/forgot-password
+// Always returns the same response to prevent account enumeration.
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+router.post('/forgot-password', authLimiter, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const email = typeof req.body?.email === 'string'
+            ? req.body.email.trim().slice(0, 254).toLowerCase()
+            : '';
+        const locale = safeAppLocale(req.body?.locale);
+        const genericResponse = {
+            success: true,
+            message: 'If an eligible account exists, a password reset email has been sent',
+        };
+
+        if (!email || !validate.email(email)) {
+            res.status(202).json(genericResponse);
+            return;
+        }
+
+        const user = await User.findOne({
+            email,
+            registrationMethod: { $ne: 'google' },
+            isDeleted: { $ne: true },
+        });
+        if (!user) {
+            res.status(202).json(genericResponse);
+            return;
+        }
+
+        const token = crypto.randomBytes(32).toString('hex');
+        user.passwordResetTokenHash = crypto.createHash('sha256').update(token).digest('hex');
+        user.passwordResetExpiresAt = new Date(Date.now() + 30 * 60 * 1000);
+        await user.save({ validateBeforeSave: false });
+
+        const resetUrl = `${config.frontendUrl.replace(/\/$/, '')}/${locale}/auth/reset-password?token=${encodeURIComponent(token)}`;
+        const result = await sendPasswordResetEmail({
+            to: user.email,
+            name: user.name,
+            locale: user.preferredLocale || locale,
+            resetUrl,
+        });
+        if (!result.success) {
+            console.warn('[Auth] Password reset email was not delivered:', result.error);
+        }
+
+        res.status(202).json(genericResponse);
+    } catch (error) {
+        next(error);
+    }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// POST /api/auth/reset-password
+// Token is one-time, stored only as SHA-256, and expires after 30 minutes.
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+router.post('/reset-password', authLimiter, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
+        const password = typeof req.body?.password === 'string' ? req.body.password : '';
+        if (!token || !password) {
+            return next(new AppError('Reset link is invalid or expired', 400));
+        }
+        if (password.length < 8 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+            return next(new AppError('Password must contain at least 8 characters, one uppercase letter and one number', 400));
+        }
+
+        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+        const user = await User.findOne({
+            passwordResetTokenHash: tokenHash,
+            passwordResetExpiresAt: { $gt: new Date() },
+            isDeleted: { $ne: true },
+        }).select('+passwordResetTokenHash +passwordResetExpiresAt +password');
+        if (!user) {
+            return next(new AppError('Reset link is invalid or expired', 400));
+        }
+
+        user.password = password;
+        user.passwordResetTokenHash = undefined;
+        user.passwordResetExpiresAt = undefined;
+        user.mustChangePassword = false;
+        user.tokenVersion = (user.tokenVersion || 0) + 1;
+        await user.save();
+
+        await logAudit({
+            action: 'UPDATE',
+            entity: 'User',
+            entityId: user._id.toString(),
+            req,
+            details: { field: 'password', source: 'self-service-reset' },
+            severity: 'warning',
+        });
+
+        res.status(200).json({ success: true, message: 'Password reset successfully' });
     } catch (error) {
         next(error);
     }

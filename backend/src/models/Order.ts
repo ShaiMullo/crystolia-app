@@ -11,6 +11,7 @@ import { withSyncableFields, type ISyncable } from './shared/syncableFields.js';
 
 export interface IOrderItem {
     productId?: mongoose.Types.ObjectId;
+    sku?: string;
     productName: string;
     quantity: number;
     price: number;
@@ -58,6 +59,7 @@ const OrderSchema = new Schema<IOrder>(
         items: [
             {
                 productId: { type: Schema.Types.ObjectId, ref: 'Product' },
+                sku: { type: String, trim: true, maxlength: 80 },
                 productName: { type: String, required: true },
                 quantity: { type: Number, required: true, min: 1 },
                 price: { type: Number, required: true, min: 0 },

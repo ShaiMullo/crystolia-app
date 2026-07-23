@@ -1,0 +1,52 @@
+name: Production Uptime
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: production-uptime
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  availability:
+    name: Check public services
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: API
+            url: https://api.crystolia.com/health
+            expected: '"status":"ok"'
+          - name: Admin console
+            url: https://admin.crystolia.com/login
+            expected: Crystolia
+          - name: Business portal
+            url: https://business.crystolia.com/he/auth
+            expected: Crystolia
+    steps:
+      - name: Check ${{ matrix.name }}
+        env:
+          URL: ${{ matrix.url }}
+          EXPECTED: ${{ matrix.expected }}
+        run: |
+          RESPONSE_FILE="$(mktemp)"
+          for attempt in 1 2 3; do
+            STATUS="$(curl --location --silent --show-error \
+              --connect-timeout 10 --max-time 20 \
+              --output "$RESPONSE_FILE" --write-out '%{http_code}' "$URL" || true)"
+            if [[ "$STATUS" =~ ^2[0-9][0-9]$ ]] && grep -Fq "$EXPECTED" "$RESPONSE_FILE"; then
+              echo "${{ matrix.name }} is available (HTTP $STATUS)"
+              exit 0
+            fi
+            echo "Attempt $attempt failed (HTTP ${STATUS:-network error})"
+            sleep 5
+          done
+          echo "${{ matrix.name }} did not return the expected healthy response." >&2
+          exit 1

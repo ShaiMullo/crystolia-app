@@ -1,119 +1,123 @@
-
 "use client";
 
-import { useState, useEffect } from "react";
+import { use, useEffect, useState } from "react";
+import Link from "next/link";
+import { ArrowLeft, ArrowRight, Building2, Loader2, ShieldCheck } from "lucide-react";
 import api from "@/app/lib/api";
-import { useRouter } from "next/navigation";
-import toast from "react-hot-toast";
 
 interface PageProps {
-    params: Promise<{ locale: string; id: string }> | { locale: string; id: string };
+    params: Promise<{ locale: string; id: string }>;
 }
 
-interface OrderData {
+interface OrderSummary {
     _id: string;
-    finalPrice?: number;
-    totalAmount?: number;
+    totalAmount: number;
 }
+
+const COPY = {
+    he: {
+        title: "תשלום עבור ההזמנה",
+        subtitle: "התשלום המקוון עדיין אינו פעיל",
+        body: "כדי לשמור על פרטי התשלום שלכם, לא נציג סליקה עד שהחיבור לספק מאובטח ונבדק במלואו.",
+        manual: "צוות Crystolia יתאם אתכם תשלום בהעברה בנקאית או בדרך שסוכמה מול העסק.",
+        amount: "סכום ההזמנה",
+        back: "חזרה להזמנות",
+        loading: "טוען את פרטי ההזמנה…",
+        missing: "לא מצאנו את ההזמנה בחשבון הזה.",
+    },
+    en: {
+        title: "Order payment",
+        subtitle: "Online payment is not enabled yet",
+        body: "To protect your payment details, checkout will remain unavailable until the provider connection is fully secured and verified.",
+        manual: "The Crystolia team will coordinate payment by bank transfer or another agreed business method.",
+        amount: "Order total",
+        back: "Back to orders",
+        loading: "Loading order details…",
+        missing: "We could not find this order in your account.",
+    },
+    ru: {
+        title: "Оплата заказа",
+        subtitle: "Онлайн-оплата пока недоступна",
+        body: "Для защиты платёжных данных онлайн-оплата появится только после полной проверки безопасного подключения к провайдеру.",
+        manual: "Команда Crystolia согласует оплату банковским переводом или другим утверждённым способом.",
+        amount: "Сумма заказа",
+        back: "Вернуться к заказам",
+        loading: "Загрузка данных заказа…",
+        missing: "Этот заказ не найден в вашем аккаунте.",
+    },
+} as const;
 
 export default function OrderPaymentPage({ params }: PageProps) {
-    const router = useRouter();
-    const [order, setOrder] = useState<OrderData | null>(null);
+    const { locale: rawLocale, id } = use(params);
+    const locale = rawLocale === "en" || rawLocale === "ru" ? rawLocale : "he";
+    const t = COPY[locale];
+    const isRTL = locale === "he";
+    const [order, setOrder] = useState<OrderSummary | null>(null);
     const [loading, setLoading] = useState(true);
-    const [locale, setLocale] = useState("he");
 
     useEffect(() => {
-        const fetchOrder = async () => {
-            const resolvedParams = await Promise.resolve(params);
-            setLocale(resolvedParams.locale);
-            try {
-                const { data } = await api.get(`/orders/${resolvedParams.id}`);
-                setOrder(data);
-            } catch (error) {
-                toast.error("לא ניתן לטעון את ההזמנה");
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchOrder();
-    }, [params]);
-
-    const handlePaymentMethod = async (method: string) => {
-        if (!order) return;
-        try {
-            // Update Method
-            await api.patch(`/orders/${order._id}/payment-method`, { paymentMethod: method });
-
-            if (method === 'CREDIT_CARD') {
-                // Determine if we redirect to a payment page or show a mock frame
-                // For now, let's assume we call a create payment endpoint that returns a URL
-                const { data: paymentData } = await api.post('/payments/create', { orderId: order._id, provider: 'hyp' });
-                if (paymentData.redirectUrl) {
-                    window.location.href = paymentData.redirectUrl;
-                } else {
-                    toast.success("מעבר לתשלום...");
-                }
-            } else {
-                toast.success("אמצעי התשלום עודכן בהצלחה!");
-                router.push(`/${locale}/dashboard`);
-            }
-        } catch (error) {
-            toast.error("שגיאה בעדכון אמצעי התשלום");
-            console.error(error);
-        }
-    };
-
-    if (loading) return <div className="min-h-screen flex items-center justify-center">טוען...</div>;
-    if (!order) return <div className="min-h-screen flex items-center justify-center">הזמנה לא נמצאה</div>;
+        let cancelled = false;
+        api.get("/v1/me/orders")
+            .then((response) => {
+                const orders = Array.isArray(response.data?.data) ? response.data.data : [];
+                if (!cancelled) setOrder(orders.find((entry: OrderSummary) => entry._id === id) || null);
+            })
+            .catch(() => {
+                if (!cancelled) setOrder(null);
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+        return () => { cancelled = true; };
+    }, [id]);
 
     return (
-        <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8" dir={locale === 'he' ? 'rtl' : 'ltr'}>
-            <div className="max-w-md mx-auto bg-white rounded-3xl shadow-xl overflow-hidden">
-                <div className="bg-[#F5C542] px-6 py-8 text-center">
-                    <h2 className="text-2xl font-bold text-white mb-2">תשלום עבור הזמנה</h2>
-                    <p className="text-white/90 font-mono">#{order._id.slice(-6).toUpperCase()}</p>
-                </div>
+        <main className="min-h-screen bg-slate-50 px-5 py-16 text-slate-950" dir={isRTL ? "rtl" : "ltr"}>
+            <div className="mx-auto max-w-lg">
+                <Link
+                    href={`/${locale}/dashboard`}
+                    className="mb-6 inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4a83a]"
+                >
+                    {isRTL ? <ArrowRight size={18} aria-hidden="true" /> : <ArrowLeft size={18} aria-hidden="true" />}
+                    {t.back}
+                </Link>
 
-                <div className="p-8 space-y-6">
-                    <div className="text-center">
-                        <p className="text-gray-500 mb-1">סכום לתשלום</p>
-                        <p className="text-4xl font-light text-gray-900">₪{order.finalPrice?.toLocaleString() || order.totalAmount?.toLocaleString()}</p>
+                <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl shadow-slate-900/5">
+                    <div className="h-2 bg-[#F5C542]" />
+                    <div className="p-7 sm:p-10">
+                        <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-[#8b6508]">
+                            <ShieldCheck size={28} aria-hidden="true" />
+                        </span>
+                        <h1 className="mt-6 text-3xl font-semibold tracking-tight">{t.title}</h1>
+
+                        {loading ? (
+                            <p className="mt-8 flex items-center gap-2 text-slate-600" role="status">
+                                <Loader2 className="animate-spin" size={20} aria-hidden="true" />
+                                {t.loading}
+                            </p>
+                        ) : order ? (
+                            <>
+                                <div className="mt-7 rounded-2xl bg-slate-50 p-5">
+                                    <p className="text-sm font-medium text-slate-600">{t.amount}</p>
+                                    <p className="mt-1 text-3xl font-semibold" dir="ltr">
+                                        ₪{order.totalAmount.toLocaleString()}
+                                    </p>
+                                </div>
+                                <h2 className="mt-8 text-lg font-semibold">{t.subtitle}</h2>
+                                <p className="mt-3 text-base leading-7 text-slate-700">{t.body}</p>
+                                <div className="mt-6 flex gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950">
+                                    <Building2 className="mt-0.5 shrink-0" size={22} aria-hidden="true" />
+                                    <p className="text-sm leading-6">{t.manual}</p>
+                                </div>
+                            </>
+                        ) : (
+                            <p className="mt-7 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
+                                {t.missing}
+                            </p>
+                        )}
                     </div>
-
-                    <div className="space-y-4 pt-6">
-                        <button
-                            onClick={() => handlePaymentMethod('CREDIT_CARD')}
-                            className="w-full flex items-center justify-center gap-3 px-6 py-4 border-2 border-[#F5C542] bg-[#F5C542]/5 hover:bg-[#F5C542] text-[#d4a83a] hover:text-white rounded-2xl transition-all duration-300 group"
-                        >
-                            <span className="text-2xl">💳</span>
-                            <span className="font-medium group-hover:scale-105 transition-transform">כרטיס אשראי</span>
-                        </button>
-
-                        <button
-                            onClick={() => handlePaymentMethod('BANK_TRANSFER')}
-                            className="w-full flex items-center justify-center gap-3 px-6 py-4 border-2 border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50 text-gray-700 rounded-2xl transition-all duration-300"
-                        >
-                            <span className="text-2xl">🏦</span>
-                            <span className="font-medium">העברה בנקאית</span>
-                        </button>
-
-                        <button
-                            onClick={() => handlePaymentMethod('CASH')}
-                            className="w-full flex items-center justify-center gap-3 px-6 py-4 border-2 border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50 text-gray-700 rounded-2xl transition-all duration-300"
-                        >
-                            <span className="text-2xl">💵</span>
-                            <span className="font-medium">מזומן לשליח</span>
-                        </button>
-                    </div>
-
-                    <button
-                        onClick={() => router.back()}
-                        className="w-full text-center text-sm text-gray-400 hover:text-gray-600 mt-6"
-                    >
-                        חזרה לדאשבורד
-                    </button>
-                </div>
+                </section>
             </div>
-        </div>
+        </main>
     );
 }

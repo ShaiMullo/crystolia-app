@@ -17,6 +17,10 @@ import { logAudit } from '../services/auditService.js';
 import { computeOrderTotals, validateOrderItems, RawOrderItem } from '../services/orderService.js';
 import { reserveForOrder, releaseForOrder, shipForOrder } from '../services/inventoryService.js';
 import Inventory from '../models/Inventory.js';
+import {
+    isCustomerNotifiableStatus,
+    notifyCustomerOfOrderStatus,
+} from '../services/orderNotificationService.js';
 
 const router = Router();
 router.use(protect);
@@ -254,6 +258,31 @@ router.patch('/:id', async (req: Request, res: Response, next: NextFunction) => 
             req,
             details: { status: order.status, totalAmount: order.totalAmount },
         });
+
+        if (statusChanged && isCustomerNotifiableStatus(order.status)) {
+            const notifications = await notifyCustomerOfOrderStatus(order, order.status)
+                .catch((error: unknown) => ({
+                    email: {
+                        success: false,
+                        error: error instanceof Error ? error.message : 'Notification failed',
+                    },
+                    sms: {
+                        success: false,
+                        error: error instanceof Error ? error.message : 'Notification failed',
+                    },
+                }));
+            order.timeline.push({
+                type: 'customer_order_notification',
+                at: new Date(),
+                actorId,
+                meta: {
+                    status: order.status,
+                    email: notifications.email.success ? 'sent' : 'failed',
+                    sms: notifications.sms.success ? 'sent' : 'failed',
+                },
+            });
+            await order.save();
+        }
 
         res.json({ success: true, data: order.toObject() });
     } catch (err) {

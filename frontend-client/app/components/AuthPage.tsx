@@ -43,6 +43,8 @@ const COPY = {
         signupNow: "הרשמה לעסקים",
         loginNow: "כניסה לחשבון",
         forgotPassword: "שכחת סיסמה?",
+        forgotSent: "אם קיים חשבון מתאים, שלחנו אליו קישור מאובטח לאיפוס הסיסמה. כדאי לבדוק גם בתיקיית הספאם.",
+        enterEmailFirst: "נא להזין קודם את כתובת האימייל של החשבון.",
         backToSite: "חזרה לאתר",
         businessPortal: "אזור העסקים של Crystolia",
         subtitle: "מבצעים הזמנות ועוקבים אחריהן במקום אחד",
@@ -97,6 +99,8 @@ const COPY = {
         signupNow: "Register your business",
         loginNow: "Sign in",
         forgotPassword: "Forgot password?",
+        forgotSent: "If an eligible account exists, we sent it a secure reset link. Please also check your spam folder.",
+        enterEmailFirst: "Enter your account email address first.",
         backToSite: "Back to website",
         businessPortal: "Crystolia Business Portal",
         subtitle: "Place and track orders in one place",
@@ -151,6 +155,8 @@ const COPY = {
         signupNow: "Зарегистрировать бизнес",
         loginNow: "Войти",
         forgotPassword: "Забыли пароль?",
+        forgotSent: "Если подходящий аккаунт существует, мы отправили защищённую ссылку для сброса. Проверьте также папку «Спам».",
+        enterEmailFirst: "Сначала введите адрес электронной почты аккаунта.",
         backToSite: "Вернуться на сайт",
         businessPortal: "Бизнес-портал Crystolia",
         subtitle: "Оформляйте и отслеживайте заказы в одном месте",
@@ -204,6 +210,7 @@ export default function AuthPage({ locale: rawLocale }: AuthPageProps) {
     });
     const [status, setStatus] = useState<"idle" | "loading">("idle");
     const [error, setError] = useState<string | null>(null);
+    const [forgotSent, setForgotSent] = useState(false);
     const [googleAvailable, setGoogleAvailable] = useState(false);
     const { user, login, register } = useAuth();
     const router = useRouter();
@@ -318,10 +325,36 @@ export default function AuthPage({ locale: rawLocale }: AuthPageProps) {
         }
     };
 
+    const handleForgotPassword = async () => {
+        const email = formData.email.trim();
+        setError(null);
+        setForgotSent(false);
+        if (!email) {
+            setError(t.enterEmailFirst);
+            return;
+        }
+        setStatus("loading");
+        try {
+            const response = await fetch("/api/auth/forgot-password", {
+                method: "POST",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, locale }),
+            });
+            if (!response.ok) throw new Error("Request failed");
+            setForgotSent(true);
+        } catch {
+            setError(t.genericError);
+        } finally {
+            setStatus("idle");
+        }
+    };
+
     const switchMode = (loginMode: boolean) => {
         setIsLogin(loginMode);
         setRegistrationPending(false);
         setRegistrationEmailSent(false);
+        setForgotSent(false);
         setError(null);
         const nextUrl = `/${locale}/auth?mode=${loginMode ? "login" : "register"}`;
         window.history.replaceState(null, "", nextUrl);
@@ -426,6 +459,11 @@ export default function AuthPage({ locale: rawLocale }: AuthPageProps) {
                                         {error}
                                     </div>
                                 )}
+                                {forgotSent && (
+                                    <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium leading-6 text-emerald-900" role="status">
+                                        {t.forgotSent}
+                                    </div>
+                                )}
 
                                 <form onSubmit={handleSubmit} className="space-y-5">
                                     {!isLogin && (
@@ -493,7 +531,12 @@ export default function AuthPage({ locale: rawLocale }: AuthPageProps) {
 
                                     {isLogin && (
                                         <div className="text-end">
-                                            <button type="button" className="min-h-11 cursor-pointer rounded-lg px-2 text-sm font-medium text-[#8b6508] transition-colors hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4a83a]">
+                                            <button
+                                                type="button"
+                                                onClick={handleForgotPassword}
+                                                disabled={status === "loading"}
+                                                className="min-h-11 cursor-pointer rounded-lg px-2 text-sm font-medium text-[#8b6508] transition-colors hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4a83a] disabled:cursor-not-allowed disabled:opacity-60"
+                                            >
                                                 {t.forgotPassword}
                                             </button>
                                         </div>

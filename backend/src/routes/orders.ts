@@ -6,13 +6,18 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { protect, authorize } from '../middleware/auth.js';
 import Order from '../models/Order.js';
 import Invoice from '../models/Invoice.js';
-import User from '../models/User.js'; // Needed if we want to double-check user properties
 import Company from '../models/Company.js';
 import Settings from '../models/Settings.js';
+import Product from '../models/Product.js';
 import { AppError } from '../utils/validation.js';
 import { logAudit } from '../services/auditService.js';
 import { reserveForOrder, releaseForOrder, shipForOrder } from '../services/inventoryService.js';
 import { computeOrderTotals, RawOrderItem } from '../services/orderService.js';
+import {
+    isCustomerNotifiableStatus,
+    notifyAdminOfNewOrder,
+    notifyCustomerOfOrderStatus,
+} from '../services/orderNotificationService.js';
 
 const router = Router();
 
@@ -31,25 +36,74 @@ router.use(protect);
 // POST place order (Customer Only) — legacy: POST /api/orders
 export const placeOrder = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { items, notes } = req.body;
+        const { items: requestedItems, notes } = req.body;
 
-        if (!items || !Array.isArray(items) || items.length === 0) {
+        if (!Array.isArray(requestedItems) || requestedItems.length === 0) {
             return next(new AppError('Order must contain at least one item', 400));
         }
+        if (requestedItems.length > 50) {
+            return next(new AppError('Order contains too many product lines', 400));
+        }
 
-        // Validate item structure (preserve legacy error message + behavior)
-        for (const item of items) {
-            if (!item.productName || !item.quantity || item.price === undefined) {
-                return next(new AppError('Invalid item structure', 400));
+        // Customer-supplied names and prices are never trusted. The portal only
+        // sends SKU + quantity; authoritative labels/prices come from settings.
+        const businessSettings = await Settings.findOne({ key: 'business' }).lean();
+        if (!businessSettings) {
+            return next(new AppError('Ordering is temporarily unavailable', 503));
+        }
+
+        const quantityBySku = new Map<string, number>();
+        for (const item of requestedItems) {
+            const sku = typeof item?.sku === 'string' ? item.sku.trim() : '';
+            const quantity = Number(item?.quantity);
+            if (!sku || sku.length > 80 || !Number.isSafeInteger(quantity) || quantity < 1 || quantity > 100_000) {
+                return next(new AppError('Invalid order item', 400));
+            }
+            const combined = (quantityBySku.get(sku) ?? 0) + quantity;
+            if (!Number.isSafeInteger(combined) || combined > 100_000) {
+                return next(new AppError('Invalid order quantity', 400));
+            }
+            quantityBySku.set(sku, combined);
+        }
+
+        const activePrices = new Map(
+            (businessSettings.boxPrices || [])
+                .filter((row) => row.isActive)
+                .map((row) => [row.sku, row] as const),
+        );
+        const requestedSkus = [...quantityBySku.keys()];
+        for (const sku of requestedSkus) {
+            if (!activePrices.has(sku)) {
+                return next(new AppError('One or more products are no longer available', 400));
             }
         }
 
-        // Centralized total calculation (handles optional per-item taxRate)
-        const totals = computeOrderTotals(items as RawOrderItem[]);
+        // Product ids are attached when a matching catalog row exists, which
+        // lets inventory reservation work without making legacy box-price rows
+        // unavailable during the catalog migration.
+        const products = await Product.find({
+            sku: { $in: requestedSkus },
+            isActive: true,
+            isDeleted: { $ne: true },
+        }).select('_id sku taxRate').lean();
+        const productBySku = new Map(products.map((product) => [product.sku, product]));
+
+        const pricedItems: RawOrderItem[] = requestedSkus.map((sku) => {
+            const price = activePrices.get(sku)!;
+            const product = productBySku.get(sku);
+            return {
+                productId: product?._id.toString(),
+                productName: price.label,
+                quantity: quantityBySku.get(sku)!,
+                price: price.pricePerUnit,
+                taxRate: product?.taxRate,
+            };
+        });
+
+        const totals = computeOrderTotals(pricedItems);
         const totalAmount = totals.totalAmount;
 
-        // Enforce minimum order amount
-        const businessSettings = await Settings.findOne({ key: 'business' }).lean();
+        // Enforce minimum order amount using the SERVER-CALCULATED total.
         const minAmount = businessSettings?.minimumOrderAmount ?? 0;
         if (minAmount > 0 && totalAmount < minAmount) {
             return next(new AppError(`Minimum order amount is ${minAmount}`, 400));
@@ -82,7 +136,10 @@ export const placeOrder = async (req: Request, res: Response, next: NextFunction
         const newOrder = await Order.create({
             company: user.company,
             createdBy: user._id,
-            items,
+            items: totals.items.map((item, index) => ({
+                ...item,
+                sku: requestedSkus[index],
+            })),
             totalAmount,
             subtotal: totals.subtotal,
             taxTotal: totals.taxTotal,
@@ -96,8 +153,21 @@ export const placeOrder = async (req: Request, res: Response, next: NextFunction
             entity: 'Order',
             entityId: newOrder._id.toString(),
             req,
-            details: { totalAmount, itemCount: items.length },
+            details: { totalAmount, itemCount: requestedSkus.length },
         });
+
+        const adminNotification = await notifyAdminOfNewOrder(newOrder)
+            .catch((error: unknown) => ({
+                success: false,
+                error: error instanceof Error ? error.message : 'Notification failed',
+            }));
+        newOrder.timeline.push({
+            type: 'admin_order_notification',
+            at: new Date(),
+            actorId: user._id?.toString(),
+            meta: { channel: 'sms', result: adminNotification.success ? 'sent' : 'failed' },
+        });
+        await newOrder.save();
 
         res.status(201).json({
             success: true,
@@ -235,6 +305,31 @@ router.patch('/:id', authorize('admin', 'agent'), async (req: Request, res: Resp
                     console.error('❌ Auto-invoice creation failed:', invoiceErr.message);
                 }
             }
+        }
+
+        if (previousStatus !== status && isCustomerNotifiableStatus(status)) {
+            const notifications = await notifyCustomerOfOrderStatus(order, status)
+                .catch((error: unknown) => ({
+                    email: {
+                        success: false,
+                        error: error instanceof Error ? error.message : 'Notification failed',
+                    },
+                    sms: {
+                        success: false,
+                        error: error instanceof Error ? error.message : 'Notification failed',
+                    },
+                }));
+            order.timeline.push({
+                type: 'customer_order_notification',
+                at: new Date(),
+                actorId: req.user?._id?.toString(),
+                meta: {
+                    status,
+                    email: notifications.email.success ? 'sent' : 'failed',
+                    sms: notifications.sms.success ? 'sent' : 'failed',
+                },
+            });
+            await order.save();
         }
 
         res.status(200).json({

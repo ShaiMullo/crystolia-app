@@ -1407,13 +1407,13 @@
   "backups": {
     "title": "Backups",
     "pageTitle": "Backups",
-    "pageSubtitle": "Backup manifests and verification.",
+    "pageSubtitle": "Local readiness checks; real data backups run automatically every night.",
     "back": "Back to system",
-    "create": "Create backup",
+    "create": "Create readiness check",
     "verify": "Verify",
     "empty": "No backups yet",
-    "emptyHint": "Create a backup manifest to track database snapshots.",
-    "metadataNote": "Backups record a metadata manifest only — no data is copied or uploaded.",
+    "emptyHint": "Create a manifest to inspect the collections and documents included in a backup.",
+    "metadataNote": "This screen shows metadata manifests only. A real encrypted MongoDB backup and restore test run nightly and are retained in AWS S3 for 35 days.",
     "status": {
       "pending": "Pending",
       "completed": "Completed",

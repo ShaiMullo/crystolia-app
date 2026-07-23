@@ -24,6 +24,22 @@ export interface RegistrationRejectedEmailDetails extends RegistrationEmailDetai
     reason?: string;
 }
 
+export interface OrderStatusEmailDetails {
+    to: string;
+    name: string;
+    locale: EmailLocale;
+    orderId: string;
+    status: 'approved' | 'shipped' | 'completed' | 'cancelled';
+    totalAmount: number;
+}
+
+export interface PasswordResetEmailDetails {
+    to: string;
+    name: string;
+    locale: EmailLocale;
+    resetUrl: string;
+}
+
 type EmailHttpClient = Pick<typeof axios, 'post'>;
 
 interface EmailCopy {
@@ -382,4 +398,111 @@ export async function sendRegistrationExistingAccountEmail(details: Registration
     const locale = safeLocale(details.locale);
     const copy = existingAccountCopy(locale, details.name);
     return sendEmail(details.to, copy.subject, renderEmail(copy, portalUrl(locale)));
+}
+
+export async function sendOrderStatusEmail(details: OrderStatusEmailDetails): Promise<SendEmailResult> {
+    const locale = safeLocale(details.locale);
+    const statusCopy = {
+        he: {
+            approved: 'אושרה',
+            shipped: 'יצאה למשלוח',
+            completed: 'הושלמה',
+            cancelled: 'בוטלה',
+        },
+        en: {
+            approved: 'has been approved',
+            shipped: 'has shipped',
+            completed: 'is complete',
+            cancelled: 'has been cancelled',
+        },
+        ru: {
+            approved: 'подтверждён',
+            shipped: 'отправлен',
+            completed: 'завершён',
+            cancelled: 'отменён',
+        },
+    } as const;
+    const shortId = details.orderId.slice(-8).toUpperCase();
+    const amount = `₪${details.totalAmount.toLocaleString(locale === 'he' ? 'he-IL' : locale === 'ru' ? 'ru-RU' : 'en-US')}`;
+    const copy: EmailCopy = locale === 'en'
+        ? {
+            subject: `Crystolia order #${shortId} ${statusCopy.en[details.status]}`,
+            eyebrow: 'ORDER UPDATE',
+            title: `Your order ${statusCopy.en[details.status]}`,
+            greeting: `Hello ${details.name},`,
+            paragraphs: [`Order #${shortId} was updated.`, `Order total: ${amount}`, 'You can view its current status in your business dashboard.'],
+            button: 'View my orders',
+            footer: 'This is a transactional update about your Crystolia order.',
+            direction: 'ltr',
+        }
+        : locale === 'ru'
+            ? {
+                subject: `Заказ Crystolia #${shortId} ${statusCopy.ru[details.status]}`,
+                eyebrow: 'СТАТУС ЗАКАЗА',
+                title: `Ваш заказ ${statusCopy.ru[details.status]}`,
+                greeting: `Здравствуйте, ${details.name}!`,
+                paragraphs: [`Статус заказа #${shortId} обновлён.`, `Сумма заказа: ${amount}`, 'Актуальный статус доступен в бизнес-портале.'],
+                button: 'Открыть мои заказы',
+                footer: 'Это сервисное уведомление о вашем заказе Crystolia.',
+                direction: 'ltr',
+            }
+            : {
+                subject: `הזמנת Crystolia #${shortId} ${statusCopy.he[details.status]}`,
+                eyebrow: 'עדכון הזמנה',
+                title: `ההזמנה שלך ${statusCopy.he[details.status]}`,
+                greeting: `שלום ${details.name},`,
+                paragraphs: [`סטטוס הזמנה #${shortId} עודכן.`, `סכום ההזמנה: ${amount}`, 'אפשר לראות את הסטטוס העדכני באזור העסקי שלך.'],
+                button: 'צפייה בהזמנות שלי',
+                footer: 'זוהי הודעה תפעולית בנוגע להזמנה שלך בקריסטוליה.',
+                direction: 'rtl',
+            };
+
+    const dashboardUrl = `${config.frontendUrl.replace(/\/$/, '')}/${locale}/dashboard`;
+    return sendEmail(details.to, copy.subject, renderEmail(copy, dashboardUrl));
+}
+
+export async function sendPasswordResetEmail(details: PasswordResetEmailDetails): Promise<SendEmailResult> {
+    const locale = safeLocale(details.locale);
+    const copy: EmailCopy = locale === 'en'
+        ? {
+            subject: 'Reset your Crystolia password',
+            eyebrow: 'PASSWORD RESET',
+            title: 'Choose a new password',
+            greeting: `Hello ${details.name},`,
+            paragraphs: [
+                'We received a request to reset the password for your Crystolia business account.',
+                'The secure link below is valid for 30 minutes and can only be used once. If you did not request this, you can ignore this email.',
+            ],
+            button: 'Reset password',
+            footer: 'Crystolia will never ask you to send your password by email.',
+            direction: 'ltr',
+        }
+        : locale === 'ru'
+            ? {
+                subject: 'Сброс пароля Crystolia',
+                eyebrow: 'СБРОС ПАРОЛЯ',
+                title: 'Создайте новый пароль',
+                greeting: `Здравствуйте, ${details.name}!`,
+                paragraphs: [
+                    'Мы получили запрос на сброс пароля бизнес-аккаунта Crystolia.',
+                    'Защищённая ссылка действует 30 минут и только один раз. Если это были не вы, просто проигнорируйте письмо.',
+                ],
+                button: 'Сбросить пароль',
+                footer: 'Crystolia никогда не просит отправлять пароль по электронной почте.',
+                direction: 'ltr',
+            }
+            : {
+                subject: 'איפוס הסיסמה שלך בקריסטוליה',
+                eyebrow: 'איפוס סיסמה',
+                title: 'בחירת סיסמה חדשה',
+                greeting: `שלום ${details.name},`,
+                paragraphs: [
+                    'קיבלנו בקשה לאיפוס הסיסמה לחשבון העסקי שלך בקריסטוליה.',
+                    'הקישור המאובטח תקף ל־30 דקות ולשימוש חד־פעמי. אם לא ביקשת לאפס את הסיסמה, אפשר להתעלם מהמייל.',
+                ],
+                button: 'איפוס הסיסמה',
+                footer: 'Crystolia לעולם לא תבקש ממך לשלוח סיסמה במייל.',
+                direction: 'rtl',
+            };
+    return sendEmail(details.to, copy.subject, renderEmail(copy, details.resetUrl));
 }
