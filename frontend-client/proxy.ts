@@ -14,13 +14,15 @@ export function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // אם אין locale — ננתב לברירת מחדל 'en'
+  // אם אין locale — ננתב לברירת מחדל 'he'
+  // Hebrew is the business's primary language and the app-wide fallback
+  // (dashboard translations, logout, OAuth error paths all default to he).
   const locale = pathname.split("/")[1];
 
   const supportedLocales = ["en", "he", "ru"];
 
   if (!supportedLocales.includes(locale)) {
-    return NextResponse.redirect(new URL(`/en${pathname}`, req.url));
+    return NextResponse.redirect(new URL(`/he${pathname}`, req.url));
   }
 
   // Redirect /login to /auth
