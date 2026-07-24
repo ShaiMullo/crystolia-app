@@ -35,6 +35,8 @@ interface Invoice {
     invoiceNumber: string;
     totalAmount: number;
     issuedAt: string;
+    status?: "draft" | "issued" | "paid" | "cancelled";
+    pdfUrl?: string;
 }
 
 interface BoxPrice {
@@ -53,7 +55,7 @@ interface BusinessSettings {
 
 
 export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
-    const { user, logout, updateUser } = useAuth();
+    const { user, logout, updateUser, isLoading: authLoading } = useAuth();
     const router = useRouter();
     const avatarInputRef = useRef<HTMLInputElement>(null);
     const [activeTab, setActiveTab] = useState<"orders" | "invoices" | "profile" | "newOrder">("orders");
@@ -195,17 +197,16 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
 
             setHasProfile(true);
             setIsEditingProfile(false);
-            toast.success("הפרופיל נשמר בהצלחה!");
+            toast.success(t.profileSaved);
         } catch (error: unknown) {
             console.error("Failed to save profile:", error);
-            const err = error as { response?: { data?: { message?: string } }; message?: string };
-            toast.error(`שמירת הפרופיל נכשלה: ${err.response?.data?.message || err.message}`);
+            toast.error(t.profileSaveFailed);
         }
     };
 
     const handleSubmitOrder = async () => {
         if (!hasProfile) {
-            toast.error("אנא מלא את פרטי הפרופיל שלך לפני ביצוע הזמנה");
+            toast.error(t.completeProfileFirst);
             setActiveTab("profile");
             setIsEditingProfile(true);
             return;
@@ -219,7 +220,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
         }
 
         if (items.length === 0) {
-            toast.error("אנא בחר לפחות מוצר אחד");
+            toast.error(t.selectAtLeastOne);
             return;
         }
 
@@ -230,13 +231,13 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
         const minAmount = settings?.minimumOrderAmount ?? 0;
         const currencySymbol = settings?.currency === 'USD' ? '$' : settings?.currency === 'EUR' ? '€' : '₪';
         if (minAmount > 0 && orderTotal < minAmount) {
-            toast.error(`סכום מינימום להזמנה: ${currencySymbol}${minAmount.toLocaleString()}. הסכום הנוכחי: ${currencySymbol}${orderTotal.toLocaleString()}`);
+            toast.error(`${t.minOrder}: ${currencySymbol}${minAmount.toLocaleString()}. ${t.currentAmount}: ${currencySymbol}${orderTotal.toLocaleString()}`);
             return;
         }
 
         try {
             await api.post('/v1/me/orders', { items });
-            toast.success("ההזמנה נשלחה בהצלחה! 🎉");
+            toast.success(t.orderSubmitted);
 
             // Reset form
             setOrderQuantities(prev => Object.fromEntries(Object.keys(prev).map(k => [k, 0])));
@@ -252,9 +253,9 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                 toast.error(t.completeDetailsFirst);
                 router.push(`/${locale}/onboarding`);
             } else if (err.response?.status === 401) {
-                toast.error("המושב פג תוקף, אנא התחבר מחדש");
+                toast.error(t.sessionExpired);
             } else {
-                toast.error(`שליחת ההזמנה נכשלה: ${err.response?.data?.message || err.message}`);
+                toast.error(t.orderSubmitFailed);
             }
         }
     };
@@ -273,6 +274,16 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
             case "approved":  return "bg-blue-50 text-blue-700 border border-blue-200";
             case "shipped":   return "bg-indigo-50 text-indigo-700 border border-indigo-200";
             case "completed": return "bg-emerald-50 text-emerald-700 border border-emerald-200";
+            case "cancelled": return "bg-red-50 text-red-700 border border-red-200";
+            default:          return "bg-gray-50 text-gray-700 border border-gray-200";
+        }
+    };
+
+    const getInvoiceStatusColor = (status: string) => {
+        switch (status) {
+            case "draft":     return "bg-gray-50 text-gray-600 border border-gray-200";
+            case "issued":    return "bg-blue-50 text-blue-700 border border-blue-200";
+            case "paid":      return "bg-emerald-50 text-emerald-700 border border-emerald-200";
             case "cancelled": return "bg-red-50 text-red-700 border border-red-200";
             default:          return "bg-gray-50 text-gray-700 border border-gray-200";
         }
@@ -342,6 +353,22 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
     };
 
     const avatarSrc = profile.profileImage || user?.avatar || user?.profilePicture || null;
+
+    // Session validated and gone (expired cookie, logout elsewhere) — go to
+    // login. AuthPage only redirects here when a session EXISTS, so the two
+    // guards can never loop.
+    useEffect(() => {
+        if (authLoading || user) return;
+        router.replace(`/${locale}/auth`);
+    }, [authLoading, user, locale, router]);
+
+    if (authLoading || !user) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-gray-50">
+                <div className="w-10 h-10 border-2 border-[#F5C542] border-t-transparent rounded-full animate-spin" aria-label="Loading" />
+            </div>
+        );
+    }
 
     return (
         <div className={`min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 ${isRTL ? "rtl" : "ltr"}`}>
@@ -535,7 +562,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
 
                                 <div className="space-y-4 mb-10">
                                     {activeBoxPrices.length === 0 ? (
-                                        <p className="text-center text-gray-400 py-8">אין מוצרים זמינים כרגע.</p>
+                                        <p className="text-center text-gray-400 py-8">{t.noProducts}</p>
                                     ) : activeBoxPrices.map((product) => (
                                         <div key={product.sku} className="group flex items-center justify-between p-6 bg-gradient-to-r from-gray-50 to-white rounded-2xl border border-gray-100 hover:border-[#F5C542]/30 hover:shadow-lg transition-all duration-300">
                                             <div className="flex items-center gap-5">
@@ -586,14 +613,14 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                         </p>
                                         {orderTotal > 0 && (
                                             <p className="text-sm font-medium text-gray-900">
-                                                סה&quot;כ: {currencySymbol}{orderTotal.toLocaleString()}
+                                                {t.total}: {currencySymbol}{orderTotal.toLocaleString()}
                                             </p>
                                         )}
                                     </div>
                                     {minAmount > 0 && (
                                         <p className={`text-xs mt-1 ${orderTotal > 0 && orderTotal < minAmount ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
-                                            מינימום הזמנה: {currencySymbol}{minAmount.toLocaleString()}
-                                            {orderTotal > 0 && orderTotal < minAmount && ` — חסר ${currencySymbol}${(minAmount - orderTotal).toLocaleString()}`}
+                                            {t.minOrder}: {currencySymbol}{minAmount.toLocaleString()}
+                                            {orderTotal > 0 && orderTotal < minAmount && ` — ${t.missingAmount} ${currencySymbol}${(minAmount - orderTotal).toLocaleString()}`}
                                         </p>
                                     )}
                                 </div>
@@ -680,12 +707,27 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                                     </div>
                                                     <div className="flex items-center gap-6">
                                                         <p className="font-medium text-gray-900 text-lg">₪{invoice.totalAmount.toLocaleString()}</p>
-                                                        <button className="flex items-center gap-2 text-[#F5C542] hover:text-[#d4a83a] px-5 py-3 rounded-xl hover:bg-[#F5C542]/5 border border-[#F5C542]/30 transition-all">
-                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                                            </svg>
-                                                            {t.download}
-                                                        </button>
+                                                        {invoice.status && (
+                                                            <span className={`px-3 py-1.5 rounded-xl text-xs font-medium ${getInvoiceStatusColor(invoice.status)}`}>
+                                                                {t.invoiceStatuses[invoice.status] || invoice.status}
+                                                            </span>
+                                                        )}
+                                                        {invoice.pdfUrl ? (
+                                                            <a
+                                                                href={invoice.pdfUrl}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                aria-label={`${t.download} — ${invoice.invoiceNumber}`}
+                                                                className="flex items-center gap-2 text-[#F5C542] hover:text-[#d4a83a] px-5 py-3 rounded-xl hover:bg-[#F5C542]/5 border border-[#F5C542]/30 transition-all"
+                                                            >
+                                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                                </svg>
+                                                                {t.download}
+                                                            </a>
+                                                        ) : (
+                                                            <span className="text-sm text-gray-400">{t.pdfPending}</span>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>

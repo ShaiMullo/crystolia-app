@@ -317,7 +317,21 @@
     },
     "timeline": {
       "title": "Timeline",
-      "empty": "No timeline events yet."
+      "empty": "No timeline events yet.",
+      "statusTransition": "{from} → {to}",
+      "notePreview": "Note: {preview}",
+      "events": {
+        "lead_created": "Lead created",
+        "lead_updated": "Lead updated",
+        "status_changed": "Status changed",
+        "converted": "Converted to customer",
+        "note_added": "Note added",
+        "owner_assigned": "Owner assigned",
+        "onboarding_step_completed": "Onboarding step completed",
+        "whatsapp_notified": "WhatsApp notification sent",
+        "sms_notified": "SMS notification sent",
+        "notification_failed": "Notification could not be delivered"
+      }
     },
     "notes": {
       "title": "Notes",
@@ -653,7 +667,19 @@
     "timelineEvents": {
       "order_created": "Order created",
       "order_items_updated": "Items updated",
-      "status_changed": "Status changed"
+      "status_changed": "Status changed",
+      "admin_order_notification": "Admin notification",
+      "customer_order_notification": "Customer notification"
+    },
+    "timelineMeta": {
+      "statusTransition": "{from} → {to}",
+      "viaShipmentDelivered": "Updated automatically when the shipment was delivered",
+      "adminNotifSent": "Admin notified by SMS",
+      "adminNotifFailed": "Admin SMS notification could not be delivered",
+      "customerNotifBoth": "Customer update sent by email and SMS",
+      "customerNotifEmailOnly": "Customer update sent by email; SMS delivery failed",
+      "customerNotifSmsOnly": "Customer update sent by SMS; email delivery failed",
+      "customerNotifFailed": "Customer update could not be delivered by email or SMS"
     },
     "detail": {
       "titlePrefix": "Order",

@@ -317,7 +317,21 @@
     },
     "timeline": {
       "title": "История",
-      "empty": "Событий пока нет."
+      "empty": "Событий пока нет.",
+      "statusTransition": "{from} → {to}",
+      "notePreview": "Заметка: {preview}",
+      "events": {
+        "lead_created": "Лид создан",
+        "lead_updated": "Лид обновлён",
+        "status_changed": "Статус изменён",
+        "converted": "Конвертирован в клиента",
+        "note_added": "Добавлена заметка",
+        "owner_assigned": "Назначен ответственный",
+        "onboarding_step_completed": "Завершён шаг онбординга",
+        "whatsapp_notified": "Отправлено WhatsApp-уведомление",
+        "sms_notified": "Отправлено SMS-уведомление",
+        "notification_failed": "Не удалось доставить уведомление"
+      }
     },
     "notes": {
       "title": "Заметки",
@@ -653,7 +667,19 @@
     "timelineEvents": {
       "order_created": "Заказ создан",
       "order_items_updated": "Позиции обновлены",
-      "status_changed": "Статус изменён"
+      "status_changed": "Статус изменён",
+      "admin_order_notification": "Уведомление администратору",
+      "customer_order_notification": "Уведомление клиенту"
+    },
+    "timelineMeta": {
+      "statusTransition": "{from} → {to}",
+      "viaShipmentDelivered": "Обновлено автоматически при доставке отправления",
+      "adminNotifSent": "Администратор уведомлён по SMS",
+      "adminNotifFailed": "Не удалось отправить SMS-уведомление администратору",
+      "customerNotifBoth": "Клиенту отправлено обновление по email и SMS",
+      "customerNotifEmailOnly": "Клиенту отправлено обновление по email; SMS не доставлено",
+      "customerNotifSmsOnly": "Клиенту отправлено обновление по SMS; email не доставлен",
+      "customerNotifFailed": "Не удалось отправить обновление клиенту по email или SMS"
     },
     "detail": {
       "titlePrefix": "Заказ",

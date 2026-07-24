@@ -1,5 +1,11 @@
 # System Audit
 
+> ## ⚠️ Archived / no longer authoritative
+>
+> This document describes a **NestJS backend that was never adopted** — the production backend is **Express 4 + Mongoose 8**, and the file paths and framework details below do not match the current codebase.
+>
+> For the current system, see the root [`README.md`](../README.md) and [`docs/EXAMINER_TECHNICAL_BRIEF.md`](EXAMINER_TECHNICAL_BRIEF.md). Kept for historical reference only.
+
 **Generated:** January 28, 2026  
 **Purpose:** High-level review of system architecture and readiness for B2B expansion.
 

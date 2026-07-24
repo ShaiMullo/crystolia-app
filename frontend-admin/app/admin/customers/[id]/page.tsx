@@ -367,11 +367,22 @@ export default function CustomerDetailPage() {
                                                 <p className="text-xs text-gray-500 dark:text-gray-400">
                                                     {formatDateTime(ev.at, locale as Locale)}
                                                 </p>
-                                                {ev.meta && Object.keys(ev.meta).length > 0 && (
-                                                    <p className="text-xs text-gray-400 mt-1 break-words">
-                                                        {JSON.stringify(ev.meta)}
-                                                    </p>
-                                                )}
+                                                {(() => {
+                                                    // Summarize from→to transitions in readable form;
+                                                    // other meta stays in the DB only — never JSON here.
+                                                    const meta = (ev.meta ?? {}) as Record<string, unknown>;
+                                                    if (typeof meta.from !== "string" || typeof meta.to !== "string") return null;
+                                                    const label = (v: string) => {
+                                                        const key = `customerStatus.${v}`;
+                                                        const translated = t(key);
+                                                        return translated === key ? v.replace(/_/g, " ") : translated;
+                                                    };
+                                                    return (
+                                                        <p className="text-xs text-gray-400 mt-1 break-words">
+                                                            {label(meta.from)} → {label(meta.to)}
+                                                        </p>
+                                                    );
+                                                })()}
                                             </div>
                                         </li>
                                     ))}

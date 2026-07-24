@@ -32,7 +32,7 @@ import { getOrder, updateOrder, type OrderUpsertPayload } from "@/lib/ordersApi"
 import { listCustomers } from "@/lib/customersApi";
 import { listProducts } from "@/lib/inventoryApi";
 import type { Locale } from "@/i18n";
-import type { Customer, Invoice, OrderDetail, OrderStatus, Product } from "@/types";
+import type { Customer, Invoice, OrderDetail, OrderStatus, OrderTimelineEvent, Product } from "@/types";
 
 const STATUSES: OrderStatus[] = ["pending", "approved", "shipped", "completed", "cancelled"];
 
@@ -111,6 +111,48 @@ export default function OrderDetailPage() {
             await fetchOrder();
         } catch (err) {
             throw err;
+        }
+    };
+
+    const statusLabel = (status: string) => {
+        const key = `orderStatus.${status}`;
+        const translated = t(key);
+        return translated === key ? status.replace(/_/g, " ") : translated;
+    };
+
+    // Timeline meta stays raw in the DB for auditing; here it is summarized into
+    // a translated sentence — never rendered as JSON.
+    const describeTimelineMeta = (ev: OrderTimelineEvent): { text: string; warn: boolean } | null => {
+        const meta = (ev.meta ?? {}) as Record<string, unknown>;
+        switch (ev.type) {
+            case "status_changed": {
+                if (typeof meta.from !== "string" || typeof meta.to !== "string") return null;
+                let text = t("orders.timelineMeta.statusTransition", {
+                    from: statusLabel(meta.from),
+                    to: statusLabel(meta.to),
+                });
+                if (meta.via === "shipment_delivered") {
+                    text += ` · ${t("orders.timelineMeta.viaShipmentDelivered")}`;
+                }
+                return { text, warn: false };
+            }
+            case "admin_order_notification": {
+                const sent = meta.result === "sent";
+                return {
+                    text: t(sent ? "orders.timelineMeta.adminNotifSent" : "orders.timelineMeta.adminNotifFailed"),
+                    warn: !sent,
+                };
+            }
+            case "customer_order_notification": {
+                const email = meta.email === "sent";
+                const sms = meta.sms === "sent";
+                if (email && sms) return { text: t("orders.timelineMeta.customerNotifBoth"), warn: false };
+                if (email) return { text: t("orders.timelineMeta.customerNotifEmailOnly"), warn: true };
+                if (sms) return { text: t("orders.timelineMeta.customerNotifSmsOnly"), warn: true };
+                return { text: t("orders.timelineMeta.customerNotifFailed"), warn: true };
+            }
+            default:
+                return null;
         }
     };
 
@@ -212,21 +254,26 @@ export default function OrderDetailPage() {
                         <div className="mt-4">
                             {order.timeline && order.timeline.length > 0 ? (
                                 <ol className="space-y-3">
-                                    {[...order.timeline].reverse().map((ev, i) => (
-                                        <li key={i} className="flex items-start gap-3 border-s-2 border-yellow-200 dark:border-yellow-700/50 ps-3 py-1">
-                                            <div className="min-w-0">
-                                                <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
-                                                    {t(`orders.timelineEvents.${ev.type}`) === `orders.timelineEvents.${ev.type}`
-                                                        ? ev.type.replace(/_/g, " ")
-                                                        : t(`orders.timelineEvents.${ev.type}`)}
-                                                </p>
-                                                <p className="text-xs text-gray-500 dark:text-gray-400">{formatDateTime(ev.at, locale as Locale)}</p>
-                                                {ev.meta && Object.keys(ev.meta).length > 0 && (
-                                                    <p className="text-xs text-gray-400 mt-0.5 break-words">{JSON.stringify(ev.meta)}</p>
-                                                )}
-                                            </div>
-                                        </li>
-                                    ))}
+                                    {[...order.timeline].reverse().map((ev, i) => {
+                                        const detail = describeTimelineMeta(ev);
+                                        return (
+                                            <li key={i} className="flex items-start gap-3 border-s-2 border-yellow-200 dark:border-yellow-700/50 ps-3 py-1">
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                                                        {t(`orders.timelineEvents.${ev.type}`) === `orders.timelineEvents.${ev.type}`
+                                                            ? ev.type.replace(/_/g, " ")
+                                                            : t(`orders.timelineEvents.${ev.type}`)}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">{formatDateTime(ev.at, locale as Locale)}</p>
+                                                    {detail && (
+                                                        <p className={`text-xs mt-0.5 break-words ${detail.warn ? "text-amber-600 dark:text-amber-400" : "text-gray-400"}`}>
+                                                            {detail.text}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
                                 </ol>
                             ) : (
                                 <EmptyState icon={<Activity size={18} />} title={t("orders.detail.timelineEmpty")} />

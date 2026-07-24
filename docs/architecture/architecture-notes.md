@@ -1,5 +1,11 @@
 # Crystolia Architecture Notes
 
+> ## ⚠️ Partially archived — EKS sections are not the running system
+>
+> The application-level content here (Express routes, Mongoose models, two Next.js frontends) is broadly accurate, but every **EKS / ALB / ArgoCD / AWS Secrets Manager runtime** section describes an **optional/future enterprise showcase, not production**. The live system runs on a single AWS Lightsail instance with Docker Compose behind Caddy, deployed by the `Demo Deploy` GitHub Actions workflow.
+>
+> For the authoritative current architecture, see the root [`README.md`](../../README.md) and [`docs/EXAMINER_TECHNICAL_BRIEF.md`](../EXAMINER_TECHNICAL_BRIEF.md).
+
 Maintenance guide for `command-center.html` and architecture decisions.
 
 ---
