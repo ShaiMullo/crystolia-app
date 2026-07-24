@@ -59,3 +59,11 @@ export function shortId(id: string | undefined | null, take = 6): string {
     if (!id) return "—";
     return `#${id.slice(-take).toUpperCase()}`;
 }
+
+// Audit `details` payloads are arbitrary objects kept verbatim in the DB.
+// The UI lists only the touched field names — never raw JSON.
+export function summarizeAuditDetails(details: unknown): string {
+    if (!details || typeof details !== "object") return "—";
+    const keys = Object.keys(details as Record<string, unknown>);
+    return keys.length === 0 ? "—" : keys.join(", ");
+}

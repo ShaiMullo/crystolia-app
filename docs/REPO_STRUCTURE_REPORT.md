@@ -1,5 +1,11 @@
 # 🏗️ Crystolia Multi-Repository Restructure Report
 
+> ## ⚠️ Archived / no longer authoritative
+>
+> This report describes a **three-repo ArgoCD/GitOps split (app / infra / gitops) that is not the active deployment model**. Production is a single-server AWS Lightsail + Docker Compose + Caddy deployment driven by the `Demo Deploy` GitHub Actions workflow in this repo; the backend is Express, not NestJS.
+>
+> For the current architecture, see the root [`README.md`](../README.md) and [`docs/EXAMINER_TECHNICAL_BRIEF.md`](EXAMINER_TECHNICAL_BRIEF.md). Kept for historical reference only.
+
 ## 1. Final Repository Architecture
 
 ### 1️⃣ crystolia-app (Application Monorepo)

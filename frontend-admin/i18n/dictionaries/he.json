@@ -317,7 +317,21 @@
     },
     "timeline": {
       "title": "ציר זמן",
-      "empty": "אין אירועים בציר הזמן עדיין."
+      "empty": "אין אירועים בציר הזמן עדיין.",
+      "statusTransition": "{from} → {to}",
+      "notePreview": "הערה: {preview}",
+      "events": {
+        "lead_created": "הליד נוצר",
+        "lead_updated": "הליד עודכן",
+        "status_changed": "הסטטוס שונה",
+        "converted": "הומר ללקוח",
+        "note_added": "נוספה הערה",
+        "owner_assigned": "שויך אחראי",
+        "onboarding_step_completed": "הושלם שלב קליטה",
+        "whatsapp_notified": "נשלחה הודעת וואטסאפ",
+        "sms_notified": "נשלחה הודעת SMS",
+        "notification_failed": "שליחת ההתראה נכשלה"
+      }
     },
     "notes": {
       "title": "הערות",
@@ -653,7 +667,19 @@
     "timelineEvents": {
       "order_created": "ההזמנה נוצרה",
       "order_items_updated": "הפריטים עודכנו",
-      "status_changed": "הסטטוס שונה"
+      "status_changed": "הסטטוס שונה",
+      "admin_order_notification": "התראה למנהל",
+      "customer_order_notification": "עדכון ללקוח"
+    },
+    "timelineMeta": {
+      "statusTransition": "{from} → {to}",
+      "viaShipmentDelivered": "עודכן אוטומטית עם מסירת המשלוח",
+      "adminNotifSent": "נשלחה התראת SMS למנהל",
+      "adminNotifFailed": "שליחת התראת ה-SMS למנהל נכשלה",
+      "customerNotifBoth": "עדכון ללקוח נשלח באימייל וב-SMS",
+      "customerNotifEmailOnly": "עדכון ללקוח נשלח באימייל; שליחת ה-SMS נכשלה",
+      "customerNotifSmsOnly": "עדכון ללקוח נשלח ב-SMS; שליחת האימייל נכשלה",
+      "customerNotifFailed": "לא ניתן היה לשלוח את העדכון ללקוח באימייל או ב-SMS"
     },
     "detail": {
       "titlePrefix": "הזמנה",

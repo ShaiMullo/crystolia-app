@@ -15,7 +15,7 @@ import {
 } from "@/components/ui";
 import { useAdminI18n } from "@/i18n/I18nProvider";
 import { searchAudit, type AuditEntry } from "@/lib/systemApi";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, summarizeAuditDetails } from "@/lib/format";
 import type { Locale } from "@/i18n";
 
 const ENTITY_FILTERS = [
@@ -157,7 +157,7 @@ export default function ActivityPage() {
                                     </div>
                                     {log.details && Object.keys(log.details).length > 0 && (
                                         <p className="mt-1 text-xs text-gray-400 break-words line-clamp-2">
-                                            {JSON.stringify(log.details)}
+                                            {summarizeAuditDetails(log.details)}
                                         </p>
                                     )}
                                 </div>

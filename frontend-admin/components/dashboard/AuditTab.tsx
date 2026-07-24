@@ -14,7 +14,7 @@ import {
     TR,
 } from "@/components/ui";
 import { useAdminI18n } from "@/i18n/I18nProvider";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, summarizeAuditDetails } from "@/lib/format";
 import type { Locale } from "@/i18n";
 import type { AuditLog } from "@/types";
 
@@ -61,7 +61,7 @@ export function AuditTab({ logs, loading, page, totalPages, onPageChange }: Audi
                                         {log.entity} / <span className="font-mono">{log.entityId?.substring(0, 8)}…</span>
                                     </TD>
                                     <TD muted className="max-w-xs">
-                                        <span className="truncate block">{JSON.stringify(log.details)}</span>
+                                        <span className="truncate block">{summarizeAuditDetails(log.details)}</span>
                                     </TD>
                                 </TR>
                             ))

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import api from '@/app/lib/api';
 import { useRouter } from 'next/navigation';
 
@@ -56,16 +56,43 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    // localStorage only seeds the initial paint — the HttpOnly auth_token
+    // cookie stays authoritative. The /auth/me check below reconciles or
+    // clears this seed once the session is actually validated.
     const [user, setUser] = useState<User | null>(() => {
         if (typeof window === 'undefined') return null;
-        const storedUser = localStorage.getItem('user');
-        return storedUser ? JSON.parse(storedUser) : null;
+        try {
+            const storedUser = localStorage.getItem('user');
+            return storedUser ? JSON.parse(storedUser) : null;
+        } catch {
+            return null;
+        }
     });
-    const [isLoading] = useState(() => {
-        if (typeof window === 'undefined') return true;
-        return false;
-    });
+    const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const response = await api.get('/auth/me');
+                if (cancelled) return;
+                const freshUser: User = response.data.user;
+                setUser(freshUser);
+                localStorage.setItem('user', JSON.stringify(freshUser));
+            } catch {
+                if (cancelled) return;
+                // Cookie missing, expired or invalidated — drop the stale seed.
+                setUser(null);
+                localStorage.removeItem('user');
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const login = async (credentials: LoginData) => {
         try {

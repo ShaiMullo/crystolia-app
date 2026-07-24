@@ -110,6 +110,34 @@ export default function LeadDetailPage() {
         }
     };
 
+    const timelineEventLabel = (type: string) => {
+        const key = `leadDetail.timeline.events.${type}`;
+        const translated = t(key);
+        return translated === key ? type.replace(/_/g, " ") : translated;
+    };
+
+    const leadStatusLabel = (status: string) => {
+        const key = `status.${status}`;
+        const translated = t(key);
+        return translated === key ? status.replace(/_/g, " ") : translated;
+    };
+
+    // Meta stays raw in the DB for auditing; the UI shows a translated summary
+    // for the shapes worth surfacing and nothing for the rest — never JSON.
+    const describeTimelineMeta = (event: TimelineEvent): string | null => {
+        const meta = (event.meta ?? {}) as Record<string, unknown>;
+        if (event.type === "status_changed" && typeof meta.from === "string" && typeof meta.to === "string") {
+            return t("leadDetail.timeline.statusTransition", {
+                from: leadStatusLabel(meta.from),
+                to: leadStatusLabel(meta.to),
+            });
+        }
+        if (event.type === "note_added" && typeof meta.preview === "string" && meta.preview) {
+            return t("leadDetail.timeline.notePreview", { preview: meta.preview });
+        }
+        return null;
+    };
+
     const handleConvertSubmit = useCallback(
         async (payload: ConvertSubmitPayload): Promise<ConvertSubmitResult> => {
             const res = await api.post(`/crm/leads/${leadId}/convert`, payload);
@@ -297,17 +325,20 @@ export default function LeadDetailPage() {
                         <div className="mt-4">
                             {lead.timeline && lead.timeline.length > 0 ? (
                                 <ol className="space-y-3 max-h-96 overflow-y-auto pe-2">
-                                    {[...lead.timeline].reverse().map((event: TimelineEvent, i: number) => (
-                                        <li key={i} className="flex items-start gap-3 border-s-2 border-yellow-200 dark:border-yellow-700/50 ps-3 py-1">
-                                            <div className="min-w-0">
-                                                <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{event.type.replace(/_/g, " ")}</p>
-                                                <p className="text-xs text-gray-500 dark:text-gray-400">{formatDateTime(event.at, locale as Locale)}</p>
-                                                {event.meta && (
-                                                    <p className="text-xs text-gray-400 mt-1 break-words">{JSON.stringify(event.meta)}</p>
-                                                )}
-                                            </div>
-                                        </li>
-                                    ))}
+                                    {[...lead.timeline].reverse().map((event: TimelineEvent, i: number) => {
+                                        const detail = describeTimelineMeta(event);
+                                        return (
+                                            <li key={i} className="flex items-start gap-3 border-s-2 border-yellow-200 dark:border-yellow-700/50 ps-3 py-1">
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{timelineEventLabel(event.type)}</p>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">{formatDateTime(event.at, locale as Locale)}</p>
+                                                    {detail && (
+                                                        <p className="text-xs text-gray-400 mt-1 break-words">{detail}</p>
+                                                    )}
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
                                 </ol>
                             ) : (
                                 <EmptyState icon={<Activity size={18} />} title={t("leadDetail.timeline.empty")} />

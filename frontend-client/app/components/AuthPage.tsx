@@ -212,7 +212,7 @@ export default function AuthPage({ locale: rawLocale }: AuthPageProps) {
     const [error, setError] = useState<string | null>(null);
     const [forgotSent, setForgotSent] = useState(false);
     const [googleAvailable, setGoogleAvailable] = useState(false);
-    const { user, login, register } = useAuth();
+    const { user, login, register, isLoading: authLoading } = useAuth();
     const router = useRouter();
 
     useEffect(() => {
@@ -240,9 +240,11 @@ export default function AuthPage({ locale: rawLocale }: AuthPageProps) {
     }, []);
 
     useEffect(() => {
-        if (!user) return;
+        // Wait for the /auth/me session check — a stale localStorage seed must
+        // not bounce a logged-out visitor into the dashboard.
+        if (authLoading || !user) return;
         router.replace(`/${locale}/dashboard`);
-    }, [user, locale, router]);
+    }, [user, authLoading, locale, router]);
 
     const updateField = (field: keyof typeof formData, value: string) => {
         setFormData((current) => ({ ...current, [field]: value }));

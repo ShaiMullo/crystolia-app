@@ -1,5 +1,11 @@
 # Project Structure Map
 
+> ## ⚠️ Archived / no longer authoritative
+>
+> This map describes a **NestJS migration that was never completed** — the "legacy" Express `src/routes` + `src/models` structure it flags is in fact the **current production backend**, and the NestJS modules/controllers/entities listed below no longer exist.
+>
+> For the current structure, see the root [`README.md`](../README.md) and [`docs/EXAMINER_TECHNICAL_BRIEF.md`](EXAMINER_TECHNICAL_BRIEF.md). Kept for historical reference only.
+
 **Generated:** 2026-01-28
 **Branch:** dev
 
