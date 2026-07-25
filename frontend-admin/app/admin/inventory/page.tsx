@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
-import { AlertTriangle, Boxes, History, Pencil, RefreshCw, ScanLine } from "lucide-react";
+import { AlertTriangle, Boxes, History, PackagePlus, Pencil, RefreshCw, ScanLine } from "lucide-react";
 import {
     Badge,
     Button,
@@ -18,6 +18,7 @@ import {
     THead,
     TR,
 } from "@/components/ui";
+import { AddStockModal } from "@/components/inventory/AddStockModal";
 import { InventoryMovementModal } from "@/components/inventory/InventoryMovementModal";
 import { MovementHistoryModal } from "@/components/inventory/MovementHistoryModal";
 import { ExportButton } from "@/components/system/ExportButton";
@@ -26,11 +27,12 @@ import { formatDateTime } from "@/lib/format";
 import {
     createMovement,
     listInventory,
+    listProducts,
     runReconciliation,
     type MovementPayload,
 } from "@/lib/inventoryApi";
 import type { Locale } from "@/i18n";
-import type { InventoryRow } from "@/types";
+import type { InventoryRow, Product } from "@/types";
 import { cn } from "@/lib/cn";
 
 // Small horizontal bar: available (emerald) + reserved (amber) within on-hand.
@@ -49,18 +51,22 @@ function StockBar({ row }: { row: InventoryRow }) {
 export default function InventoryPage() {
     const { t, locale } = useAdminI18n();
     const [rows, setRows] = useState<InventoryRow[]>([]);
+    const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<"all" | "low">("all");
     const [adjustingRow, setAdjustingRow] = useState<InventoryRow | null>(null);
     const [historyRow, setHistoryRow] = useState<InventoryRow | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
     const [historyOpen, setHistoryOpen] = useState(false);
+    const [addStockOpen, setAddStockOpen] = useState(false);
     const [reconciling, setReconciling] = useState(false);
 
+    // Always fetch the FULL list — the low-stock filter is applied client-side
+    // below so the missing-products notice keeps seeing every existing row.
     const fetchList = useCallback(async () => {
         setLoading(true);
         try {
-            const data = await listInventory(filter === "low");
+            const data = await listInventory(false);
             setRows(data || []);
         } catch (err) {
             console.error(err);
@@ -68,13 +74,49 @@ export default function InventoryPage() {
         } finally {
             setLoading(false);
         }
-    }, [filter, t]);
+    }, [t]);
+
+    // Active products feed the add-stock selector and the "no inventory row
+    // yet" notice. A failure here only degrades that extra — the table still
+    // renders — so it does not share the table's error toast.
+    const fetchProducts = useCallback(async () => {
+        try {
+            const res = await listProducts({ isActive: true, limit: 200 });
+            setProducts(res.data || []);
+        } catch (err) {
+            console.error(err);
+        }
+    }, []);
 
     useEffect(() => {
         fetchList();
     }, [fetchList]);
 
+    useEffect(() => {
+        fetchProducts();
+    }, [fetchProducts]);
+
     const lowStockCount = useMemo(() => rows.filter((r) => r.isLowStock).length, [rows]);
+    const visibleRows = useMemo(
+        () => (filter === "low" ? rows.filter((r) => r.isLowStock) : rows),
+        [rows, filter],
+    );
+
+    // Stock-tracked active products with no Inventory row at the default
+    // "main" location — the exact gap the add-stock action exists to close.
+    // Purely derived for the notice; nothing synthetic enters the table.
+    const missingProductIds = useMemo(() => {
+        const covered = new Set(
+            rows
+                .filter((r) => r.location === "main")
+                .map((r) => (typeof r.product === "object" ? r.product._id : r.product)),
+        );
+        return new Set(
+            products
+                .filter((p) => p.stockTrackingEnabled && !covered.has(p._id))
+                .map((p) => p._id),
+        );
+    }, [rows, products]);
 
     const openAdjust = (row: InventoryRow) => {
         setAdjustingRow(row);
@@ -94,6 +136,14 @@ export default function InventoryPage() {
         } catch (err) {
             throw err;
         }
+    };
+
+    // Opening-stock receipts refresh the missing-products notice too — the
+    // backend created the row, so it must move from the notice into the table.
+    const handleAddStock = async (payload: MovementPayload) => {
+        await createMovement(payload);
+        toast.success(t("inventory.addStock.success"));
+        await Promise.all([fetchList(), fetchProducts()]);
     };
 
     const handleReconcile = async () => {
@@ -134,9 +184,23 @@ export default function InventoryPage() {
                         >
                             {t("inventory.reconciliation.run")}
                         </Button>
+                        <Button size="sm" iconStart={<PackagePlus size={14} />} onClick={() => setAddStockOpen(true)}>
+                            {t("inventory.addStock.button")}
+                        </Button>
                     </>
                 }
             />
+
+            {missingProductIds.size > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50/80 p-3 dark:border-blue-700/30 dark:bg-blue-900/10">
+                    <p className="text-sm text-blue-800 dark:text-blue-200">
+                        {t("inventory.addStock.missingNotice", { count: missingProductIds.size })}
+                    </p>
+                    <Button size="sm" variant="outline" iconStart={<PackagePlus size={14} />} onClick={() => setAddStockOpen(true)}>
+                        {t("inventory.addStock.button")}
+                    </Button>
+                </div>
+            )}
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <Select value={filter} onChange={(e) => setFilter(e.target.value as "all" | "low")} className="sm:w-48">
@@ -168,18 +232,23 @@ export default function InventoryPage() {
                     <TBody>
                         {loading ? (
                             <TableSkeleton columns={9} />
-                        ) : rows.length === 0 ? (
+                        ) : visibleRows.length === 0 ? (
                             <TR>
                                 <TD colSpan={9}>
                                     <EmptyState
                                         icon={<Boxes size={18} />}
                                         title={t("inventory.empty")}
                                         description={t("inventory.emptyHint")}
+                                        action={
+                                            <Button size="sm" iconStart={<PackagePlus size={14} />} onClick={() => setAddStockOpen(true)}>
+                                                {t("inventory.addStock.button")}
+                                            </Button>
+                                        }
                                     />
                                 </TD>
                             </TR>
                         ) : (
-                            rows.map((row) => {
+                            visibleRows.map((row) => {
                                 const product = typeof row.product === "object" ? row.product : null;
                                 return (
                                     <TR key={row._id} className={row.isLowStock ? "bg-amber-50/40 dark:bg-amber-900/10" : ""}>
@@ -219,6 +288,13 @@ export default function InventoryPage() {
                 </Table>
             </TableContainer>
 
+            <AddStockModal
+                isOpen={addStockOpen}
+                onClose={() => setAddStockOpen(false)}
+                products={products}
+                missingProductIds={missingProductIds}
+                onSubmit={handleAddStock}
+            />
             <InventoryMovementModal
                 isOpen={modalOpen}
                 onClose={() => setModalOpen(false)}

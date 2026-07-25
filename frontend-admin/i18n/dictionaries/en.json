@@ -1163,6 +1163,25 @@
     "toasts": {
       "loadFailed": "Failed to load inventory",
       "created": "Movement recorded"
+    },
+    "addStock": {
+      "button": "Add stock",
+      "title": "Add stock",
+      "explain": "This records an inbound receipt that ADDS units to the current on-hand stock — it never replaces the existing quantity. For a new product, the inventory row is created automatically with the first movement.",
+      "product": "Product",
+      "productPlaceholder": "Select a product…",
+      "quantity": "Quantity to add",
+      "location": "Location",
+      "reason": "Reason (optional)",
+      "reasonPlaceholder": "e.g. Opening stock",
+      "untracked": "stock tracking off",
+      "noRowYet": "no stock yet",
+      "missingNotice": "{count} products do not have inventory configured yet.",
+      "productRequired": "Please select a product",
+      "quantityInvalid": "Quantity must be a positive number",
+      "locationRequired": "Please enter a location",
+      "success": "Stock added",
+      "failed": "Failed to add stock"
     }
   },
   "payments": {

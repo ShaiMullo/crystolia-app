@@ -15,6 +15,7 @@ import jwt from 'jsonwebtoken';
 import authRouter from '../routes/auth.js';
 import usersRouter from '../routes/users.js';
 import meRouter from '../routes/me.js';
+import crmInventoryRouter from '../routes/crmInventory.js';
 import { errorHandler } from '../middleware/errorHandler.js';
 import { config } from '../config/index.js';
 import User from '../models/User.js';
@@ -50,6 +51,7 @@ export function buildTestApp(): Express {
     app.use('/api/users', usersRouter);
     app.use('/api/v1/users', usersRouter);
     app.use('/api/v1/me', meRouter);
+    app.use('/api/v1/inventory', crmInventoryRouter);
     app.use(errorHandler);
     return app;
 }

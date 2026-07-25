@@ -26,11 +26,21 @@ async function getOrCreateInventoryRow(
     location: string,
     session?: ClientSession,
 ) {
-    let row = await Inventory.findOne({ product: productId, location }).session(session ?? null);
-    if (!row) {
-        const created = await Inventory.create([{ product: productId, location }], { session });
-        row = created[0];
+    // Atomic get-or-create on the unique (product, location) index so two
+    // concurrent FIRST movements cannot both insert. A lost upsert race
+    // surfaces as a duplicate-key error; the retry then reads the winner's row.
+    try {
+        const row = await Inventory.findOneAndUpdate(
+            { product: productId, location },
+            { $setOnInsert: { product: productId, location } },
+            { new: true, upsert: true, setDefaultsOnInsert: true },
+        ).session(session ?? null);
+        if (row) return row;
+    } catch (err) {
+        if ((err as { code?: number }).code !== 11000) throw err;
     }
+    const row = await Inventory.findOne({ product: productId, location }).session(session ?? null);
+    if (!row) throw new Error('Inventory row lookup failed after upsert');
     return row;
 }
 
