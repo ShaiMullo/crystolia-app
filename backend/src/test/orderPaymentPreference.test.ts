@@ -187,6 +187,26 @@ describe('payment configuration guard at approval', () => {
         expect(blocked.status).toBe(409);
     });
 
+    it('refuses bank-transfer approval when any required bank detail is missing', async () => {
+        await Settings.create({ key: 'business', minimumOrderAmount: 0, currency: 'ILS', boxPrices: [], paymentOptions: BOTH_METHODS });
+        const cookie = await approvedCustomer();
+        const placed = await request(app).post('/api/v1/me/orders').set('Cookie', cookie).send(orderBody('bank_transfer'));
+        expect(placed.status).toBe(201);
+
+        await Settings.updateOne(
+            { key: 'business' },
+            { $set: { 'paymentOptions.bankTransfer.branch': '', 'paymentOptions.bankTransfer.accountName': '' } },
+        );
+
+        const admin = await createAdmin();
+        const blocked = await request(app)
+            .patch(`/api/orders/${placed.body.data._id}`)
+            .set('Cookie', authCookieFor(admin))
+            .send({ status: 'approved' });
+        expect(blocked.status).toBe(409);
+        expect((await Order.findById(placed.body.data._id).lean())?.status).toBe('pending');
+    });
+
     it('still approves legacy orders that carry no preference', async () => {
         await approvedCustomer();
         const customer = await User.findOne({ email: `payment-${counter}@example.com` });

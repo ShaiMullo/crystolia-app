@@ -17,6 +17,7 @@ export interface CreateNotificationInput {
     icon?: string;
     channel?: NotificationChannel;
     meta?: Record<string, unknown>;
+    dedupeKey?: string;
     sourceAutomation?: string;
 }
 
@@ -45,22 +46,36 @@ export async function notifyAdmins(input: NotifyAdminsInput): Promise<void> {
             isDeleted: { $ne: true },
         }).select('_id').lean();
 
+        const dedupeKey = `${input.type}:${input.entityId}`;
         await Promise.all(admins.map(async (admin) => {
-            const exists = await Notification.exists({
-                recipient: admin._id,
-                type: input.type,
-                'meta.entityId': input.entityId,
-            });
-            if (exists) return;
-            await createNotification({
-                recipientId: admin._id,
-                type: input.type,
-                title: input.title,
-                body: input.body,
-                link: input.link,
-                icon: input.icon,
-                meta: { entityId: input.entityId },
-            });
+            try {
+                await Notification.findOneAndUpdate(
+                    {
+                        recipient: admin._id,
+                        channel: 'in_app',
+                        dedupeKey,
+                    },
+                    {
+                        $setOnInsert: {
+                            recipient: admin._id,
+                            type: input.type,
+                            title: input.title,
+                            body: input.body,
+                            link: input.link,
+                            icon: input.icon,
+                            channel: 'in_app',
+                            isRead: false,
+                            meta: { entityId: input.entityId },
+                            dedupeKey,
+                        },
+                    },
+                    { upsert: true, new: true, setDefaultsOnInsert: true },
+                );
+            } catch (err) {
+                // A competing upsert may win before this process sees the
+                // unique index. That is a successful idempotent outcome.
+                if ((err as { code?: number }).code !== 11000) throw err;
+            }
         }));
     } catch (err) {
         console.error('❌ notifyAdmins failed:', err);
@@ -78,6 +93,7 @@ export async function createNotification(input: CreateNotificationInput) {
             icon: input.icon,
             channel: input.channel || 'in_app',
             meta: input.meta,
+            dedupeKey: input.dedupeKey,
             sourceAutomation: input.sourceAutomation,
         });
         return doc;

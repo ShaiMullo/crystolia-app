@@ -98,6 +98,28 @@ describe('admin in-app notifications', () => {
         expect(await Notification.countDocuments({ type: 'order_pending_approval' })).toBe(1);
     });
 
+    it('does not duplicate an order notification under concurrent retries', async () => {
+        await createAdmin();
+        const { customer } = await approvedCustomer('parallel');
+        const order = await Order.create({
+            company: customer.company,
+            createdBy: customer._id,
+            items: [{ productName: 'שמן קנולה 5L', quantity: 1, price: 80 }],
+            totalAmount: 80,
+            status: 'pending',
+            paymentPreference: 'bank_transfer',
+        });
+
+        await Promise.all(Array.from({ length: 8 }, () => notifyAdminOfNewOrder(order)));
+
+        const notifications = await Notification.find({
+            type: 'order_pending_approval',
+            'meta.entityId': String(order._id),
+        }).lean();
+        expect(notifications).toHaveLength(1);
+        expect(notifications[0].dedupeKey).toBe(`order_pending_approval:${order._id}`);
+    });
+
     it('creates a registration_pending notification with a deep link, idempotently', async () => {
         const admin = await createAdmin();
         const res = await request(app).post('/api/auth/register').send(VALID_REGISTRATION);
