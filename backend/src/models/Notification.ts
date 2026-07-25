@@ -30,6 +30,7 @@ export interface INotification extends Document {
     isRead: boolean;
     readAt?: Date;
     meta?: Record<string, unknown>;
+    dedupeKey?: string;
     sourceAutomation?: string;
     createdAt: Date;
     updatedAt: Date;
@@ -69,6 +70,7 @@ const NotificationSchema = new Schema<INotification>(
         isRead: { type: Boolean, default: false, index: true },
         readAt: { type: Date },
         meta: { type: Schema.Types.Mixed },
+        dedupeKey: { type: String, maxlength: 300 },
         sourceAutomation: { type: String },
     },
     { timestamps: true },
@@ -76,6 +78,13 @@ const NotificationSchema = new Schema<INotification>(
 
 // Most queries: my unread, newest first
 NotificationSchema.index({ recipient: 1, isRead: 1, createdAt: -1 });
+NotificationSchema.index(
+    { recipient: 1, channel: 1, dedupeKey: 1 },
+    {
+        unique: true,
+        partialFilterExpression: { dedupeKey: { $type: 'string' } },
+    },
+);
 
 export const Notification = mongoose.model<INotification>('Notification', NotificationSchema);
 export default Notification;

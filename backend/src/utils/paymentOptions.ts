@@ -40,7 +40,12 @@ export function paymentConfigError(
     if (preference === 'bank_transfer') {
         const bank = paymentOptions?.bankTransfer;
         if (!bank?.enabled) return 'Bank transfer is disabled in Settings';
-        if (!String(bank.bankName || '').trim() || !String(bank.accountNumber || '').trim()) {
+        if (
+            !String(bank.bankName || '').trim()
+            || !String(bank.branch || '').trim()
+            || !String(bank.accountNumber || '').trim()
+            || !String(bank.accountName || '').trim()
+        ) {
             return 'Bank transfer details are incomplete in Settings';
         }
         return null;
