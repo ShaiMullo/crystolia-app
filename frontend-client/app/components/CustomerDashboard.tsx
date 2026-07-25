@@ -27,6 +27,7 @@ interface Order {
     items: OrderItem[];
     totalAmount: number;
     notes?: string;
+    rejectionReason?: string;
     createdAt: string;
 }
 
@@ -60,6 +61,20 @@ interface CatalogItem {
 interface BusinessSettings {
     minimumOrderAmount: number;
     currency: string;
+    paymentOptions?: {
+        bankTransfer: {
+            enabled: boolean;
+            bankName?: string;
+            branch?: string;
+            accountNumber?: string;
+            accountName?: string;
+            iban?: string;
+        };
+        creditCard: {
+            enabled: boolean;
+            paymentUrl?: string;
+        };
+    };
 }
 
 
@@ -302,6 +317,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
         switch (status) {
             case "pending":   return "bg-amber-50 text-amber-700 border border-amber-200";
             case "approved":  return "bg-blue-50 text-blue-700 border border-blue-200";
+            case "rejected":  return "bg-red-50 text-red-700 border border-red-200";
             case "shipped":   return "bg-indigo-50 text-indigo-700 border border-indigo-200";
             case "completed": return "bg-emerald-50 text-emerald-700 border border-emerald-200";
             case "cancelled": return "bg-red-50 text-red-700 border border-red-200";
@@ -1007,6 +1023,45 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                     ))}
                                 </div>
                             </div>
+
+                            {selectedOrder.status === "rejected" && selectedOrder.rejectionReason && (
+                                <div className="mb-8 rounded-2xl border border-red-200 bg-red-50 p-5">
+                                    <h4 className="font-medium text-red-900">{t.rejectionReason}</h4>
+                                    <p className="mt-2 whitespace-pre-wrap text-sm text-red-800">{selectedOrder.rejectionReason}</p>
+                                </div>
+                            )}
+
+                            {selectedOrder.status === "approved" && settings?.paymentOptions && (
+                                <div className="mb-8 rounded-2xl border border-[#F5C542]/40 bg-[#F5C542]/5 p-5">
+                                    <h4 className="font-medium text-gray-900">{t.paymentOptions}</h4>
+                                    {settings.paymentOptions.bankTransfer.enabled && (
+                                        <div className="mt-4 rounded-xl bg-white p-4 text-sm text-gray-700">
+                                            <p className="font-medium text-gray-900">{t.bankTransfer}</p>
+                                            <dl className="mt-2 space-y-1">
+                                                {settings.paymentOptions.bankTransfer.bankName && <div>{t.bankName}: {settings.paymentOptions.bankTransfer.bankName}</div>}
+                                                {settings.paymentOptions.bankTransfer.branch && <div>{t.branch}: {settings.paymentOptions.bankTransfer.branch}</div>}
+                                                {settings.paymentOptions.bankTransfer.accountNumber && <div>{t.accountNumber}: {settings.paymentOptions.bankTransfer.accountNumber}</div>}
+                                                {settings.paymentOptions.bankTransfer.accountName && <div>{t.accountName}: {settings.paymentOptions.bankTransfer.accountName}</div>}
+                                                {settings.paymentOptions.bankTransfer.iban && <div dir="ltr">IBAN: {settings.paymentOptions.bankTransfer.iban}</div>}
+                                                <div className="pt-1 font-medium">{t.transferReference}: #{selectedOrder._id.slice(-8).toUpperCase()}</div>
+                                            </dl>
+                                        </div>
+                                    )}
+                                    {settings.paymentOptions.creditCard.enabled && settings.paymentOptions.creditCard.paymentUrl && (
+                                        <a
+                                            href={settings.paymentOptions.creditCard.paymentUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="mt-4 block w-full rounded-xl bg-[#F5C542] px-5 py-3 text-center font-medium text-white transition-colors hover:bg-[#d4a83a]"
+                                        >
+                                            {t.payByCard}
+                                        </a>
+                                    )}
+                                    {!settings.paymentOptions.bankTransfer.enabled && !settings.paymentOptions.creditCard.enabled && (
+                                        <p className="mt-2 text-sm text-gray-500">{t.paymentUnavailable}</p>
+                                    )}
+                                </div>
+                            )}
 
                             <div className="flex justify-between items-center pt-6 border-t border-gray-100">
                                 <p className="text-lg font-medium text-gray-900">{t.total}</p>

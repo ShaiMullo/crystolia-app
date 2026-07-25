@@ -22,6 +22,20 @@ export interface ISettings extends Document {
     minimumOrderAmount: number;
     boxPrices: IBoxPrice[];
     currency: string;
+    paymentOptions: {
+        bankTransfer: {
+            enabled: boolean;
+            bankName?: string;
+            branch?: string;
+            accountNumber?: string;
+            accountName?: string;
+            iban?: string;
+        };
+        creditCard: {
+            enabled: boolean;
+            paymentUrl?: string;
+        };
+    };
     updatedBy?: mongoose.Types.ObjectId;
     updatedAt: Date;
 }
@@ -62,6 +76,20 @@ const SettingsSchema = new Schema<ISettings>(
             type: String,
             required: true,
             default: 'ILS',
+        },
+        paymentOptions: {
+            bankTransfer: {
+                enabled: { type: Boolean, default: false },
+                bankName: { type: String, trim: true, maxlength: 120 },
+                branch: { type: String, trim: true, maxlength: 40 },
+                accountNumber: { type: String, trim: true, maxlength: 60 },
+                accountName: { type: String, trim: true, maxlength: 120 },
+                iban: { type: String, trim: true, maxlength: 60 },
+            },
+            creditCard: {
+                enabled: { type: Boolean, default: false },
+                paymentUrl: { type: String, trim: true, maxlength: 2000 },
+            },
         },
         updatedBy: {
             type: Schema.Types.ObjectId,

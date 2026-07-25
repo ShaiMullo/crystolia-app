@@ -53,6 +53,7 @@ export interface OrderUpsertPayload {
     items?: OrderItemInput[];
     notes?: string;
     status?: OrderStatus;
+    rejectionReason?: string;
 }
 
 export async function previewOrder(items: OrderItemInput[]): Promise<{ totals: OrderTotals; preview: OrderInventoryPreviewLine[] }> {

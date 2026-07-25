@@ -29,7 +29,7 @@ interface OrdersTabProps {
     onView: (order: Order) => void;
 }
 
-const ORDER_STATUSES: OrderStatus[] = ["pending", "approved", "shipped", "completed", "cancelled"];
+const ORDER_STATUSES: OrderStatus[] = ["pending", "approved", "rejected", "shipped", "completed", "cancelled"];
 
 const getCompanyName = (order: Order): string => {
     if (!order.company) return "—";

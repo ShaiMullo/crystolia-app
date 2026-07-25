@@ -32,7 +32,8 @@ export interface IOrder extends Document, ISyncable {
     totalAmount: number;
     subtotal?: number;
     taxTotal?: number;
-    status: 'pending' | 'approved' | 'shipped' | 'completed' | 'cancelled';
+    status: 'pending' | 'approved' | 'rejected' | 'shipped' | 'completed' | 'cancelled';
+    rejectionReason?: string;
     notes?: string;
     timeline: IOrderTimelineEvent[];
     createdAt: Date;
@@ -75,13 +76,18 @@ const OrderSchema = new Schema<IOrder>(
         taxTotal: { type: Number, min: 0 },
         status: {
             type: String,
-            enum: ['pending', 'approved', 'shipped', 'completed', 'cancelled'],
+            enum: ['pending', 'approved', 'rejected', 'shipped', 'completed', 'cancelled'],
             default: 'pending',
             index: true,
         },
         notes: {
             type: String,
             trim: true,
+        },
+        rejectionReason: {
+            type: String,
+            trim: true,
+            maxlength: 1000,
         },
         timeline: [{
             type: { type: String, required: true },

@@ -712,6 +712,13 @@
       "paymentPlaceholder": "Payment status — coming soon",
       "paid": "Paid",
       "recordPayment": "Record payment"
+    },
+    "reject": {
+      "title": "Reject order",
+      "description": "The customer will be notified that the order was rejected and will receive the reason entered here.",
+      "reason": "Rejection reason",
+      "placeholder": "For example: the requested quantity is unavailable",
+      "confirm": "Reject and notify"
     }
   },
   "invoices": {
@@ -891,6 +898,19 @@
       "skuPlaceholder": "e.g. BOX-S",
       "legacyNotice": "Rows in this list are shown to customers only when no Product with the same SKU exists in the Products catalog. You can keep managing legacy items here until they are migrated."
     },
+    "payments": {
+      "title": "Customer payment options",
+      "subtitle": "These options appear in the business portal only after an order is approved.",
+      "bankEnabled": "Enable bank transfer",
+      "bankName": "Bank name",
+      "branch": "Branch",
+      "accountNumber": "Account number",
+      "accountName": "Account holder",
+      "iban": "IBAN (optional)",
+      "cardEnabled": "Enable credit-card payment",
+      "paymentUrl": "Secure payment URL",
+      "paymentUrlHint": "Enter an HTTPS link from the payment provider. A unique link per order requires the provider's API."
+    },
     "toasts": {
       "saved": "Settings saved",
       "saveFailed": "Failed to save settings"
@@ -936,6 +956,7 @@
   "orderStatus": {
     "pending": "Pending",
     "approved": "Approved",
+    "rejected": "Rejected",
     "shipped": "Shipped",
     "completed": "Completed",
     "cancelled": "Cancelled"

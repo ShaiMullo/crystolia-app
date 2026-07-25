@@ -26,7 +26,7 @@ const router = Router();
 router.use(protect);
 router.use(authorize('admin'));
 
-const STATUSES = ['pending', 'approved', 'shipped', 'completed', 'cancelled'] as const;
+const STATUSES = ['pending', 'approved', 'rejected', 'shipped', 'completed', 'cancelled'] as const;
 type OrderStatus = (typeof STATUSES)[number];
 
 // Resolve the Company id from either a Company id or a Customer id.
@@ -226,6 +226,13 @@ router.patch('/:id', async (req: Request, res: Response, next: NextFunction) => 
         if (typeof body.status === 'string') {
             if (!STATUSES.includes(body.status as OrderStatus)) throw new AppError('Invalid status', 400);
             if (body.status !== order.status) {
+                if (body.status === 'rejected') {
+                    const reason = typeof body.rejectionReason === 'string' ? body.rejectionReason.trim() : '';
+                    if (!reason) throw new AppError('Rejection reason is required', 400);
+                    order.rejectionReason = reason;
+                } else if (order.status === 'rejected') {
+                    order.rejectionReason = undefined;
+                }
                 statusChanged = true;
                 order.status = body.status as OrderStatus;
                 order.timeline.push({
@@ -244,7 +251,7 @@ router.patch('/:id', async (req: Request, res: Response, next: NextFunction) => 
             const orderItems = order.items.map((i) => ({ productId: i.productId?.toString(), quantity: i.quantity }));
             if (order.status === 'approved' && previousStatus !== 'approved') {
                 await reserveForOrder(order._id, orderItems, actorId);
-            } else if (order.status === 'cancelled' && previousStatus === 'approved') {
+            } else if ((order.status === 'cancelled' || order.status === 'rejected') && previousStatus === 'approved') {
                 await releaseForOrder(order._id, orderItems, actorId);
             } else if (order.status === 'shipped' && previousStatus !== 'shipped' && previousStatus !== 'completed') {
                 await shipForOrder(order._id, orderItems, actorId);
@@ -258,6 +265,26 @@ router.patch('/:id', async (req: Request, res: Response, next: NextFunction) => 
             req,
             details: { status: order.status, totalAmount: order.totalAmount },
         });
+
+        // Approval creates the invoice that the payment workflow is attached
+        // to. The lookup keeps ordinary repeated approvals idempotent.
+        if (statusChanged && order.status === 'approved') {
+            const existing = await Invoice.findOne({ order: order._id }).select('_id');
+            if (!existing) {
+                const invoiceNumber = `INV-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
+                try {
+                    await Invoice.create({
+                        company: order.company,
+                        order: order._id,
+                        invoiceNumber,
+                        totalAmount: order.totalAmount,
+                        status: 'draft',
+                    });
+                } catch (invoiceErr: unknown) {
+                    if ((invoiceErr as { code?: number }).code !== 11000) throw invoiceErr;
+                }
+            }
+        }
 
         if (statusChanged && isCustomerNotifiableStatus(order.status)) {
             const notifications = await notifyCustomerOfOrderStatus(order, order.status)

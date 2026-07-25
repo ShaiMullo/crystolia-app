@@ -28,6 +28,7 @@ describe('order SMS copy', () => {
             customerName: 'ישראל\nישראלי',
             orderId: 'ABC12345',
             statusLabel: 'יצאה למשלוח',
+            status: 'shipped',
             totalAmount: 120,
             dashboardUrl: 'https://business.crystolia.com/he/dashboard',
         });
@@ -35,5 +36,33 @@ describe('order SMS copy', () => {
         expect(sms).toContain('ישראל ישראלי');
         expect(sms).toContain('יצאה למשלוח');
         expect(sms).toContain('https://business.crystolia.com/he/dashboard');
+    });
+
+    it('explains that a new order is pending approval', () => {
+        const sms = buildOrderStatusNotificationSms({
+            customerName: 'ישראל ישראלי',
+            orderId: 'ABC12345',
+            statusLabel: 'התקבלה וממתינה לאישור',
+            status: 'pending',
+            totalAmount: 120,
+            dashboardUrl: 'https://business.crystolia.com/he/dashboard',
+        });
+
+        expect(sms).toContain('ממתינה לבדיקה ואישור');
+    });
+
+    it('includes a compact rejection reason', () => {
+        const sms = buildOrderStatusNotificationSms({
+            customerName: 'ישראל ישראלי',
+            orderId: 'ABC12345',
+            statusLabel: 'נדחתה',
+            status: 'rejected',
+            rejectionReason: 'המוצר אינו זמין בכמות המבוקשת',
+            totalAmount: 120,
+            dashboardUrl: 'https://business.crystolia.com/he/dashboard',
+        });
+
+        expect(sms).toContain('סיבת הדחייה');
+        expect(sms).toContain('המוצר אינו זמין');
     });
 });

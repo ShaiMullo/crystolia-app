@@ -30,7 +30,7 @@ import { listProducts } from "@/lib/inventoryApi";
 import type { Locale } from "@/i18n";
 import type { Customer, Order, OrderStatus, Product } from "@/types";
 
-const STATUSES: OrderStatus[] = ["pending", "approved", "shipped", "completed", "cancelled"];
+const STATUSES: OrderStatus[] = ["pending", "approved", "rejected", "shipped", "completed", "cancelled"];
 
 function companyName(o: Order): string {
     if (o.company && typeof o.company === "object") return o.company.name;
