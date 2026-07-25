@@ -29,8 +29,9 @@ export interface OrderStatusEmailDetails {
     name: string;
     locale: EmailLocale;
     orderId: string;
-    status: 'approved' | 'shipped' | 'completed' | 'cancelled';
+    status: 'pending' | 'approved' | 'rejected' | 'shipped' | 'completed' | 'cancelled';
     totalAmount: number;
+    rejectionReason?: string;
 }
 
 export interface PasswordResetEmailDetails {
@@ -404,19 +405,25 @@ export async function sendOrderStatusEmail(details: OrderStatusEmailDetails): Pr
     const locale = safeLocale(details.locale);
     const statusCopy = {
         he: {
+            pending: 'התקבלה וממתינה לאישור',
             approved: 'אושרה',
+            rejected: 'נדחתה',
             shipped: 'יצאה למשלוח',
             completed: 'הושלמה',
             cancelled: 'בוטלה',
         },
         en: {
+            pending: 'was received and is awaiting approval',
             approved: 'has been approved',
+            rejected: 'was rejected',
             shipped: 'has shipped',
             completed: 'is complete',
             cancelled: 'has been cancelled',
         },
         ru: {
+            pending: 'получен и ожидает подтверждения',
             approved: 'подтверждён',
+            rejected: 'отклонён',
             shipped: 'отправлен',
             completed: 'завершён',
             cancelled: 'отменён',
@@ -424,13 +431,21 @@ export async function sendOrderStatusEmail(details: OrderStatusEmailDetails): Pr
     } as const;
     const shortId = details.orderId.slice(-8).toUpperCase();
     const amount = `₪${details.totalAmount.toLocaleString(locale === 'he' ? 'he-IL' : locale === 'ru' ? 'ru-RU' : 'en-US')}`;
+    const reasonText = details.rejectionReason?.trim();
     const copy: EmailCopy = locale === 'en'
         ? {
             subject: `Crystolia order #${shortId} ${statusCopy.en[details.status]}`,
             eyebrow: 'ORDER UPDATE',
             title: `Your order ${statusCopy.en[details.status]}`,
             greeting: `Hello ${details.name},`,
-            paragraphs: [`Order #${shortId} was updated.`, `Order total: ${amount}`, 'You can view its current status in your business dashboard.'],
+            paragraphs: [
+                `Order #${shortId} was updated.`,
+                `Order total: ${amount}`,
+                ...(details.status === 'pending' ? ['Our team will review it and notify you after approval or rejection.'] : []),
+                ...(details.status === 'approved' ? ['Bank transfer and credit-card payment options are now available in your business dashboard.'] : []),
+                ...(details.status === 'rejected' && reasonText ? [`Reason: ${reasonText}`] : []),
+                'You can view its current status in your business dashboard.',
+            ],
             button: 'View my orders',
             footer: 'This is a transactional update about your Crystolia order.',
             direction: 'ltr',
@@ -441,7 +456,14 @@ export async function sendOrderStatusEmail(details: OrderStatusEmailDetails): Pr
                 eyebrow: 'СТАТУС ЗАКАЗА',
                 title: `Ваш заказ ${statusCopy.ru[details.status]}`,
                 greeting: `Здравствуйте, ${details.name}!`,
-                paragraphs: [`Статус заказа #${shortId} обновлён.`, `Сумма заказа: ${amount}`, 'Актуальный статус доступен в бизнес-портале.'],
+                paragraphs: [
+                    `Статус заказа #${shortId} обновлён.`,
+                    `Сумма заказа: ${amount}`,
+                    ...(details.status === 'pending' ? ['Наша команда проверит заказ и сообщит о подтверждении или отклонении.'] : []),
+                    ...(details.status === 'approved' ? ['В бизнес-портале доступны банковский перевод и оплата картой.'] : []),
+                    ...(details.status === 'rejected' && reasonText ? [`Причина: ${reasonText}`] : []),
+                    'Актуальный статус доступен в бизнес-портале.',
+                ],
                 button: 'Открыть мои заказы',
                 footer: 'Это сервисное уведомление о вашем заказе Crystolia.',
                 direction: 'ltr',
@@ -451,7 +473,14 @@ export async function sendOrderStatusEmail(details: OrderStatusEmailDetails): Pr
                 eyebrow: 'עדכון הזמנה',
                 title: `ההזמנה שלך ${statusCopy.he[details.status]}`,
                 greeting: `שלום ${details.name},`,
-                paragraphs: [`סטטוס הזמנה #${shortId} עודכן.`, `סכום ההזמנה: ${amount}`, 'אפשר לראות את הסטטוס העדכני באזור העסקי שלך.'],
+                paragraphs: [
+                    `סטטוס הזמנה #${shortId} עודכן.`,
+                    `סכום ההזמנה: ${amount}`,
+                    ...(details.status === 'pending' ? ['צוות Crystolia יעבור על ההזמנה ויעדכן אותך לאחר אישור או דחייה.'] : []),
+                    ...(details.status === 'approved' ? ['אפשר לבחור העברה בנקאית או תשלום באשראי באזור העסקי.'] : []),
+                    ...(details.status === 'rejected' && reasonText ? [`סיבת הדחייה: ${reasonText}`] : []),
+                    'אפשר לראות את הסטטוס העדכני באזור העסקי שלך.',
+                ],
                 button: 'צפייה בהזמנות שלי',
                 footer: 'זוהי הודעה תפעולית בנוגע להזמנה שלך בקריסטוליה.',
                 direction: 'rtl',

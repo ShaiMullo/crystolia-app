@@ -26,6 +26,7 @@ import { InvoiceStatusBadge, OrderStatusBadge, PaymentStatusBadge } from "@/comp
 import { OrderModal } from "@/components/orders/OrderModal";
 import { ShipmentCard } from "@/components/shipments/ShipmentCard";
 import { PaymentModal } from "@/components/payments/PaymentModal";
+import { RejectOrderDialog } from "@/components/orders/RejectOrderDialog";
 import { useAdminI18n } from "@/i18n/I18nProvider";
 import { formatCurrency, formatDateTime, shortId } from "@/lib/format";
 import { getOrder, updateOrder, type OrderUpsertPayload } from "@/lib/ordersApi";
@@ -34,7 +35,7 @@ import { listProducts } from "@/lib/inventoryApi";
 import type { Locale } from "@/i18n";
 import type { Customer, Invoice, OrderDetail, OrderStatus, OrderTimelineEvent, Product } from "@/types";
 
-const STATUSES: OrderStatus[] = ["pending", "approved", "shipped", "completed", "cancelled"];
+const STATUSES: OrderStatus[] = ["pending", "approved", "rejected", "shipped", "completed", "cancelled"];
 
 export default function OrderDetailPage() {
     const params = useParams();
@@ -48,6 +49,7 @@ export default function OrderDetailPage() {
     const [editOpen, setEditOpen] = useState(false);
     const [savingStatus, setSavingStatus] = useState(false);
     const [payInvoice, setPayInvoice] = useState<Invoice | null>(null);
+    const [rejectOpen, setRejectOpen] = useState(false);
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
 
@@ -90,10 +92,30 @@ export default function OrderDetailPage() {
 
     const handleStatusChange = async (status: OrderStatus) => {
         if (!order || status === order.status) return;
+        if (status === "rejected") {
+            setRejectOpen(true);
+            return;
+        }
         setSavingStatus(true);
         try {
             await updateOrder(order._id, { status });
             toast.success(t("orders.toasts.statusUpdated"));
+            await fetchOrder();
+        } catch (err: unknown) {
+            const e = err as { response?: { data?: { error?: string; message?: string } } };
+            toast.error(e.response?.data?.error || e.response?.data?.message || t("orders.toasts.statusFailed"));
+        } finally {
+            setSavingStatus(false);
+        }
+    };
+
+    const handleReject = async (rejectionReason: string) => {
+        if (!order) return;
+        setSavingStatus(true);
+        try {
+            await updateOrder(order._id, { status: "rejected", rejectionReason });
+            toast.success(t("orders.toasts.statusUpdated"));
+            setRejectOpen(false);
             await fetchOrder();
         } catch (err: unknown) {
             const e = err as { response?: { data?: { error?: string; message?: string } } };
@@ -362,6 +384,14 @@ export default function OrderDetailPage() {
                             <p className="mt-2 text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap">{order.notes}</p>
                         </Card>
                     )}
+                    {order.rejectionReason && (
+                        <Card>
+                            <CardTitle>{t("orders.reject.reason")}</CardTitle>
+                            <p className="mt-2 whitespace-pre-wrap text-sm text-red-700 dark:text-red-300">
+                                {order.rejectionReason}
+                            </p>
+                        </Card>
+                    )}
                 </div>
             </div>
 
@@ -380,6 +410,14 @@ export default function OrderDetailPage() {
                 fixedInvoice={payInvoice}
                 onPosted={fetchOrder}
             />
+            {rejectOpen && (
+                <RejectOrderDialog
+                    isOpen
+                    loading={savingStatus}
+                    onClose={() => setRejectOpen(false)}
+                    onConfirm={handleReject}
+                />
+            )}
         </div>
     );
 }

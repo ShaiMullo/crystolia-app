@@ -36,7 +36,28 @@ interface SettingsData {
     minimumOrderAmount: number;
     currency: string;
     boxPrices: BoxPrice[];
+    paymentOptions?: PaymentOptions;
 }
+
+interface PaymentOptions {
+    bankTransfer: {
+        enabled: boolean;
+        bankName?: string;
+        branch?: string;
+        accountNumber?: string;
+        accountName?: string;
+        iban?: string;
+    };
+    creditCard: {
+        enabled: boolean;
+        paymentUrl?: string;
+    };
+}
+
+const EMPTY_PAYMENT_OPTIONS: PaymentOptions = {
+    bankTransfer: { enabled: false },
+    creditCard: { enabled: false },
+};
 
 const EMPTY_BOX_PRICE: BoxPrice = { label: "", sku: "", pricePerUnit: 0, isActive: true };
 
@@ -51,6 +72,7 @@ export default function SettingsPage() {
     const [minimumOrderAmount, setMinimumOrderAmount] = useState(0);
     const [currency, setCurrency] = useState("ILS");
     const [boxPrices, setBoxPrices] = useState<BoxPrice[]>([]);
+    const [paymentOptions, setPaymentOptions] = useState<PaymentOptions>(EMPTY_PAYMENT_OPTIONS);
 
     const fetchSettings = useCallback(async () => {
         setLoading(true);
@@ -61,6 +83,7 @@ export default function SettingsPage() {
             setMinimumOrderAmount(data.minimumOrderAmount ?? 0);
             setCurrency(data.currency ?? "ILS");
             setBoxPrices(data.boxPrices ?? []);
+            setPaymentOptions(data.paymentOptions ?? EMPTY_PAYMENT_OPTIONS);
         } catch (err) {
             console.error(err);
             setError(t("settings.loadFailed"));
@@ -86,7 +109,7 @@ export default function SettingsPage() {
         }
         setSaving(true);
         try {
-            await api.put("/v1/settings", { minimumOrderAmount, currency, boxPrices });
+            await api.put("/v1/settings", { minimumOrderAmount, currency, boxPrices, paymentOptions });
             toast.success(t("settings.toasts.saved"));
         } catch (err) {
             console.error(err);
@@ -232,6 +255,68 @@ export default function SettingsPage() {
                                         </TBody>
                                     </Table>
                                 </TableContainer>
+                            )}
+                        </div>
+                    </Card>
+
+                    <Card>
+                        <CardTitle>{t("settings.payments.title")}</CardTitle>
+                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("settings.payments.subtitle")}</p>
+
+                        <div className="mt-5 space-y-5">
+                            <label className="flex items-center gap-2 text-sm font-medium text-gray-800 dark:text-gray-200">
+                                <input
+                                    type="checkbox"
+                                    checked={paymentOptions.bankTransfer.enabled}
+                                    onChange={(e) => setPaymentOptions((prev) => ({
+                                        ...prev,
+                                        bankTransfer: { ...prev.bankTransfer, enabled: e.target.checked },
+                                    }))}
+                                    className="h-4 w-4 rounded accent-yellow-500"
+                                />
+                                {t("settings.payments.bankEnabled")}
+                            </label>
+                            {paymentOptions.bankTransfer.enabled && (
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    {(["bankName", "branch", "accountNumber", "accountName", "iban"] as const).map((field) => (
+                                        <Field key={field} label={t(`settings.payments.${field}`)}>
+                                            <Input
+                                                value={paymentOptions.bankTransfer[field] ?? ""}
+                                                onChange={(e) => setPaymentOptions((prev) => ({
+                                                    ...prev,
+                                                    bankTransfer: { ...prev.bankTransfer, [field]: e.target.value },
+                                                }))}
+                                            />
+                                        </Field>
+                                    ))}
+                                </div>
+                            )}
+
+                            <label className="flex items-center gap-2 text-sm font-medium text-gray-800 dark:text-gray-200">
+                                <input
+                                    type="checkbox"
+                                    checked={paymentOptions.creditCard.enabled}
+                                    onChange={(e) => setPaymentOptions((prev) => ({
+                                        ...prev,
+                                        creditCard: { ...prev.creditCard, enabled: e.target.checked },
+                                    }))}
+                                    className="h-4 w-4 rounded accent-yellow-500"
+                                />
+                                {t("settings.payments.cardEnabled")}
+                            </label>
+                            {paymentOptions.creditCard.enabled && (
+                                <Field label={t("settings.payments.paymentUrl")} hint={t("settings.payments.paymentUrlHint")}>
+                                    <Input
+                                        type="url"
+                                        dir="ltr"
+                                        value={paymentOptions.creditCard.paymentUrl ?? ""}
+                                        placeholder="https://"
+                                        onChange={(e) => setPaymentOptions((prev) => ({
+                                            ...prev,
+                                            creditCard: { ...prev.creditCard, paymentUrl: e.target.value },
+                                        }))}
+                                    />
+                                </Field>
                             )}
                         </div>
                     </Card>

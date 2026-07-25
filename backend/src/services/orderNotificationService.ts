@@ -14,10 +14,12 @@ import {
     type EmailLocale,
 } from './emailService.js';
 
-type CustomerNotifiableStatus = 'approved' | 'shipped' | 'completed' | 'cancelled';
+type CustomerNotifiableStatus = 'pending' | 'approved' | 'rejected' | 'shipped' | 'completed' | 'cancelled';
 
 const HEBREW_STATUS: Record<CustomerNotifiableStatus, string> = {
+    pending: 'התקבלה וממתינה לאישור',
     approved: 'אושרה',
+    rejected: 'נדחתה',
     shipped: 'יצאה למשלוח',
     completed: 'הושלמה',
     cancelled: 'בוטלה',
@@ -80,14 +82,17 @@ export async function notifyCustomerOfOrderStatus(
             orderId: order._id.toString(),
             status,
             totalAmount: order.totalAmount,
+            rejectionReason: order.rejectionReason,
         }),
         customer.phone
             ? sendSms(customer.phone, buildOrderStatusNotificationSms({
                 customerName: customer.name,
                 orderId: shortId,
                 statusLabel: HEBREW_STATUS[status],
+                status,
                 totalAmount: order.totalAmount,
                 dashboardUrl,
+                rejectionReason: order.rejectionReason,
             }))
             : Promise.resolve({ success: false, error: 'Customer phone missing' }),
     ]);
@@ -95,5 +100,6 @@ export async function notifyCustomerOfOrderStatus(
 }
 
 export function isCustomerNotifiableStatus(status: string): status is CustomerNotifiableStatus {
-    return status === 'approved' || status === 'shipped' || status === 'completed' || status === 'cancelled';
+    return status === 'pending' || status === 'approved' || status === 'rejected'
+        || status === 'shipped' || status === 'completed' || status === 'cancelled';
 }

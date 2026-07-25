@@ -52,6 +52,8 @@ export interface OrderStatusSmsDetails {
     statusLabel: string;
     totalAmount: number;
     dashboardUrl: string;
+    status: 'pending' | 'approved' | 'rejected' | 'shipped' | 'completed' | 'cancelled';
+    rejectionReason?: string;
 }
 
 type SmsHttpClient = Pick<typeof axios, 'post'>;
@@ -158,13 +160,20 @@ export function buildNewOrderNotificationSms(details: NewOrderSmsDetails): strin
 }
 
 export function buildOrderStatusNotificationSms(details: OrderStatusSmsDetails): string {
-    return [
+    const lines = [
         `שלום ${compactSmsField(details.customerName, 70)},`,
         `הזמנה #${compactSmsField(details.orderId, 12)} עודכנה: ${compactSmsField(details.statusLabel, 40)}.`,
         `סכום ההזמנה: ₪${details.totalAmount.toLocaleString('he-IL')}`,
-        `לצפייה: ${details.dashboardUrl}`,
-        'צוות Crystolia',
-    ].join('\n');
+    ];
+    if (details.status === 'pending') {
+        lines.push('ההזמנה התקבלה וממתינה לבדיקה ואישור של צוות Crystolia.');
+    } else if (details.status === 'approved') {
+        lines.push('אפשר לבחור העברה בנקאית או תשלום באשראי באזור העסקי.');
+    } else if (details.status === 'rejected' && details.rejectionReason) {
+        lines.push(`סיבת הדחייה: ${compactSmsField(details.rejectionReason, 160)}`);
+    }
+    lines.push(`לצפייה: ${details.dashboardUrl}`, 'צוות Crystolia');
+    return lines.join('\n');
 }
 
 /**

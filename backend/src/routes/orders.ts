@@ -136,16 +136,31 @@ export const placeOrder = async (req: Request, res: Response, next: NextFunction
             details: { totalAmount, itemCount: requestedSkus.length },
         });
 
-        const adminNotification = await notifyAdminOfNewOrder(newOrder)
-            .catch((error: unknown) => ({
+        const [adminNotification, customerNotification] = await Promise.all([
+            notifyAdminOfNewOrder(newOrder).catch((error: unknown) => ({
                 success: false,
                 error: error instanceof Error ? error.message : 'Notification failed',
-            }));
+            })),
+            notifyCustomerOfOrderStatus(newOrder, 'pending').catch((error: unknown) => ({
+                email: { success: false, error: error instanceof Error ? error.message : 'Notification failed' },
+                sms: { success: false, error: error instanceof Error ? error.message : 'Notification failed' },
+            })),
+        ]);
         newOrder.timeline.push({
             type: 'admin_order_notification',
             at: new Date(),
             actorId: user._id?.toString(),
             meta: { channel: 'sms', result: adminNotification.success ? 'sent' : 'failed' },
+        });
+        newOrder.timeline.push({
+            type: 'customer_order_notification',
+            at: new Date(),
+            actorId: user._id?.toString(),
+            meta: {
+                status: 'pending',
+                email: customerNotification.email.success ? 'sent' : 'failed',
+                sms: customerNotification.sms.success ? 'sent' : 'failed',
+            },
         });
         await newOrder.save();
 
@@ -201,13 +216,13 @@ router.get('/', listOrders);
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 router.patch('/:id', authorize('admin', 'agent'), async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { status } = req.body;
+        const { status, rejectionReason } = req.body;
 
         if (!status) {
             return next(new AppError('Please provide a status', 400));
         }
 
-        const allowedStatuses = ['pending', 'approved', 'shipped', 'completed', 'cancelled'];
+        const allowedStatuses = ['pending', 'approved', 'rejected', 'shipped', 'completed', 'cancelled'];
         if (!allowedStatuses.includes(status)) {
             return next(new AppError('Invalid status', 400));
         }
@@ -220,6 +235,13 @@ router.patch('/:id', authorize('admin', 'agent'), async (req: Request, res: Resp
         }
 
         const previousStatus = order.status;
+        if (status === 'rejected') {
+            const reason = typeof rejectionReason === 'string' ? rejectionReason.trim() : '';
+            if (!reason) return next(new AppError('Rejection reason is required', 400));
+            order.rejectionReason = reason;
+        } else if (previousStatus === 'rejected') {
+            order.rejectionReason = undefined;
+        }
         order.status = status;
         if (previousStatus !== status) {
             order.timeline.push({
@@ -240,7 +262,7 @@ router.patch('/:id', authorize('admin', 'agent'), async (req: Request, res: Resp
 
         if (status === 'approved' && previousStatus !== 'approved') {
             await reserveForOrder(order._id, orderItems, actorId);
-        } else if (status === 'cancelled' && previousStatus === 'approved') {
+        } else if ((status === 'cancelled' || status === 'rejected') && previousStatus === 'approved') {
             await releaseForOrder(order._id, orderItems, actorId);
         } else if (status === 'shipped' && previousStatus !== 'shipped' && previousStatus !== 'completed') {
             await shipForOrder(order._id, orderItems, actorId);

@@ -54,6 +54,7 @@ export const leadStatusTone: Record<LeadStatus, Tone> = {
 export const orderStatusTone: Record<OrderStatus, Tone> = {
     pending: "warning",
     approved: "info",
+    rejected: "danger",
     shipped: "indigo",
     completed: "success",
     cancelled: "danger",

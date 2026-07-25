@@ -180,7 +180,7 @@ export interface User {
     lastLogin?: string;
 }
 
-export type OrderStatus = 'pending' | 'approved' | 'shipped' | 'completed' | 'cancelled';
+export type OrderStatus = 'pending' | 'approved' | 'rejected' | 'shipped' | 'completed' | 'cancelled';
 
 export type InvoiceStatus = 'draft' | 'issued' | 'paid' | 'cancelled';
 
@@ -225,6 +225,7 @@ export interface Order {
     subtotal?: number;
     taxTotal?: number;
     notes?: string;
+    rejectionReason?: string;
     timeline?: OrderTimelineEvent[];
     createdAt: string;
     updatedAt?: string;

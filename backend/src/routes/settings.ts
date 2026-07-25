@@ -28,6 +28,10 @@ router.get('/', protect, async (req: Request, res: Response, next: NextFunction)
                     minimumOrderAmount: 0,
                     boxPrices: [],
                     currency: 'ILS',
+                    paymentOptions: {
+                        bankTransfer: { enabled: false },
+                        creditCard: { enabled: false },
+                    },
                 },
             });
         }
@@ -44,7 +48,7 @@ router.get('/', protect, async (req: Request, res: Response, next: NextFunction)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 router.put('/', protect, authorize('admin'), async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { minimumOrderAmount, boxPrices, currency } = req.body;
+        const { minimumOrderAmount, boxPrices, currency, paymentOptions } = req.body;
 
         if (minimumOrderAmount !== undefined && (typeof minimumOrderAmount !== 'number' || minimumOrderAmount < 0)) {
             throw new AppError('minimumOrderAmount must be a non-negative number', 400);
@@ -56,6 +60,47 @@ router.put('/', protect, authorize('admin'), async (req: Request, res: Response,
 
         if (minimumOrderAmount !== undefined) update.minimumOrderAmount = minimumOrderAmount;
         if (currency !== undefined) update.currency = currency;
+        if (paymentOptions !== undefined) {
+            if (!paymentOptions || typeof paymentOptions !== 'object') {
+                throw new AppError('paymentOptions must be an object', 400);
+            }
+            const bank = paymentOptions.bankTransfer || {};
+            const card = paymentOptions.creditCard || {};
+            if (bank.enabled) {
+                const requiredBankFields = ['bankName', 'branch', 'accountNumber', 'accountName'] as const;
+                if (requiredBankFields.some((field) => !String(bank[field] || '').trim())) {
+                    throw new AppError('Enabled bank transfer requires bank, branch, account number and account name', 400);
+                }
+            }
+            if (card.enabled && !String(card.paymentUrl || '').trim()) {
+                throw new AppError('Enabled credit-card payment requires a payment URL', 400);
+            }
+            if (card.enabled) {
+                let parsed: URL;
+                try {
+                    parsed = new URL(String(card.paymentUrl));
+                } catch {
+                    throw new AppError('Credit-card payment URL is invalid', 400);
+                }
+                if (parsed.protocol !== 'https:') {
+                    throw new AppError('Credit-card payment URL must use HTTPS', 400);
+                }
+            }
+            update.paymentOptions = {
+                bankTransfer: {
+                    enabled: Boolean(bank.enabled),
+                    bankName: String(bank.bankName || '').trim(),
+                    branch: String(bank.branch || '').trim(),
+                    accountNumber: String(bank.accountNumber || '').trim(),
+                    accountName: String(bank.accountName || '').trim(),
+                    iban: String(bank.iban || '').trim(),
+                },
+                creditCard: {
+                    enabled: Boolean(card.enabled),
+                    paymentUrl: String(card.paymentUrl || '').trim(),
+                },
+            };
+        }
         if (boxPrices !== undefined) {
             if (!Array.isArray(boxPrices)) {
                 throw new AppError('boxPrices must be an array', 400);
