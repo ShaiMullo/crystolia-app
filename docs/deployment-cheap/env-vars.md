@@ -33,7 +33,9 @@ Interpolated into `docker-compose.demo.yml`.
 | `GOOGLE_CLIENT_ID/SECRET/CALLBACK_URL` | no | Google OAuth |
 | `GREEN_INVOICE_API_ID/SECRET/SANDBOX`  | no | invoicing; keep `SANDBOX=true` for a demo |
 | `ULTRAMSG_*`, `ADMIN_PHONE_NUMBER`     | no | WhatsApp lead alerts |
-| `TWILIO_ACCOUNT_SID/AUTH_TOKEN/PHONE_NUMBER` | no | SMS lead alerts; recipient is `ADMIN_PHONE_NUMBER` |
+| `TWILIO_ACCOUNT_SID/AUTH_TOKEN` | no | SMS lead alerts; recipient is `ADMIN_PHONE_NUMBER` |
+| `TWILIO_MESSAGING_SERVICE_SID` | no | `MG…`; carries the `Crystolia` Alpha Sender, preferred over `TWILIO_PHONE_NUMBER` when set |
+| `TWILIO_PHONE_NUMBER` | no | fallback sender when no Messaging Service SID; one of the two senders is required |
 
 ## `frontend-admin/.env.demo`
 

@@ -29,7 +29,8 @@ plain config via Helm `backend.env`.
 | `ADMIN_PHONE_NUMBER`   | no       | —                        | ExternalSecret| |
 | `TWILIO_ACCOUNT_SID`   | no       | —                        | K8s Secret    | SMS lead alerts |
 | `TWILIO_AUTH_TOKEN`    | no       | —                        | K8s Secret    | |
-| `TWILIO_PHONE_NUMBER`  | no       | —                        | K8s Secret    | |
+| `TWILIO_MESSAGING_SERVICE_SID` | no | —                      | K8s Secret    | `MG…`; carries the `Crystolia` Alpha Sender, preferred over `TWILIO_PHONE_NUMBER` when set |
+| `TWILIO_PHONE_NUMBER`  | no       | —                        | K8s Secret    | fallback sender when no Messaging Service SID |
 | `PAYMENT_PROVIDER`     | no       | `mock`                   | K8s Secret    | |
 | `REQUEST_TIMEOUT`      | no       | `30000`                  | Helm          | ms |
 

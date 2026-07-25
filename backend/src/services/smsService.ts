@@ -60,7 +60,7 @@ export function isSmsTransportConfigured(): boolean {
     return Boolean(
         config.sms.accountSid &&
         config.sms.authToken &&
-        config.sms.fromNumber,
+        (config.sms.messagingServiceSid || config.sms.fromNumber),
     );
 }
 
@@ -182,11 +182,23 @@ export async function sendSms(
     }
 
     const endpoint = `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(config.sms.accountSid)}/Messages.json`;
-    const payload = new URLSearchParams({
-        To: toE164(to),
-        From: toE164(config.sms.fromNumber),
-        Body: message,
-    });
+    // The Messaging Service (which carries the Alphanumeric Sender ID) takes
+    // priority; Twilio rejects requests that combine MessagingServiceSid with
+    // From, so only the phone-number fallback sends From. Only the destination
+    // is a real phone number here — the service SID must never pass toE164().
+    const payload = new URLSearchParams(
+        config.sms.messagingServiceSid
+            ? {
+                To: toE164(to),
+                MessagingServiceSid: config.sms.messagingServiceSid,
+                Body: message,
+            }
+            : {
+                To: toE164(to),
+                From: toE164(config.sms.fromNumber),
+                Body: message,
+            },
+    );
 
     try {
         const response = await httpClient.post(endpoint, payload.toString(), {
