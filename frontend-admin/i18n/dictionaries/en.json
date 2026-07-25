@@ -878,8 +878,8 @@
       "minNegative": "Minimum order amount cannot be negative"
     },
     "section2": {
-      "title": "Box Prices",
-      "subtitle": "Define the product catalog shown to customers when placing orders.",
+      "title": "Box Prices (legacy compatibility list)",
+      "subtitle": "A legacy list kept for compatibility only. Create new products in Admin → Products — the Products catalog is the authoritative source, and an active Product overrides a duplicate row here.",
       "addRow": "+ Add Row",
       "empty": "No box prices defined yet. Click \"+ Add Row\" to add one.",
       "labelCol": "Label",
@@ -888,7 +888,8 @@
       "activeCol": "Active",
       "removeCol": "Remove",
       "labelPlaceholder": "e.g. Small Box",
-      "skuPlaceholder": "e.g. BOX-S"
+      "skuPlaceholder": "e.g. BOX-S",
+      "legacyNotice": "Rows in this list are shown to customers only when no Product with the same SKU exists in the Products catalog. You can keep managing legacy items here until they are migrated."
     },
     "toasts": {
       "saved": "Settings saved",

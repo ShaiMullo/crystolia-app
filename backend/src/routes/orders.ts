@@ -8,11 +8,11 @@ import Order from '../models/Order.js';
 import Invoice from '../models/Invoice.js';
 import Company from '../models/Company.js';
 import Settings from '../models/Settings.js';
-import Product from '../models/Product.js';
 import { AppError } from '../utils/validation.js';
 import { logAudit } from '../services/auditService.js';
 import { reserveForOrder, releaseForOrder, shipForOrder } from '../services/inventoryService.js';
 import { computeOrderTotals, RawOrderItem } from '../services/orderService.js';
+import { resolveOrderSkus } from '../services/catalogService.js';
 import {
     isCustomerNotifiableStatus,
     notifyAdminOfNewOrder,
@@ -46,11 +46,11 @@ export const placeOrder = async (req: Request, res: Response, next: NextFunction
         }
 
         // Customer-supplied names and prices are never trusted. The portal only
-        // sends SKU + quantity; authoritative labels/prices come from settings.
+        // sends SKU + quantity; authoritative labels/prices come from the
+        // Product collection, with Settings.boxPrices as the legacy fallback
+        // for SKUs that have no Product counterpart (see catalogService.ts).
+        // A missing settings document no longer blocks Product-backed orders.
         const businessSettings = await Settings.findOne({ key: 'business' }).lean();
-        if (!businessSettings) {
-            return next(new AppError('Ordering is temporarily unavailable', 503));
-        }
 
         const quantityBySku = new Map<string, number>();
         for (const item of requestedItems) {
@@ -66,39 +66,19 @@ export const placeOrder = async (req: Request, res: Response, next: NextFunction
             quantityBySku.set(sku, combined);
         }
 
-        const activePrices = new Map(
-            (businessSettings.boxPrices || [])
-                .filter((row) => row.isActive)
-                .map((row) => [row.sku, row] as const),
-        );
         const requestedSkus = [...quantityBySku.keys()];
-        for (const sku of requestedSkus) {
-            if (!activePrices.has(sku)) {
-                return next(new AppError('One or more products are no longer available', 400));
-            }
+        const resolution = await resolveOrderSkus(requestedSkus, businessSettings?.boxPrices ?? []);
+        if (!resolution.lines) {
+            return next(new AppError('One or more products are no longer available', 400));
         }
 
-        // Product ids are attached when a matching catalog row exists, which
-        // lets inventory reservation work without making legacy box-price rows
-        // unavailable during the catalog migration.
-        const products = await Product.find({
-            sku: { $in: requestedSkus },
-            isActive: true,
-            isDeleted: { $ne: true },
-        }).select('_id sku taxRate').lean();
-        const productBySku = new Map(products.map((product) => [product.sku, product]));
-
-        const pricedItems: RawOrderItem[] = requestedSkus.map((sku) => {
-            const price = activePrices.get(sku)!;
-            const product = productBySku.get(sku);
-            return {
-                productId: product?._id.toString(),
-                productName: price.label,
-                quantity: quantityBySku.get(sku)!,
-                price: price.pricePerUnit,
-                taxRate: product?.taxRate,
-            };
-        });
+        const pricedItems: RawOrderItem[] = resolution.lines.map((line) => ({
+            productId: line.productId,
+            productName: line.productName,
+            quantity: quantityBySku.get(line.sku)!,
+            price: line.price,
+            taxRate: line.taxRate,
+        }));
 
         const totals = computeOrderTotals(pricedItems);
         const totalAmount = totals.totalAmount;
