@@ -24,6 +24,18 @@ export interface RegistrationRejectedEmailDetails extends RegistrationEmailDetai
     reason?: string;
 }
 
+export interface OrderPaymentInstructions {
+    method: 'bank_transfer' | 'credit_card';
+    bank?: {
+        bankName?: string;
+        branch?: string;
+        accountNumber?: string;
+        accountName?: string;
+        iban?: string;
+    };
+    paymentUrl?: string;
+}
+
 export interface OrderStatusEmailDetails {
     to: string;
     name: string;
@@ -32,6 +44,72 @@ export interface OrderStatusEmailDetails {
     status: 'pending' | 'approved' | 'rejected' | 'shipped' | 'completed' | 'cancelled';
     totalAmount: number;
     rejectionReason?: string;
+    /** Present on approvals of orders that carry a payment preference: the
+     *  email then contains ONLY the selected method's instructions. */
+    payment?: OrderPaymentInstructions;
+}
+
+/**
+ * Demo payment instructions for the approval email — ONLY the customer's
+ * selected method, never both. Pure so tests can pin the exact copy. The
+ * order reference lets a bank transfer be matched to the order; SMS never
+ * carries these details (see smsService).
+ */
+export function buildOrderPaymentParagraphs(
+    payment: OrderPaymentInstructions,
+    locale: EmailLocale,
+    orderRef: string,
+): string[] {
+    const lang = safeLocale(locale);
+    if (payment.method === 'bank_transfer') {
+        const bank = payment.bank || {};
+        const parts = [
+            bank.bankName && (lang === 'he' ? `בנק: ${bank.bankName}` : lang === 'ru' ? `Банк: ${bank.bankName}` : `Bank: ${bank.bankName}`),
+            bank.branch && (lang === 'he' ? `סניף: ${bank.branch}` : lang === 'ru' ? `Отделение: ${bank.branch}` : `Branch: ${bank.branch}`),
+            bank.accountNumber && (lang === 'he' ? `מס׳ חשבון: ${bank.accountNumber}` : lang === 'ru' ? `Счёт: ${bank.accountNumber}` : `Account: ${bank.accountNumber}`),
+            bank.accountName && (lang === 'he' ? `על שם: ${bank.accountName}` : lang === 'ru' ? `Получатель: ${bank.accountName}` : `Account name: ${bank.accountName}`),
+            bank.iban && `IBAN: ${bank.iban}`,
+        ].filter(Boolean).join(' · ');
+        if (lang === 'he') {
+            return [
+                'אמצעי התשלום שבחרת: העברה בנקאית.',
+                parts,
+                `נא לציין את מספר ההזמנה #${orderRef} כאסמכתא בהעברה.`,
+            ];
+        }
+        if (lang === 'ru') {
+            return [
+                'Выбранный способ оплаты: банковский перевод.',
+                parts,
+                `Пожалуйста, укажите номер заказа #${orderRef} в назначении платежа.`,
+            ];
+        }
+        return [
+            'Your selected payment method: bank transfer.',
+            parts,
+            `Please quote order #${orderRef} as the transfer reference.`,
+        ];
+    }
+    const url = payment.paymentUrl || '';
+    if (lang === 'he') {
+        return [
+            'אמצעי התשלום שבחרת: כרטיס אשראי.',
+            `קישור לתשלום מאובטח: ${url}`,
+            `מספר הזמנה לאסמכתא: #${orderRef}`,
+        ];
+    }
+    if (lang === 'ru') {
+        return [
+            'Выбранный способ оплаты: банковская карта.',
+            `Ссылка для защищённой оплаты: ${url}`,
+            `Номер заказа: #${orderRef}`,
+        ];
+    }
+    return [
+        'Your selected payment method: credit card.',
+        `Secure payment link: ${url}`,
+        `Order reference: #${orderRef}`,
+    ];
 }
 
 export interface PasswordResetEmailDetails {
@@ -442,7 +520,11 @@ export async function sendOrderStatusEmail(details: OrderStatusEmailDetails): Pr
                 `Order #${shortId} was updated.`,
                 `Order total: ${amount}`,
                 ...(details.status === 'pending' ? ['Our team will review it and notify you after approval or rejection.'] : []),
-                ...(details.status === 'approved' ? ['Bank transfer and credit-card payment options are now available in your business dashboard.'] : []),
+                ...(details.status === 'approved'
+                    ? details.payment
+                        ? buildOrderPaymentParagraphs(details.payment, 'en', shortId)
+                        : ['Bank transfer and credit-card payment options are now available in your business dashboard.']
+                    : []),
                 ...(details.status === 'rejected' && reasonText ? [`Reason: ${reasonText}`] : []),
                 'You can view its current status in your business dashboard.',
             ],
@@ -460,7 +542,11 @@ export async function sendOrderStatusEmail(details: OrderStatusEmailDetails): Pr
                     `Статус заказа #${shortId} обновлён.`,
                     `Сумма заказа: ${amount}`,
                     ...(details.status === 'pending' ? ['Наша команда проверит заказ и сообщит о подтверждении или отклонении.'] : []),
-                    ...(details.status === 'approved' ? ['В бизнес-портале доступны банковский перевод и оплата картой.'] : []),
+                    ...(details.status === 'approved'
+                        ? details.payment
+                            ? buildOrderPaymentParagraphs(details.payment, 'ru', shortId)
+                            : ['В бизнес-портале доступны банковский перевод и оплата картой.']
+                        : []),
                     ...(details.status === 'rejected' && reasonText ? [`Причина: ${reasonText}`] : []),
                     'Актуальный статус доступен в бизнес-портале.',
                 ],
@@ -477,7 +563,11 @@ export async function sendOrderStatusEmail(details: OrderStatusEmailDetails): Pr
                     `סטטוס הזמנה #${shortId} עודכן.`,
                     `סכום ההזמנה: ${amount}`,
                     ...(details.status === 'pending' ? ['צוות Crystolia יעבור על ההזמנה ויעדכן אותך לאחר אישור או דחייה.'] : []),
-                    ...(details.status === 'approved' ? ['אפשר לבחור העברה בנקאית או תשלום באשראי באזור העסקי.'] : []),
+                    ...(details.status === 'approved'
+                        ? details.payment
+                            ? buildOrderPaymentParagraphs(details.payment, 'he', shortId)
+                            : ['אפשר לבחור העברה בנקאית או תשלום באשראי באזור העסקי.']
+                        : []),
                     ...(details.status === 'rejected' && reasonText ? [`סיבת הדחייה: ${reasonText}`] : []),
                     'אפשר לראות את הסטטוס העדכני באזור העסקי שלך.',
                 ],

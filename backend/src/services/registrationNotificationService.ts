@@ -23,6 +23,7 @@ import {
     type SendSmsResult,
 } from './smsService.js';
 import { countryNameHe } from '../utils/countries.js';
+import { notifyAdmins } from './notificationService.js';
 
 export type RegistrationEmailKind = 'pending' | 'approved' | 'rejected';
 
@@ -93,6 +94,18 @@ export async function sendRegistrationEmail(
 export async function notifyAdminOfRegistration(user: IUser): Promise<SendSmsResult> {
     const registrationUrl =
         `${config.adminFrontendUrl.replace(/\/$/, '')}/admin/registrations/${user._id}`;
+
+    // Persistent in-app inbox item for every active admin — created even when
+    // the SMS provider is unconfigured, idempotent per registration. The bell
+    // shows only the company name; contact details stay on the review page.
+    await notifyAdmins({
+        type: 'registration_pending',
+        entityId: String(user._id),
+        title: 'בקשת הרשמה חדשה ממתינה לאישור',
+        body: `חברה: ${user.registrationCompany?.name || 'לא צוינה'}`,
+        link: `/admin/registrations/${user._id}`,
+        icon: 'UserPlus',
+    });
 
     let result: SendSmsResult;
     if (!isSmsConfigured()) {

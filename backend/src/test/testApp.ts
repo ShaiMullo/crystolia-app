@@ -15,7 +15,9 @@ import jwt from 'jsonwebtoken';
 import authRouter from '../routes/auth.js';
 import usersRouter from '../routes/users.js';
 import meRouter from '../routes/me.js';
+import ordersRouter from '../routes/orders.js';
 import crmInventoryRouter from '../routes/crmInventory.js';
+import crmNotificationsRouter from '../routes/crmNotifications.js';
 import { errorHandler } from '../middleware/errorHandler.js';
 import { config } from '../config/index.js';
 import User from '../models/User.js';
@@ -51,7 +53,9 @@ export function buildTestApp(): Express {
     app.use('/api/users', usersRouter);
     app.use('/api/v1/users', usersRouter);
     app.use('/api/v1/me', meRouter);
+    app.use('/api/orders', ordersRouter);
     app.use('/api/v1/inventory', crmInventoryRouter);
+    app.use('/api/v1/notifications', crmNotificationsRouter);
     app.use(errorHandler);
     return app;
 }
@@ -76,6 +80,20 @@ export function authCookieFor(user: { _id: unknown; role: string; tokenVersion?:
     );
     return `auth_token=${token}`;
 }
+
+// Ordering now requires an admin-enabled payment method plus a customer
+// paymentPreference — shared fixture for every order-placement test.
+export const PAYMENT_OPTIONS_BANK_ENABLED = {
+    bankTransfer: {
+        enabled: true,
+        bankName: 'בנק לאומי',
+        branch: '900',
+        accountNumber: '12-345-678',
+        accountName: 'Crystolia Ltd',
+        iban: '',
+    },
+    creditCard: { enabled: false, paymentUrl: '' },
+};
 
 export const VALID_REGISTRATION = {
     name: 'ישראל ישראלי',

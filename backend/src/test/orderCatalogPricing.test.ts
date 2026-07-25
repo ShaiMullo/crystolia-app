@@ -11,6 +11,7 @@ import {
     stopTestDb,
     clearDb,
     authCookieFor,
+    PAYMENT_OPTIONS_BANK_ENABLED,
 } from './testApp.js';
 import User from '../models/User.js';
 import Company from '../models/Company.js';
@@ -52,7 +53,7 @@ async function approvedCustomer() {
 describe('order placement with the Product catalog', () => {
     it('orders a Product-only SKU without any Settings.boxPrices row', async () => {
         const cookie = await approvedCustomer();
-        await Settings.create({ key: 'business', minimumOrderAmount: 0, currency: 'ILS', boxPrices: [] });
+        await Settings.create({ key: 'business', minimumOrderAmount: 0, currency: 'ILS', paymentOptions: PAYMENT_OPTIONS_BANK_ENABLED, boxPrices: [] });
         const product = await Product.create({
             name: 'שמן חמניות 0.9 ליטר',
             sku: 'SUN-09L',
@@ -64,7 +65,7 @@ describe('order placement with the Product catalog', () => {
         const res = await request(app)
             .post('/api/v1/me/orders')
             .set('Cookie', cookie)
-            .send({ items: [{ sku: 'SUN-09L', quantity: 4 }] });
+            .send({ items: [{ sku: 'SUN-09L', quantity: 4 }], paymentPreference: 'bank_transfer' });
 
         expect(res.status).toBe(201);
         const item = res.body.data.items[0];
@@ -82,27 +83,30 @@ describe('order placement with the Product catalog', () => {
         expect(res.body.data.totalAmount).toBe(58.5);
     });
 
-    it('works without any Settings document when the SKU is a Product', async () => {
+    it('blocks ordering when no Settings document (and therefore no payment method) exists', async () => {
+        // Payment methods are admin-configured in Settings; without the
+        // document nothing is enabled and ordering is closed by design.
         const cookie = await approvedCustomer();
         await Product.create({ name: 'מוצר עצמאי', sku: 'SOLO-1', price: 30, taxRate: 0, stockTrackingEnabled: false });
 
         const res = await request(app)
             .post('/api/v1/me/orders')
             .set('Cookie', cookie)
-            .send({ items: [{ sku: 'SOLO-1', quantity: 1 }] });
+            .send({ items: [{ sku: 'SOLO-1', quantity: 1 }], paymentPreference: 'bank_transfer' });
 
-        expect(res.status).toBe(201);
-        expect(res.body.data.totalAmount).toBe(30);
+        expect(res.status).toBe(400);
+        expect(res.body.message || res.body.error).toContain('PAYMENT_METHODS_UNAVAILABLE');
     });
 
     it('uses the Product price/name and ignores client-supplied values', async () => {
         const cookie = await approvedCustomer();
+        await Settings.create({ key: 'business', minimumOrderAmount: 0, currency: 'ILS', paymentOptions: PAYMENT_OPTIONS_BANK_ENABLED, boxPrices: [] });
         await Product.create({ name: 'שם אמיתי', sku: 'REAL-1', price: 80, taxRate: 0, stockTrackingEnabled: false });
 
         const res = await request(app)
             .post('/api/v1/me/orders')
             .set('Cookie', cookie)
-            .send({ items: [{ sku: 'REAL-1', quantity: 2, productName: 'שם מזויף', price: 0.01 }] });
+            .send({ items: [{ sku: 'REAL-1', quantity: 2, productName: 'שם מזויף', price: 0.01 }], paymentPreference: 'bank_transfer' });
 
         expect(res.status).toBe(201);
         expect(res.body.data.items[0]).toMatchObject({ productName: 'שם אמיתי', price: 80 });
@@ -118,6 +122,7 @@ describe('order placement with the Product catalog', () => {
             key: 'business',
             minimumOrderAmount: 0,
             currency: 'ILS',
+            paymentOptions: PAYMENT_OPTIONS_BANK_ENABLED,
             boxPrices: [{ label: 'שם ישן', sku: 'DUP-1', pricePerUnit: 60, isActive: true }],
         });
         await Product.create({ name: 'שם חדש', sku: 'DUP-1', price: 72, taxRate: 17, stockTrackingEnabled: false });
@@ -125,7 +130,7 @@ describe('order placement with the Product catalog', () => {
         const res = await request(app)
             .post('/api/v1/me/orders')
             .set('Cookie', cookie)
-            .send({ items: [{ sku: 'DUP-1', quantity: 1 }] });
+            .send({ items: [{ sku: 'DUP-1', quantity: 1 }], paymentPreference: 'bank_transfer' });
 
         expect(res.status).toBe(201);
         expect(res.body.data.items[0]).toMatchObject({
@@ -141,13 +146,14 @@ describe('order placement with the Product catalog', () => {
             key: 'business',
             minimumOrderAmount: 0,
             currency: 'ILS',
+            paymentOptions: PAYMENT_OPTIONS_BANK_ENABLED,
             boxPrices: [{ label: 'פריט ישן', sku: 'OLD-1', pricePerUnit: 60, isActive: true }],
         });
 
         const res = await request(app)
             .post('/api/v1/me/orders')
             .set('Cookie', cookie)
-            .send({ items: [{ sku: 'OLD-1', quantity: 2 }] });
+            .send({ items: [{ sku: 'OLD-1', quantity: 2 }], paymentPreference: 'bank_transfer' });
 
         expect(res.status).toBe(201);
         expect(res.body.data.items[0]).toMatchObject({
@@ -165,6 +171,7 @@ describe('order placement with the Product catalog', () => {
             key: 'business',
             minimumOrderAmount: 0,
             currency: 'ILS',
+            paymentOptions: PAYMENT_OPTIONS_BANK_ENABLED,
             boxPrices: [{ label: 'צל', sku: 'GONE-1', pricePerUnit: 50, isActive: true }],
         });
         await Product.create({ name: 'כבוי', sku: 'GONE-1', price: 50, isActive: false });
@@ -174,7 +181,7 @@ describe('order placement with the Product catalog', () => {
             const res = await request(app)
                 .post('/api/v1/me/orders')
                 .set('Cookie', cookie)
-                .send({ items: [{ sku, quantity: 1 }] });
+                .send({ items: [{ sku, quantity: 1 }], paymentPreference: 'bank_transfer' });
             expect(res.status, `sku ${sku}`).toBe(400);
         }
         expect(await Order.countDocuments()).toBe(0);
@@ -182,19 +189,19 @@ describe('order placement with the Product catalog', () => {
 
     it('enforces the minimum order amount against the server-calculated Product total', async () => {
         const cookie = await approvedCustomer();
-        await Settings.create({ key: 'business', minimumOrderAmount: 100, currency: 'ILS', boxPrices: [] });
+        await Settings.create({ key: 'business', minimumOrderAmount: 100, currency: 'ILS', paymentOptions: PAYMENT_OPTIONS_BANK_ENABLED, boxPrices: [] });
         await Product.create({ name: 'מוצר זול', sku: 'CHEAP-1', price: 10, taxRate: 0, stockTrackingEnabled: false });
 
         const below = await request(app)
             .post('/api/v1/me/orders')
             .set('Cookie', cookie)
-            .send({ items: [{ sku: 'CHEAP-1', quantity: 3 }] });
+            .send({ items: [{ sku: 'CHEAP-1', quantity: 3 }], paymentPreference: 'bank_transfer' });
         expect(below.status).toBe(400);
 
         const above = await request(app)
             .post('/api/v1/me/orders')
             .set('Cookie', cookie)
-            .send({ items: [{ sku: 'CHEAP-1', quantity: 10 }] });
+            .send({ items: [{ sku: 'CHEAP-1', quantity: 10 }], paymentPreference: 'bank_transfer' });
         expect(above.status).toBe(201);
     });
 });

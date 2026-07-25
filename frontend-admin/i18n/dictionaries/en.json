@@ -711,7 +711,8 @@
       "shipmentPlaceholder": "Shipment tracking — coming soon",
       "paymentPlaceholder": "Payment status — coming soon",
       "paid": "Paid",
-      "recordPayment": "Record payment"
+      "recordPayment": "Record payment",
+      "paymentMethod": "Selected payment method"
     },
     "reject": {
       "title": "Reject order",
@@ -719,6 +720,10 @@
       "reason": "Rejection reason",
       "placeholder": "For example: the requested quantity is unavailable",
       "confirm": "Reject and notify"
+    },
+    "paymentMethods": {
+      "bank_transfer": "Bank transfer",
+      "credit_card": "Credit card"
     }
   },
   "invoices": {
@@ -1052,7 +1057,8 @@
     "empty": "You're all caught up",
     "markAll": "Mark all read",
     "automation": "Automated",
-    "openActivity": "Open activity center"
+    "openActivity": "Open activity center",
+    "loadFailed": "Failed to load notifications"
   },
   "activity": {
     "pageTitle": "Activity",

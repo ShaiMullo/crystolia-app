@@ -13,6 +13,7 @@ import { logAudit } from '../services/auditService.js';
 import { reserveForOrder, releaseForOrder, shipForOrder } from '../services/inventoryService.js';
 import { computeOrderTotals, RawOrderItem } from '../services/orderService.js';
 import { resolveOrderSkus } from '../services/catalogService.js';
+import { enabledPaymentMethods, isPaymentPreference, paymentConfigError } from '../utils/paymentOptions.js';
 import {
     isCustomerNotifiableStatus,
     notifyAdminOfNewOrder,
@@ -36,7 +37,7 @@ router.use(protect);
 // POST place order (Customer Only) — legacy: POST /api/orders
 export const placeOrder = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { items: requestedItems, notes } = req.body;
+        const { items: requestedItems, notes, paymentPreference } = req.body;
 
         if (!Array.isArray(requestedItems) || requestedItems.length === 0) {
             return next(new AppError('Order must contain at least one item', 400));
@@ -51,6 +52,18 @@ export const placeOrder = async (req: Request, res: Response, next: NextFunction
         // for SKUs that have no Product counterpart (see catalogService.ts).
         // A missing settings document no longer blocks Product-backed orders.
         const businessSettings = await Settings.findOne({ key: 'business' }).lean();
+
+        // The customer must state how they intend to pay, and only from the
+        // methods the admin currently has enabled. With nothing enabled,
+        // ordering is closed until Settings are configured — the portal shows
+        // the matching translated notice for PAYMENT_METHODS_UNAVAILABLE.
+        const enabledMethods = enabledPaymentMethods(businessSettings?.paymentOptions);
+        if (enabledMethods.length === 0) {
+            return next(new AppError('PAYMENT_METHODS_UNAVAILABLE', 400));
+        }
+        if (!isPaymentPreference(paymentPreference) || !enabledMethods.includes(paymentPreference)) {
+            return next(new AppError('A valid payment method selection is required', 400));
+        }
 
         const quantityBySku = new Map<string, number>();
         for (const item of requestedItems) {
@@ -124,6 +137,7 @@ export const placeOrder = async (req: Request, res: Response, next: NextFunction
             subtotal: totals.subtotal,
             taxTotal: totals.taxTotal,
             status: 'pending',
+            paymentPreference,
             notes,
             timeline: [{ type: 'order_created', at: new Date(), actorId: user._id?.toString() }],
         });
@@ -241,6 +255,16 @@ router.patch('/:id', authorize('admin', 'agent'), async (req: Request, res: Resp
             order.rejectionReason = reason;
         } else if (previousStatus === 'rejected') {
             order.rejectionReason = undefined;
+        }
+        // An approval sends the customer their selected payment instructions —
+        // refuse to approve while that method's configuration is unusable so
+        // an empty/invalid payment email can never go out.
+        if (status === 'approved' && previousStatus !== 'approved' && order.paymentPreference) {
+            const settings = await Settings.findOne({ key: 'business' }).select('paymentOptions').lean();
+            const configError = paymentConfigError(order.paymentPreference, settings?.paymentOptions);
+            if (configError) {
+                return next(new AppError(`Cannot approve: ${configError}`, 409));
+            }
         }
         order.status = status;
         if (previousStatus !== status) {

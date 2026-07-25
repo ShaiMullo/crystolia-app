@@ -12,6 +12,8 @@ export type NotificationType =
     | 'invoice_overdue'
     | 'invoice_issued'
     | 'customer_created'
+    | 'order_pending_approval'
+    | 'registration_pending'
     | 'automation_triggered'
     | 'generic';
 
@@ -46,6 +48,8 @@ const NotificationSchema = new Schema<INotification>(
                 'invoice_overdue',
                 'invoice_issued',
                 'customer_created',
+                'order_pending_approval',
+                'registration_pending',
                 'automation_triggered',
                 'generic',
             ],

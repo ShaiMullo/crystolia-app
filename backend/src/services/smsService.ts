@@ -54,6 +54,9 @@ export interface OrderStatusSmsDetails {
     dashboardUrl: string;
     status: 'pending' | 'approved' | 'rejected' | 'shipped' | 'completed' | 'cancelled';
     rejectionReason?: string;
+    /** Hebrew label of the selected payment method (approved orders only).
+     *  SMS stays compact: method name + dashboard link, never bank details. */
+    paymentMethodLabel?: string;
 }
 
 type SmsHttpClient = Pick<typeof axios, 'post'>;
@@ -168,7 +171,9 @@ export function buildOrderStatusNotificationSms(details: OrderStatusSmsDetails):
     if (details.status === 'pending') {
         lines.push('ההזמנה התקבלה וממתינה לבדיקה ואישור של צוות Crystolia.');
     } else if (details.status === 'approved') {
-        lines.push('אפשר לבחור העברה בנקאית או תשלום באשראי באזור העסקי.');
+        lines.push(details.paymentMethodLabel
+            ? `אמצעי התשלום שנבחר: ${compactSmsField(details.paymentMethodLabel, 40)}. פרטי התשלום ממתינים באזור העסקי ובמייל.`
+            : 'אפשר לבחור העברה בנקאית או תשלום באשראי באזור העסקי.');
     } else if (details.status === 'rejected' && details.rejectionReason) {
         lines.push(`סיבת הדחייה: ${compactSmsField(details.rejectionReason, 160)}`);
     }

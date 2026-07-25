@@ -6,6 +6,7 @@
 
 import mongoose from 'mongoose';
 import Notification, { NotificationChannel, NotificationType } from '../models/Notification.js';
+import User from '../models/User.js';
 
 export interface CreateNotificationInput {
     recipientId: string | mongoose.Types.ObjectId;
@@ -17,6 +18,53 @@ export interface CreateNotificationInput {
     channel?: NotificationChannel;
     meta?: Record<string, unknown>;
     sourceAutomation?: string;
+}
+
+export interface NotifyAdminsInput {
+    type: NotificationType;
+    /** Id of the entity this event is about — the idempotency key. A retry of
+     *  the same event never creates a second notification per recipient. */
+    entityId: string;
+    title: string;
+    body?: string;
+    link?: string;
+    icon?: string;
+}
+
+/**
+ * Persist one in-app notification per active admin for a domain event.
+ * Idempotent on (recipient, type, meta.entityId); failures are logged and
+ * swallowed — losing a bell item must never lose the order/registration that
+ * triggered it.
+ */
+export async function notifyAdmins(input: NotifyAdminsInput): Promise<void> {
+    try {
+        const admins = await User.find({
+            role: 'admin',
+            isActive: true,
+            isDeleted: { $ne: true },
+        }).select('_id').lean();
+
+        await Promise.all(admins.map(async (admin) => {
+            const exists = await Notification.exists({
+                recipient: admin._id,
+                type: input.type,
+                'meta.entityId': input.entityId,
+            });
+            if (exists) return;
+            await createNotification({
+                recipientId: admin._id,
+                type: input.type,
+                title: input.title,
+                body: input.body,
+                link: input.link,
+                icon: input.icon,
+                meta: { entityId: input.entityId },
+            });
+        }));
+    } catch (err) {
+        console.error('❌ notifyAdmins failed:', err);
+    }
 }
 
 export async function createNotification(input: CreateNotificationInput) {

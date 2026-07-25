@@ -225,6 +225,7 @@ export interface Order {
     subtotal?: number;
     taxTotal?: number;
     notes?: string;
+    paymentPreference?: "bank_transfer" | "credit_card";
     rejectionReason?: string;
     timeline?: OrderTimelineEvent[];
     createdAt: string;

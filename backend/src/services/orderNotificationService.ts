@@ -10,11 +10,20 @@ import {
 } from './smsService.js';
 import {
     sendOrderStatusEmail,
+    type OrderPaymentInstructions,
     type SendEmailResult,
     type EmailLocale,
 } from './emailService.js';
+import Settings from '../models/Settings.js';
+import type { PaymentPreference } from '../utils/paymentOptions.js';
+import { notifyAdmins } from './notificationService.js';
 
 type CustomerNotifiableStatus = 'pending' | 'approved' | 'rejected' | 'shipped' | 'completed' | 'cancelled';
+
+const PAYMENT_METHOD_HEBREW: Record<PaymentPreference, string> = {
+    bank_transfer: 'העברה בנקאית',
+    credit_card: 'כרטיס אשראי',
+};
 
 const HEBREW_STATUS: Record<CustomerNotifiableStatus, string> = {
     pending: 'התקבלה וממתינה לאישור',
@@ -26,14 +35,27 @@ const HEBREW_STATUS: Record<CustomerNotifiableStatus, string> = {
 };
 
 export async function notifyAdminOfNewOrder(order: IOrder): Promise<SendSmsResult> {
-    if (!config.adminPhone) return { success: false, error: 'Configuration missing' };
-
     const [company, customer] = await Promise.all([
         Company.findById(order.company).select('name phone').lean(),
         User.findById(order.createdBy).select('name phone').lean(),
     ]);
     const shortId = order._id.toString().slice(-8).toUpperCase();
     const orderUrl = `${config.adminFrontendUrl.replace(/\/$/, '')}/admin/orders/${order._id}`;
+
+    // Persistent in-app inbox item for every active admin — created even when
+    // the SMS provider is unconfigured, idempotent per order (bell dropdown
+    // shows company + total only; no customer contact details).
+    await notifyAdmins({
+        type: 'order_pending_approval',
+        entityId: order._id.toString(),
+        title: 'הזמנה חדשה ממתינה לאישור',
+        body: `הזמנה #${shortId} · ${company?.name || 'חברה לא ידועה'} · ₪${order.totalAmount.toLocaleString('he-IL')}`,
+        link: `/admin/orders/${order._id}`,
+        icon: 'Package',
+    });
+
+    if (!config.adminPhone) return { success: false, error: 'Configuration missing' };
+
     const message = buildNewOrderNotificationSms({
         orderId: shortId,
         customerName: customer?.name || 'לקוח עסקי',
@@ -74,6 +96,19 @@ export async function notifyCustomerOfOrderStatus(
     const locale = (customer.preferredLocale || 'he') as EmailLocale;
     const shortId = order._id.toString().slice(-8).toUpperCase();
     const dashboardUrl = `${config.frontendUrl.replace(/\/$/, '')}/${locale}/dashboard`;
+
+    // An approval carries the customer's SELECTED payment instructions —
+    // email gets the full details, SMS only the method label. The approval
+    // routes already refused to approve with an unusable configuration
+    // (utils/paymentOptions.ts), so the lookup here is best-effort display.
+    let payment: OrderPaymentInstructions | undefined;
+    if (status === 'approved' && order.paymentPreference) {
+        const settings = await Settings.findOne({ key: 'business' }).select('paymentOptions').lean();
+        payment = order.paymentPreference === 'bank_transfer'
+            ? { method: 'bank_transfer', bank: settings?.paymentOptions?.bankTransfer }
+            : { method: 'credit_card', paymentUrl: settings?.paymentOptions?.creditCard?.paymentUrl };
+    }
+
     const [email, sms] = await Promise.all([
         sendOrderStatusEmail({
             to: customer.email,
@@ -83,6 +118,7 @@ export async function notifyCustomerOfOrderStatus(
             status,
             totalAmount: order.totalAmount,
             rejectionReason: order.rejectionReason,
+            payment,
         }),
         customer.phone
             ? sendSms(customer.phone, buildOrderStatusNotificationSms({
@@ -93,6 +129,9 @@ export async function notifyCustomerOfOrderStatus(
                 totalAmount: order.totalAmount,
                 dashboardUrl,
                 rejectionReason: order.rejectionReason,
+                paymentMethodLabel: order.paymentPreference
+                    ? PAYMENT_METHOD_HEBREW[order.paymentPreference]
+                    : undefined,
             }))
             : Promise.resolve({ success: false, error: 'Customer phone missing' }),
     ]);

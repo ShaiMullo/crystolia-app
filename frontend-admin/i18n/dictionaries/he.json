@@ -711,7 +711,8 @@
       "shipmentPlaceholder": "מעקב משלוח — בקרוב",
       "paymentPlaceholder": "סטטוס תשלום — בקרוב",
       "paid": "שולם",
-      "recordPayment": "רישום תשלום"
+      "recordPayment": "רישום תשלום",
+      "paymentMethod": "אמצעי תשלום שנבחר"
     },
     "reject": {
       "title": "דחיית הזמנה",
@@ -719,6 +720,10 @@
       "reason": "סיבת הדחייה",
       "placeholder": "לדוגמה: המוצר אינו זמין בכמות המבוקשת",
       "confirm": "דחה ושלח הודעה"
+    },
+    "paymentMethods": {
+      "bank_transfer": "העברה בנקאית",
+      "credit_card": "כרטיס אשראי"
     }
   },
   "invoices": {
@@ -1052,7 +1057,8 @@
     "empty": "הגעת לסוף — אין התראות",
     "markAll": "סמן הכל כנקרא",
     "automation": "אוטומציה",
-    "openActivity": "פתח מרכז פעילות"
+    "openActivity": "פתח מרכז פעילות",
+    "loadFailed": "טעינת ההתראות נכשלה"
   },
   "activity": {
     "pageTitle": "פעילות",
