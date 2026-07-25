@@ -95,6 +95,9 @@ export const dashboardTranslations = {
             pendingOrders: "הזמנות פתוחות",
         },
         perUnit: "ארגזים",
+        outOfStock: "אזל מהמלאי",
+        availableStock: "זמין במלאי",
+        maxAvailable: "הכמות הוגבלה למלאי הזמין",
     },
     en: {
         completeDetailsFirst: "Please complete your delivery and invoice details before placing an order.",
@@ -189,6 +192,9 @@ export const dashboardTranslations = {
             pendingOrders: "Open Orders",
         },
         perUnit: "cases",
+        outOfStock: "Out of stock",
+        availableStock: "In stock",
+        maxAvailable: "Quantity limited to available stock",
     },
     ru: {
         completeDetailsFirst: "Перед оформлением заказа заполните данные доставки и счёта.",
@@ -282,5 +288,8 @@ export const dashboardTranslations = {
             pendingOrders: "Открытые заказы",
         },
         perUnit: "ящиков",
+        outOfStock: "Нет в наличии",
+        availableStock: "В наличии",
+        maxAvailable: "Количество ограничено доступным запасом",
     },
 };

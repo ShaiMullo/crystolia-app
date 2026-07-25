@@ -19,6 +19,7 @@ import User from '../models/User.js';
 import { AppError } from '../utils/validation.js';
 import { normalizeUploadedAvatar } from '../utils/avatar.js';
 import { logAudit } from '../services/auditService.js';
+import { getCustomerCatalog } from '../services/catalogService.js';
 
 const router = Router();
 
@@ -59,6 +60,19 @@ router.patch('/avatar', authorize('customer'), async (req: Request, res: Respons
         });
 
         res.json({ success: true, data: { avatar: user.avatar } });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// ── Customer catalog ─────────────────────────────────────────────────────────
+// GET /api/v1/me/catalog — the merged Product-first catalog the customer may
+// order from (active Products + legacy boxPrices fallback; customer-safe
+// fields only — see services/catalogService.ts).
+router.get('/catalog', authorize('customer'), async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        const items = await getCustomerCatalog();
+        res.json({ success: true, count: items.length, data: items });
     } catch (error) {
         next(error);
     }

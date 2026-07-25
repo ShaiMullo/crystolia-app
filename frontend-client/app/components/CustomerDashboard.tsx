@@ -39,17 +39,27 @@ interface Invoice {
     pdfUrl?: string;
 }
 
-interface BoxPrice {
-    label: string;
+// Customer-safe catalog item from GET /api/v1/me/catalog — Product rows plus
+// legacy Settings.boxPrices fallback rows, already merged and deduped by the
+// backend (Product wins). `available === null` means no stock limit applies.
+interface CatalogItem {
+    productId?: string;
     sku: string;
-    pricePerUnit: number;
-    isActive: boolean;
+    name: string;
+    description?: string;
+    price: number;
+    currency: string;
+    unit?: string;
+    stockTrackingEnabled: boolean;
+    available: number | null;
+    isLegacy: boolean;
 }
 
+// Settings now only feeds genuinely global order settings (minimum amount,
+// currency) — the product list itself comes from the catalog endpoint.
 interface BusinessSettings {
     minimumOrderAmount: number;
     currency: string;
-    boxPrices: BoxPrice[];
 }
 
 
@@ -77,6 +87,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
     });
     const [orderQuantities, setOrderQuantities] = useState<Record<string, number>>({});
     const [settings, setSettings] = useState<BusinessSettings | null>(null);
+    const [catalog, setCatalog] = useState<CatalogItem[]>([]);
     const isRTL = locale === "he";
 
     // Orders State
@@ -161,12 +172,22 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                 const res = await api.get('/settings');
                 const data: BusinessSettings = res.data.data;
                 setSettings(data);
-                // Initialise a zero quantity for every active box price
-                const initial: Record<string, number> = {};
-                data.boxPrices.filter(b => b.isActive).forEach(b => { initial[b.sku] = 0; });
-                setOrderQuantities(initial);
             } catch (err) {
                 console.error("Failed to fetch settings:", err);
+            }
+        };
+
+        const fetchCatalog = async () => {
+            try {
+                const res = await api.get('/v1/me/catalog');
+                const items: CatalogItem[] = res.data.data || [];
+                setCatalog(items);
+                // Initialise a zero quantity for every orderable catalog item
+                const initial: Record<string, number> = {};
+                items.forEach(item => { initial[item.sku] = 0; });
+                setOrderQuantities(initial);
+            } catch (err) {
+                console.error("Failed to fetch catalog:", err);
             }
         };
 
@@ -175,6 +196,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
             fetchInvoices();
             fetchProfile();
             fetchSettings();
+            fetchCatalog();
         }
     }, [user, fetchOrders, locale, router]);
 
@@ -212,11 +234,10 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
             return;
         }
 
-        const activeBoxPrices = settings?.boxPrices.filter(b => b.isActive) ?? [];
         const items: { sku: string; quantity: number }[] = [];
-        for (const bp of activeBoxPrices) {
-            const qty = orderQuantities[bp.sku] || 0;
-            if (qty > 0) items.push({ sku: bp.sku, quantity: qty });
+        for (const product of catalog) {
+            const qty = orderQuantities[product.sku] || 0;
+            if (qty > 0) items.push({ sku: product.sku, quantity: qty });
         }
 
         if (items.length === 0) {
@@ -224,8 +245,8 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
             return;
         }
 
-        const orderTotal = activeBoxPrices.reduce(
-            (sum, product) => sum + product.pricePerUnit * (orderQuantities[product.sku] || 0),
+        const orderTotal = catalog.reduce(
+            (sum, product) => sum + product.price * (orderQuantities[product.sku] || 0),
             0,
         );
         const minAmount = settings?.minimumOrderAmount ?? 0;
@@ -263,10 +284,19 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
 
     const t = dashboardTranslations[locale as keyof typeof dashboardTranslations] || dashboardTranslations.he;
 
-    const activeBoxPrices = settings?.boxPrices.filter(b => b.isActive) ?? [];
     const currencySymbol = settings?.currency === 'USD' ? '$' : settings?.currency === 'EUR' ? '€' : '₪';
-    const orderTotal = activeBoxPrices.reduce((sum, bp) => sum + bp.pricePerUnit * (orderQuantities[bp.sku] || 0), 0);
+    const orderTotal = catalog.reduce((sum, item) => sum + item.price * (orderQuantities[item.sku] || 0), 0);
     const minAmount = settings?.minimumOrderAmount ?? 0;
+
+    // Known availability limit for a catalog item; null = unlimited/untracked.
+    // The backend re-validates on approval — this only prevents avoidable
+    // invalid requests in the UI.
+    const availabilityLimit = (item: CatalogItem): number | null =>
+        item.stockTrackingEnabled && item.available !== null ? item.available : null;
+    const isOutOfStock = (item: CatalogItem): boolean => {
+        const limit = availabilityLimit(item);
+        return limit !== null && limit <= 0;
+    };
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -320,10 +350,16 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
         },
     ];
 
-    const updateQuantity = (sku: string, delta: number) => {
+    const clampQuantity = (item: CatalogItem, quantity: number): number => {
+        const limit = availabilityLimit(item);
+        const clamped = Math.max(0, quantity);
+        return limit === null ? clamped : Math.min(clamped, limit);
+    };
+
+    const updateQuantity = (item: CatalogItem, delta: number) => {
         setOrderQuantities(prev => ({
             ...prev,
-            [sku]: Math.max(0, (prev[sku] || 0) + delta)
+            [item.sku]: clampQuantity(item, (prev[item.sku] || 0) + delta)
         }));
     };
 
@@ -561,25 +597,34 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                 </div>
 
                                 <div className="space-y-4 mb-10">
-                                    {activeBoxPrices.length === 0 ? (
+                                    {catalog.length === 0 ? (
                                         <p className="text-center text-gray-400 py-8">{t.noProducts}</p>
-                                    ) : activeBoxPrices.map((product) => (
-                                        <div key={product.sku} className="group flex items-center justify-between p-6 bg-gradient-to-r from-gray-50 to-white rounded-2xl border border-gray-100 hover:border-[#F5C542]/30 hover:shadow-lg transition-all duration-300">
+                                    ) : catalog.map((product) => {
+                                        const soldOut = isOutOfStock(product);
+                                        const limit = availabilityLimit(product);
+                                        return (
+                                        <div key={product.sku} className={`group flex items-center justify-between p-6 bg-gradient-to-r from-gray-50 to-white rounded-2xl border border-gray-100 transition-all duration-300 ${soldOut ? "opacity-60" : "hover:border-[#F5C542]/30 hover:shadow-lg"}`}>
                                             <div className="flex items-center gap-5">
                                                 <div className="w-20 h-20 bg-gradient-to-br from-[#F5C542]/20 to-[#F5C542]/5 rounded-2xl flex items-center justify-center text-3xl group-hover:scale-110 transition-transform duration-500">
                                                     📦
                                                 </div>
                                                 <div>
-                                                    <p className="font-medium text-gray-900 text-lg">{product.label}</p>
-                                                    {product.pricePerUnit > 0 && (
-                                                        <p className="text-sm text-gray-500">{currencySymbol}{product.pricePerUnit.toLocaleString()} / {t.perUnit}</p>
+                                                    <p className="font-medium text-gray-900 text-lg">{product.name}</p>
+                                                    {product.price > 0 && (
+                                                        <p className="text-sm text-gray-500">{currencySymbol}{product.price.toLocaleString()} / {t.perUnit}</p>
+                                                    )}
+                                                    {soldOut ? (
+                                                        <p className="text-xs font-medium text-red-600 mt-1">{t.outOfStock}</p>
+                                                    ) : limit !== null && (
+                                                        <p className="text-xs text-gray-400 mt-1">{t.availableStock}: {limit.toLocaleString()}</p>
                                                     )}
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <button
-                                                    onClick={() => updateQuantity(product.sku, -1)}
-                                                    className="w-12 h-12 rounded-xl bg-white border border-gray-200 hover:border-[#F5C542] hover:bg-[#F5C542]/5 transition-all duration-300 flex items-center justify-center text-xl font-light text-gray-600 hover:text-[#F5C542]"
+                                                    onClick={() => updateQuantity(product, -1)}
+                                                    disabled={soldOut}
+                                                    className="w-12 h-12 rounded-xl bg-white border border-gray-200 hover:border-[#F5C542] hover:bg-[#F5C542]/5 transition-all duration-300 flex items-center justify-center text-xl font-light text-gray-600 hover:text-[#F5C542] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-gray-200"
                                                 >
                                                     −
                                                 </button>
@@ -587,21 +632,25 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                                     <input
                                                         type="number"
                                                         value={orderQuantities[product.sku] || 0}
-                                                        onChange={(e) => setOrderQuantities(prev => ({ ...prev, [product.sku]: Math.max(0, parseInt(e.target.value) || 0) }))}
+                                                        onChange={(e) => setOrderQuantities(prev => ({ ...prev, [product.sku]: clampQuantity(product, parseInt(e.target.value) || 0) }))}
                                                         min={0}
-                                                        className="w-full text-center text-xl font-light px-3 py-3 rounded-xl border border-gray-200 focus:border-[#F5C542] focus:ring-2 focus:ring-[#F5C542]/20 outline-none transition-all"
+                                                        max={limit ?? undefined}
+                                                        disabled={soldOut}
+                                                        className="w-full text-center text-xl font-light px-3 py-3 rounded-xl border border-gray-200 focus:border-[#F5C542] focus:ring-2 focus:ring-[#F5C542]/20 outline-none transition-all disabled:bg-gray-50 disabled:cursor-not-allowed"
                                                     />
                                                     <p className="text-xs text-gray-400 mt-1">{t.perUnit}</p>
                                                 </div>
                                                 <button
-                                                    onClick={() => updateQuantity(product.sku, 1)}
-                                                    className="w-12 h-12 rounded-xl bg-white border border-gray-200 hover:border-[#F5C542] hover:bg-[#F5C542]/5 transition-all duration-300 flex items-center justify-center text-xl font-light text-gray-600 hover:text-[#F5C542]"
+                                                    onClick={() => updateQuantity(product, 1)}
+                                                    disabled={soldOut || (limit !== null && (orderQuantities[product.sku] || 0) >= limit)}
+                                                    className="w-12 h-12 rounded-xl bg-white border border-gray-200 hover:border-[#F5C542] hover:bg-[#F5C542]/5 transition-all duration-300 flex items-center justify-center text-xl font-light text-gray-600 hover:text-[#F5C542] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-gray-200"
                                                 >
                                                     +
                                                 </button>
                                             </div>
                                         </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
 
                                 {/* Order total + minimum order info */}
@@ -627,7 +676,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
 
                                 <button
                                     onClick={handleSubmitOrder}
-                                    disabled={activeBoxPrices.length === 0}
+                                    disabled={catalog.length === 0}
                                     className="w-full px-8 py-5 bg-gradient-to-r from-[#F5C542] to-[#d4a83a] text-white rounded-2xl font-light text-lg tracking-wide hover:shadow-xl hover:shadow-[#F5C542]/30 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                                 >
                                     {t.submitOrder}

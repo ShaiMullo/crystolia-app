@@ -162,6 +162,11 @@ export default function SettingsPage() {
                             </Button>
                         </div>
 
+                        <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/80 p-3 dark:border-amber-700/30 dark:bg-amber-900/10">
+                            <AlertCircle size={16} className="mt-0.5 shrink-0 text-amber-600" />
+                            <p className="text-sm text-amber-800 dark:text-amber-200">{t("settings.section2.legacyNotice")}</p>
+                        </div>
+
                         <div className="mt-4">
                             {boxPrices.length === 0 ? (
                                 <EmptyState title={t("settings.section2.empty")} />
