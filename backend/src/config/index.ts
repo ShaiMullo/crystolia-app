@@ -29,6 +29,7 @@ interface Config {
         provider: 'twilio';
         accountSid: string;
         authToken: string;
+        messagingServiceSid: string;
         fromNumber: string;
     };
 
@@ -116,6 +117,9 @@ export const config: Config = {
         provider: 'twilio',
         accountSid: getEnvOrDefault('TWILIO_ACCOUNT_SID', ''),
         authToken: getEnvOrDefault('TWILIO_AUTH_TOKEN', ''),
+        // Messaging Service (carries the "Crystolia" Alphanumeric Sender ID).
+        // Preferred over the raw phone number when both are configured.
+        messagingServiceSid: getEnvOrDefault('TWILIO_MESSAGING_SERVICE_SID', ''),
         fromNumber: getEnvOrDefault('TWILIO_PHONE_NUMBER', ''),
     },
 

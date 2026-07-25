@@ -12,6 +12,7 @@ delete process.env.EMAIL_PROVIDER;
 delete process.env.EMAIL_FROM_ADDRESS;
 delete process.env.TWILIO_ACCOUNT_SID;
 delete process.env.TWILIO_AUTH_TOKEN;
+delete process.env.TWILIO_MESSAGING_SERVICE_SID;
 delete process.env.TWILIO_PHONE_NUMBER;
 delete process.env.GOOGLE_CLIENT_ID;
 delete process.env.GOOGLE_CLIENT_SECRET;
