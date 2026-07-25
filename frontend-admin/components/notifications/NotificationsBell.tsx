@@ -21,6 +21,7 @@ export function NotificationsBell() {
     const [loading, setLoading] = useState(false);
     const [items, setItems] = useState<NotificationRecord[]>([]);
     const [unread, setUnread] = useState(0);
+    const [error, setError] = useState(false);
     const panelRef = useRef<HTMLDivElement | null>(null);
 
     const refresh = useCallback(async () => {
@@ -28,8 +29,11 @@ export function NotificationsBell() {
             const res = await listNotifications(false, 20);
             setItems(res.data || []);
             setUnread(res.unreadCount || 0);
+            setError(false);
         } catch {
-            // Silent — bell never blocks UI on failure.
+            // Background polling stays silent; the open panel shows an error
+            // state with a retry instead of a stale empty list.
+            setError(true);
         }
     }, []);
 
@@ -146,6 +150,17 @@ export function NotificationsBell() {
                     <div className="max-h-96 overflow-y-auto">
                         {loading ? (
                             <div className="flex justify-center py-6"><Spinner /></div>
+                        ) : error && items.length === 0 ? (
+                            <div className="flex flex-col items-center gap-2 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                                <span>{t("notifications.loadFailed")}</span>
+                                <button
+                                    type="button"
+                                    onClick={() => { setLoading(true); refresh().finally(() => setLoading(false)); }}
+                                    className="text-xs text-yellow-700 hover:underline"
+                                >
+                                    {t("common.retry")}
+                                </button>
+                            </div>
                         ) : items.length === 0 ? (
                             <div className="flex flex-col items-center gap-2 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                                 <Inbox size={20} />

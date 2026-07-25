@@ -17,6 +17,8 @@ import { logAudit } from '../services/auditService.js';
 import { computeOrderTotals, validateOrderItems, RawOrderItem } from '../services/orderService.js';
 import { reserveForOrder, releaseForOrder, shipForOrder } from '../services/inventoryService.js';
 import Inventory from '../models/Inventory.js';
+import Settings from '../models/Settings.js';
+import { paymentConfigError } from '../utils/paymentOptions.js';
 import {
     isCustomerNotifiableStatus,
     notifyCustomerOfOrderStatus,
@@ -232,6 +234,14 @@ router.patch('/:id', async (req: Request, res: Response, next: NextFunction) => 
                     order.rejectionReason = reason;
                 } else if (order.status === 'rejected') {
                     order.rejectionReason = undefined;
+                }
+                // Approval sends the selected payment instructions — block it
+                // while that method's configuration is unusable (mirrors
+                // routes/orders.ts PATCH).
+                if (body.status === 'approved' && order.paymentPreference) {
+                    const settings = await Settings.findOne({ key: 'business' }).select('paymentOptions').lean();
+                    const configError = paymentConfigError(order.paymentPreference, settings?.paymentOptions);
+                    if (configError) throw new AppError(`Cannot approve: ${configError}`, 409);
                 }
                 statusChanged = true;
                 order.status = body.status as OrderStatus;

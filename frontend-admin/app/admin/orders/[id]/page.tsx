@@ -378,6 +378,14 @@ export default function OrderDetailPage() {
 
                     <ShipmentCard orderId={order._id} />
 
+                    {order.paymentPreference && (
+                        <Card>
+                            <CardTitle>{t("orders.detail.paymentMethod")}</CardTitle>
+                            <p className="mt-2 text-sm text-gray-700 dark:text-gray-200">
+                                {t(`orders.paymentMethods.${order.paymentPreference}`)}
+                            </p>
+                        </Card>
+                    )}
                     {order.notes && (
                         <Card>
                             <CardTitle>{t("orders.detail.notes")}</CardTitle>

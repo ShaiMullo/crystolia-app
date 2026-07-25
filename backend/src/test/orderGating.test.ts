@@ -8,6 +8,7 @@ import {
     createAdmin,
     authCookieFor,
     VALID_REGISTRATION,
+    PAYMENT_OPTIONS_BANK_ENABLED,
 } from './testApp.js';
 import User from '../models/User.js';
 import Company from '../models/Company.js';
@@ -16,7 +17,10 @@ import Order from '../models/Order.js';
 
 const app = buildTestApp();
 
-const ORDER_BODY = { items: [{ sku: 'SUN-5L', quantity: 2 }] };
+const ORDER_BODY = {
+    items: [{ sku: 'SUN-5L', quantity: 2 }],
+    paymentPreference: 'bank_transfer',
+};
 
 beforeAll(async () => {
     await startTestDb();
@@ -30,6 +34,7 @@ beforeEach(async () => {
         key: 'business',
         minimumOrderAmount: 0,
         currency: 'ILS',
+        paymentOptions: PAYMENT_OPTIONS_BANK_ENABLED,
         boxPrices: [
             {
                 label: 'שמן חמניות 5 ליטר',
@@ -133,6 +138,7 @@ describe('order gating for approval-flow users', () => {
                     productName: 'מוצר מזויף',
                     price: 0.01,
                 }],
+                paymentPreference: 'bank_transfer',
             });
 
         expect(res.status).toBe(201);
@@ -164,13 +170,13 @@ describe('order gating for approval-flow users', () => {
         const unknown = await request(app)
             .post('/api/v1/me/orders')
             .set('Cookie', cookie)
-            .send({ items: [{ sku: 'NOT-REAL', quantity: 1 }] });
+            .send({ items: [{ sku: 'NOT-REAL', quantity: 1 }], paymentPreference: 'bank_transfer' });
         expect(unknown.status).toBe(400);
 
         const fractional = await request(app)
             .post('/api/v1/me/orders')
             .set('Cookie', cookie)
-            .send({ items: [{ sku: 'SUN-5L', quantity: 1.5 }] });
+            .send({ items: [{ sku: 'SUN-5L', quantity: 1.5 }], paymentPreference: 'bank_transfer' });
         expect(fractional.status).toBe(400);
     });
 });

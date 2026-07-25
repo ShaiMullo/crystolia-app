@@ -33,6 +33,9 @@ export interface IOrder extends Document, ISyncable {
     subtotal?: number;
     taxTotal?: number;
     status: 'pending' | 'approved' | 'rejected' | 'shipped' | 'completed' | 'cancelled';
+    /** How the customer intends to pay. Optional: orders placed before the
+     *  payment-preference feature have none and keep loading unchanged. */
+    paymentPreference?: 'bank_transfer' | 'credit_card';
     rejectionReason?: string;
     notes?: string;
     timeline: IOrderTimelineEvent[];
@@ -83,6 +86,10 @@ const OrderSchema = new Schema<IOrder>(
         notes: {
             type: String,
             trim: true,
+        },
+        paymentPreference: {
+            type: String,
+            enum: ['bank_transfer', 'credit_card'],
         },
         rejectionReason: {
             type: String,

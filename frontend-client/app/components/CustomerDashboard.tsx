@@ -21,6 +21,8 @@ interface OrderItem {
     price?: number;
 }
 
+type PaymentPreference = "bank_transfer" | "credit_card";
+
 interface Order {
     _id: string;
     status: string;
@@ -28,6 +30,8 @@ interface Order {
     totalAmount: number;
     notes?: string;
     rejectionReason?: string;
+    // Optional: orders placed before the payment-preference feature have none.
+    paymentPreference?: PaymentPreference;
     createdAt: string;
 }
 
@@ -103,6 +107,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
     const [orderQuantities, setOrderQuantities] = useState<Record<string, number>>({});
     const [settings, setSettings] = useState<BusinessSettings | null>(null);
     const [catalog, setCatalog] = useState<CatalogItem[]>([]);
+    const [paymentMethod, setPaymentMethod] = useState<PaymentPreference | "">("");
     const isRTL = locale === "he";
 
     // Orders State
@@ -260,6 +265,19 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
             return;
         }
 
+        const enabledMethods: PaymentPreference[] = [
+            ...(settings?.paymentOptions?.bankTransfer.enabled ? ["bank_transfer" as const] : []),
+            ...(settings?.paymentOptions?.creditCard.enabled ? ["credit_card" as const] : []),
+        ];
+        if (enabledMethods.length === 0) {
+            toast.error(t.paymentMethodsDisabled);
+            return;
+        }
+        if (!paymentMethod || !enabledMethods.includes(paymentMethod)) {
+            toast.error(t.selectPaymentMethod);
+            return;
+        }
+
         const orderTotal = catalog.reduce(
             (sum, product) => sum + product.price * (orderQuantities[product.sku] || 0),
             0,
@@ -272,7 +290,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
         }
 
         try {
-            await api.post('/v1/me/orders', { items });
+            await api.post('/v1/me/orders', { items, paymentPreference: paymentMethod });
             toast.success(t.orderSubmitted);
 
             // Reset form
@@ -302,6 +320,28 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
     const currencySymbol = settings?.currency === 'USD' ? '$' : settings?.currency === 'EUR' ? '€' : '₪';
     const orderTotal = catalog.reduce((sum, item) => sum + item.price * (orderQuantities[item.sku] || 0), 0);
     const minAmount = settings?.minimumOrderAmount ?? 0;
+
+    // Only admin-enabled payment methods are offered; the backend enforces the
+    // same rule, so this is presentation + early feedback, not the gate.
+    const enabledPaymentMethods: PaymentPreference[] = [
+        ...(settings?.paymentOptions?.bankTransfer.enabled ? ["bank_transfer" as const] : []),
+        ...(settings?.paymentOptions?.creditCard.enabled ? ["credit_card" as const] : []),
+    ];
+    const paymentMethodLabels: Record<PaymentPreference, string> = {
+        bank_transfer: t.bankTransfer,
+        credit_card: t.creditCardMethod,
+    };
+
+    // A single enabled method is preselected but stays visible as a checked
+    // radio; with two methods the customer must choose explicitly.
+    useEffect(() => {
+        if (enabledPaymentMethods.length === 1) {
+            setPaymentMethod(enabledPaymentMethods[0]);
+        } else if (paymentMethod && !enabledPaymentMethods.includes(paymentMethod)) {
+            setPaymentMethod("");
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [settings]);
 
     // Known availability limit for a catalog item; null = unlimited/untracked.
     // The backend re-validates on approval — this only prevents avoidable
@@ -669,6 +709,39 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                     })}
                                 </div>
 
+                                {/* Payment method selection */}
+                                <div className="mb-6 rounded-2xl border border-gray-100 bg-gradient-to-r from-gray-50 to-white p-6">
+                                    <h3 className="font-medium text-gray-900 mb-1">{t.choosePaymentMethod}</h3>
+                                    <p className="text-sm text-gray-500 mb-4">{t.choosePaymentMethodHint}</p>
+                                    {enabledPaymentMethods.length === 0 ? (
+                                        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                                            {t.paymentMethodsDisabled}
+                                        </p>
+                                    ) : (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="radiogroup" aria-label={t.choosePaymentMethod}>
+                                            {enabledPaymentMethods.map((method) => (
+                                                <label
+                                                    key={method}
+                                                    className={`flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition-all ${paymentMethod === method
+                                                        ? "border-[#F5C542] bg-[#F5C542]/5 ring-1 ring-[#F5C542]/40"
+                                                        : "border-gray-200 bg-white hover:border-[#F5C542]/40"}`}
+                                                >
+                                                    <input
+                                                        type="radio"
+                                                        name="paymentMethod"
+                                                        value={method}
+                                                        checked={paymentMethod === method}
+                                                        onChange={() => setPaymentMethod(method)}
+                                                        className="h-4 w-4 accent-[#F5C542]"
+                                                    />
+                                                    <span className="text-xl" aria-hidden>{method === "bank_transfer" ? "🏦" : "💳"}</span>
+                                                    <span className="text-sm font-medium text-gray-900">{paymentMethodLabels[method]}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
                                 {/* Order total + minimum order info */}
                                 <div className="bg-gradient-to-r from-[#F5C542]/10 to-[#F5C542]/5 rounded-2xl p-5 mb-4 border border-[#F5C542]/20">
                                     <div className="flex justify-between items-center mb-2">
@@ -692,7 +765,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
 
                                 <button
                                     onClick={handleSubmitOrder}
-                                    disabled={catalog.length === 0}
+                                    disabled={catalog.length === 0 || enabledPaymentMethods.length === 0}
                                     className="w-full px-8 py-5 bg-gradient-to-r from-[#F5C542] to-[#d4a83a] text-white rounded-2xl font-light text-lg tracking-wide hover:shadow-xl hover:shadow-[#F5C542]/30 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                                 >
                                     {t.submitOrder}
@@ -1031,10 +1104,23 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                 </div>
                             )}
 
+                            {selectedOrder.paymentPreference && (
+                                <div className="mb-6 flex items-center gap-2 text-sm text-gray-700">
+                                    <span className="text-gray-500">{t.paymentMethodLabel}:</span>
+                                    <span className="font-medium text-gray-900">
+                                        {selectedOrder.paymentPreference === "bank_transfer" ? t.bankTransfer : t.creditCardMethod}
+                                    </span>
+                                </div>
+                            )}
+
+                            {/* Approved orders show ONLY the customer's selected payment
+                                option. Orders placed before the preference feature (no
+                                paymentPreference) keep showing every enabled option. */}
                             {selectedOrder.status === "approved" && settings?.paymentOptions && (
                                 <div className="mb-8 rounded-2xl border border-[#F5C542]/40 bg-[#F5C542]/5 p-5">
                                     <h4 className="font-medium text-gray-900">{t.paymentOptions}</h4>
-                                    {settings.paymentOptions.bankTransfer.enabled && (
+                                    {settings.paymentOptions.bankTransfer.enabled
+                                        && (!selectedOrder.paymentPreference || selectedOrder.paymentPreference === "bank_transfer") && (
                                         <div className="mt-4 rounded-xl bg-white p-4 text-sm text-gray-700">
                                             <p className="font-medium text-gray-900">{t.bankTransfer}</p>
                                             <dl className="mt-2 space-y-1">
@@ -1047,7 +1133,8 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                             </dl>
                                         </div>
                                     )}
-                                    {settings.paymentOptions.creditCard.enabled && settings.paymentOptions.creditCard.paymentUrl && (
+                                    {settings.paymentOptions.creditCard.enabled && settings.paymentOptions.creditCard.paymentUrl
+                                        && (!selectedOrder.paymentPreference || selectedOrder.paymentPreference === "credit_card") && (
                                         <a
                                             href={settings.paymentOptions.creditCard.paymentUrl}
                                             target="_blank"
@@ -1058,6 +1145,13 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                         </a>
                                     )}
                                     {!settings.paymentOptions.bankTransfer.enabled && !settings.paymentOptions.creditCard.enabled && (
+                                        <p className="mt-2 text-sm text-gray-500">{t.paymentUnavailable}</p>
+                                    )}
+                                    {selectedOrder.paymentPreference === "bank_transfer" && !settings.paymentOptions.bankTransfer.enabled && (
+                                        <p className="mt-2 text-sm text-gray-500">{t.paymentUnavailable}</p>
+                                    )}
+                                    {selectedOrder.paymentPreference === "credit_card"
+                                        && !(settings.paymentOptions.creditCard.enabled && settings.paymentOptions.creditCard.paymentUrl) && (
                                         <p className="mt-2 text-sm text-gray-500">{t.paymentUnavailable}</p>
                                     )}
                                 </div>
