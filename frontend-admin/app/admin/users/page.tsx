@@ -34,7 +34,10 @@ export default function UsersPage() {
     const { t } = useAdminI18n();
     const { user: currentUser } = useAuth();
 
-    const [tab, setTab] = useState<TabId>("admin");
+    // Publicly registered accounts are customers, so open on the list the
+    // administrator most often needs to review/manage. Staff remain available
+    // in the adjacent Admins and Employees tabs.
+    const [tab, setTab] = useState<TabId>("customer");
     const [searchInput, setSearchInput] = useState("");
     const [search, setSearch] = useState("");
     const [status, setStatus] = useState<StatusFilter>("");
