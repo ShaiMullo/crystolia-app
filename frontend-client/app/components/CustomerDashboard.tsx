@@ -108,6 +108,8 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
     const [settings, setSettings] = useState<BusinessSettings | null>(null);
     const [catalog, setCatalog] = useState<CatalogItem[]>([]);
     const [paymentMethod, setPaymentMethod] = useState<PaymentPreference | "">("");
+    const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+    const [submittingOrder, setSubmittingOrder] = useState(false);
     const isRTL = locale === "he";
 
     // Orders State
@@ -246,7 +248,16 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
         }
     };
 
-    const handleSubmitOrder = async () => {
+    const selectedOrderItems = (): { sku: string; quantity: number }[] => {
+        const items: { sku: string; quantity: number }[] = [];
+        for (const product of catalog) {
+            const qty = orderQuantities[product.sku] || 0;
+            if (qty > 0) items.push({ sku: product.sku, quantity: qty });
+        }
+        return items;
+    };
+
+    const handleSubmitOrder = () => {
         if (!hasProfile) {
             toast.error(t.completeProfileFirst);
             setActiveTab("profile");
@@ -254,12 +265,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
             return;
         }
 
-        const items: { sku: string; quantity: number }[] = [];
-        for (const product of catalog) {
-            const qty = orderQuantities[product.sku] || 0;
-            if (qty > 0) items.push({ sku: product.sku, quantity: qty });
-        }
-
+        const items = selectedOrderItems();
         if (items.length === 0) {
             toast.error(t.selectAtLeastOne);
             return;
@@ -271,10 +277,6 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
         ];
         if (enabledMethods.length === 0) {
             toast.error(t.paymentMethodsDisabled);
-            return;
-        }
-        if (!paymentMethod || !enabledMethods.includes(paymentMethod)) {
-            toast.error(t.selectPaymentMethod);
             return;
         }
 
@@ -289,12 +291,30 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
             return;
         }
 
+        setPaymentMethod(enabledMethods.length === 1 ? enabledMethods[0] : "");
+        setPaymentModalOpen(true);
+    };
+
+    const handleConfirmOrder = async () => {
+        const items = selectedOrderItems();
+        const enabledMethods: PaymentPreference[] = [
+            ...(settings?.paymentOptions?.bankTransfer.enabled ? ["bank_transfer" as const] : []),
+            ...(settings?.paymentOptions?.creditCard.enabled ? ["credit_card" as const] : []),
+        ];
+        if (!paymentMethod || !enabledMethods.includes(paymentMethod)) {
+            toast.error(t.selectPaymentMethod);
+            return;
+        }
+
+        setSubmittingOrder(true);
         try {
             await api.post('/v1/me/orders', { items, paymentPreference: paymentMethod });
             toast.success(t.orderSubmitted);
 
             // Reset form
             setOrderQuantities(prev => Object.fromEntries(Object.keys(prev).map(k => [k, 0])));
+            setPaymentModalOpen(false);
+            setPaymentMethod("");
             setActiveTab("orders");
 
             // Refresh orders
@@ -311,6 +331,8 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
             } else {
                 toast.error(t.orderSubmitFailed);
             }
+        } finally {
+            setSubmittingOrder(false);
         }
     };
 
@@ -709,39 +731,6 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                     })}
                                 </div>
 
-                                {/* Payment method selection */}
-                                <div className="mb-6 rounded-2xl border border-gray-100 bg-gradient-to-r from-gray-50 to-white p-6">
-                                    <h3 className="font-medium text-gray-900 mb-1">{t.choosePaymentMethod}</h3>
-                                    <p className="text-sm text-gray-500 mb-4">{t.choosePaymentMethodHint}</p>
-                                    {enabledPaymentMethods.length === 0 ? (
-                                        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                                            {t.paymentMethodsDisabled}
-                                        </p>
-                                    ) : (
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="radiogroup" aria-label={t.choosePaymentMethod}>
-                                            {enabledPaymentMethods.map((method) => (
-                                                <label
-                                                    key={method}
-                                                    className={`flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition-all ${paymentMethod === method
-                                                        ? "border-[#F5C542] bg-[#F5C542]/5 ring-1 ring-[#F5C542]/40"
-                                                        : "border-gray-200 bg-white hover:border-[#F5C542]/40"}`}
-                                                >
-                                                    <input
-                                                        type="radio"
-                                                        name="paymentMethod"
-                                                        value={method}
-                                                        checked={paymentMethod === method}
-                                                        onChange={() => setPaymentMethod(method)}
-                                                        className="h-4 w-4 accent-[#F5C542]"
-                                                    />
-                                                    <span className="text-xl" aria-hidden>{method === "bank_transfer" ? "🏦" : "💳"}</span>
-                                                    <span className="text-sm font-medium text-gray-900">{paymentMethodLabels[method]}</span>
-                                                </label>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-
                                 {/* Order total + minimum order info */}
                                 <div className="bg-gradient-to-r from-[#F5C542]/10 to-[#F5C542]/5 rounded-2xl p-5 mb-4 border border-[#F5C542]/20">
                                     <div className="flex justify-between items-center mb-2">
@@ -765,7 +754,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
 
                                 <button
                                     onClick={handleSubmitOrder}
-                                    disabled={catalog.length === 0 || enabledPaymentMethods.length === 0}
+                                    disabled={catalog.length === 0}
                                     className="w-full px-8 py-5 bg-gradient-to-r from-[#F5C542] to-[#d4a83a] text-white rounded-2xl font-light text-lg tracking-wide hover:shadow-xl hover:shadow-[#F5C542]/30 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                                 >
                                     {t.submitOrder}
@@ -1049,6 +1038,78 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                     </div>
                 </div>
             </div>
+            {/* Payment choice appears only after the customer asks to submit.
+                No order reaches the backend until this dialog is confirmed. */}
+            {paymentModalOpen && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="payment-choice-title"
+                >
+                    <div className="w-full max-w-lg rounded-3xl border border-gray-100 bg-white p-7 shadow-2xl">
+                        <div className="mb-6">
+                            <h3 id="payment-choice-title" className="text-2xl font-light text-gray-900">
+                                {t.choosePaymentMethod}
+                            </h3>
+                            <p className="mt-2 text-sm text-gray-500">{t.choosePaymentMethodHint}</p>
+                        </div>
+
+                        <div className="space-y-3" role="radiogroup" aria-label={t.choosePaymentMethod}>
+                            {enabledPaymentMethods.map((method) => (
+                                <label
+                                    key={method}
+                                    className={`flex cursor-pointer items-center gap-4 rounded-2xl border p-5 transition-all ${paymentMethod === method
+                                        ? "border-[#F5C542] bg-[#F5C542]/5 ring-1 ring-[#F5C542]/40"
+                                        : "border-gray-200 bg-white hover:border-[#F5C542]/40"}`}
+                                >
+                                    <input
+                                        type="radio"
+                                        name="paymentMethodModal"
+                                        value={method}
+                                        checked={paymentMethod === method}
+                                        onChange={() => setPaymentMethod(method)}
+                                        className="h-4 w-4 accent-[#F5C542]"
+                                    />
+                                    <span className="text-2xl" aria-hidden>{method === "bank_transfer" ? "🏦" : "💳"}</span>
+                                    <span className="font-medium text-gray-900">{paymentMethodLabels[method]}</span>
+                                </label>
+                            ))}
+                        </div>
+
+                        <div className="mt-6 rounded-2xl bg-gray-50 p-4 text-sm">
+                            <div className="flex items-center justify-between gap-4">
+                                <span className="text-gray-500">{t.total}</span>
+                                <span className="font-medium text-gray-900">
+                                    {currencySymbol}{orderTotal.toLocaleString()}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="mt-7 flex gap-3">
+                            <button
+                                type="button"
+                                disabled={submittingOrder}
+                                onClick={() => {
+                                    setPaymentModalOpen(false);
+                                    setPaymentMethod("");
+                                }}
+                                className="flex-1 rounded-xl border border-gray-200 px-5 py-3 text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                            >
+                                {t.cancel}
+                            </button>
+                            <button
+                                type="button"
+                                disabled={!paymentMethod || submittingOrder}
+                                onClick={handleConfirmOrder}
+                                className="flex-1 rounded-xl bg-gradient-to-r from-[#F5C542] to-[#d4a83a] px-5 py-3 font-medium text-white transition-all hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                {submittingOrder ? t.submittingOrder : t.confirmOrder}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             {/* Order Details Modal */}
             {selectedOrder && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
