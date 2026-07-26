@@ -347,4 +347,65 @@ describe('soft-deleted customer re-registration', () => {
             .send({ email: VALID_REGISTRATION.email, password: 'FreshPassword2' });
         expect(login.status).toBe(200);
     });
+
+    it('allows the same historical user to register a different company without overwriting the old company', async () => {
+        const original = await registerPendingUser();
+        await request(app)
+            .post(`/api/v1/users/${original._id}/approve-registration`)
+            .set('Cookie', adminCookie);
+
+        const firstApproved = await User.findById(original._id);
+        const oldCompanyId = String(firstApproved!.company);
+
+        await request(app)
+            .delete(`/api/v1/users/${original._id}`)
+            .set('Cookie', adminCookie);
+
+        const secondRegistration = {
+            ...VALID_REGISTRATION,
+            companyName: 'עסק חדש לאותו אדם',
+            vatNumber: '513333333',
+            password: 'AnotherPassword3',
+        };
+        const reRegistration = await request(app)
+            .post('/api/auth/register')
+            .send(secondRegistration);
+        expect(reRegistration.status).toBe(202);
+
+        const revived = await User.findOne({ email: VALID_REGISTRATION.email });
+        const approval = await request(app)
+            .post(`/api/v1/users/${revived!._id}/approve-registration`)
+            .set('Cookie', adminCookie);
+        expect(approval.status).toBe(200);
+
+        const reapproved = await User.findById(revived!._id);
+        expect(String(reapproved!.company)).not.toBe(oldCompanyId);
+        expect(await Company.countDocuments({})).toBe(2);
+
+        const oldCompany = await Company.findById(oldCompanyId);
+        const newCompany = await Company.findById(reapproved!.company);
+        expect(oldCompany!.name).toBe(VALID_REGISTRATION.companyName);
+        expect(oldCompany!.vatNumber).toBe(VALID_REGISTRATION.vatNumber);
+        expect(newCompany!.name).toBe(secondRegistration.companyName);
+        expect(newCompany!.vatNumber).toBe(secondRegistration.vatNumber);
+    });
+
+    it('reclaims an exact orphaned legacy company only when no live user is linked', async () => {
+        const orphan = await Company.create({
+            name: VALID_REGISTRATION.companyName,
+            vatNumber: VALID_REGISTRATION.vatNumber,
+            email: VALID_REGISTRATION.email,
+        });
+        const pending = await registerPendingUser();
+
+        const approval = await request(app)
+            .post(`/api/v1/users/${pending._id}/approve-registration`)
+            .set('Cookie', adminCookie);
+        expect(approval.status).toBe(200);
+
+        const approved = await User.findById(pending._id);
+        expect(String(approved!.company)).toBe(String(orphan._id));
+        expect(await Company.countDocuments({})).toBe(1);
+        expect(String((await Company.findById(orphan._id))!.owner)).toBe(String(pending._id));
+    });
 });

@@ -36,7 +36,7 @@ const APPROVAL_LOCK_TTL_MS = 2 * 60 * 1000;
 /**
  * Create the Company from the registration snapshot and link it, if the user
  * does not already have one. Conflicts (duplicate name / VAT) are reported —
- * never silently merged into an existing company.
+ * never silently merged into an unrelated company.
  * The caller is responsible for saving the user afterwards.
  */
 export async function ensureCompanyFromSnapshot(
@@ -45,14 +45,16 @@ export async function ensureCompanyFromSnapshot(
     if (user.company || !user.registrationCompany) return { ok: true };
     const snapshot = user.registrationCompany;
 
-    // Crash recovery: if a previous approval attempt created the Company but
-    // exited before linking it to the User, reuse only the Company owned by
-    // this exact registration. Never attach by public name or VAT alone.
-    const ownedCompany = await Company.findOne({ owner: user._id }).select('_id name vatNumber').lean();
+    // Crash/re-registration recovery: a user can legitimately own a historical
+    // company and now register a different one. Therefore ownership alone is
+    // not a conflict and must not short-circuit approval. Reuse only an owned
+    // company whose exact legal identity matches this registration snapshot.
+    const ownedCompany = await Company.findOne({
+        owner: user._id,
+        name: snapshot.name,
+        vatNumber: snapshot.vatNumber,
+    }).select('_id').lean();
     if (ownedCompany) {
-        if (ownedCompany.name !== snapshot.name || ownedCompany.vatNumber !== snapshot.vatNumber) {
-            return { ok: false, conflictField: 'owner' };
-        }
         user.set('company', ownedCompany._id);
         user.isCompanyOwner = true;
         return { ok: true };
@@ -61,9 +63,43 @@ export async function ensureCompanyFromSnapshot(
     // Pre-check for a clear admin-facing message (the unique indexes below
     // remain the authoritative guard against races).
     const [nameTaken, vatTaken] = await Promise.all([
-        Company.findOne({ name: snapshot.name }).select('_id').lean(),
-        Company.findOne({ vatNumber: snapshot.vatNumber }).select('_id').lean(),
+        Company.findOne({ name: snapshot.name }).select('_id owner email billingEmail').lean(),
+        Company.findOne({ vatNumber: snapshot.vatNumber }).select('_id owner email billingEmail').lean(),
     ]);
+
+    // Legacy/demo data may contain the exact company but no longer have a live
+    // user linked after all its users were soft-deleted. An explicit admin
+    // approval may safely reclaim that exact name+VAT pair when the old owner
+    // is this user, the company has no owner, or its contact email proves the
+    // same mailbox — and no other live user is linked to it.
+    if (
+        nameTaken
+        && vatTaken
+        && String(nameTaken._id) === String(vatTaken._id)
+    ) {
+        const candidate = nameTaken;
+        const normalizedEmail = user.email.toLowerCase();
+        const ownerMatches = candidate.owner && String(candidate.owner) === String(user._id);
+        const ownerMissing = !candidate.owner;
+        const contactMatches = [candidate.email, candidate.billingEmail]
+            .some((value) => value?.toLowerCase() === normalizedEmail);
+        const anotherLiveUser = await User.exists({
+            _id: { $ne: user._id },
+            company: candidate._id,
+            isDeleted: { $ne: true },
+        });
+
+        if (!anotherLiveUser && (ownerMatches || ownerMissing || contactMatches)) {
+            await Company.updateOne(
+                { _id: candidate._id },
+                { $set: { owner: user._id } },
+            );
+            user.set('company', candidate._id);
+            user.isCompanyOwner = true;
+            return { ok: true };
+        }
+    }
+
     if (nameTaken) return { ok: false, conflictField: 'name' };
     if (vatTaken) return { ok: false, conflictField: 'vatNumber' };
 
