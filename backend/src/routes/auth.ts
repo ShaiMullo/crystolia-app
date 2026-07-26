@@ -5,7 +5,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import User from '../models/User.js';
+import User, { type IUser, type IRegistrationCompany } from '../models/User.js';
 import Company from '../models/Company.js';
 import { protect } from '../middleware/auth.js';
 import { AppError, validate } from '../utils/validation.js';
@@ -95,6 +95,18 @@ interface RegistrationTicketPayload {
     locale: AppLocale;
 }
 
+interface DeletedCustomerRegistrationInput {
+    name: string;
+    phone: string;
+    password: string;
+    method: 'password' | 'google';
+    company: IRegistrationCompany;
+    flags: string[];
+    locale: AppLocale;
+    googleId?: string;
+    avatar?: string;
+}
+
 const OAUTH_STATE_COOKIE = 'g_oauth_state';
 const REGISTRATION_TICKET_COOKIE = 'g_reg_ticket';
 
@@ -118,6 +130,54 @@ function authPageUrl(locale: AppLocale, query: string): string {
 
 function isGoogleConfigured(): boolean {
     return Boolean(config.google.clientId && config.google.clientSecret && config.google.callbackUrl);
+}
+
+/**
+ * Turn a soft-deleted customer record back into a fresh pending registration.
+ *
+ * Reusing the same document preserves audit/referential history and satisfies
+ * the unique email index, while clearing every authentication, approval and
+ * company link that could otherwise leak access from the former account.
+ * If this user previously owned a Company, approval may re-link it only through
+ * ensureCompanyFromSnapshot's exact owner + name + VAT recovery guard.
+ */
+async function reviveDeletedCustomerRegistration(
+    user: IUser,
+    input: DeletedCustomerRegistrationInput,
+): Promise<IUser> {
+    user.name = input.name;
+    user.phone = input.phone;
+    user.password = input.password;
+    user.registrationMethod = input.method;
+    user.registrationCompany = input.company;
+    user.registrationFlags = input.flags.length ? input.flags : undefined;
+    user.preferredLocale = input.locale;
+    user.googleId = input.googleId;
+    user.avatar = input.avatar;
+
+    user.isDeleted = false;
+    user.deletedAt = undefined;
+    user.isActive = false;
+    user.registrationStatus = 'pending';
+    user.set('company', undefined);
+    user.isCompanyOwner = false;
+
+    user.approvedAt = undefined;
+    user.approvedBy = undefined;
+    user.rejectedAt = undefined;
+    user.rejectedBy = undefined;
+    user.rejectionReason = undefined;
+    user.approvalInProgressAt = undefined;
+    user.approvalLock = undefined;
+    user.registrationNotifications = undefined;
+    user.passwordResetTokenHash = undefined;
+    user.passwordResetExpiresAt = undefined;
+    user.mustChangePassword = false;
+    user.lastLogin = undefined;
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+
+    await user.save();
+    return user;
 }
 
 function isDuplicateKeyError(error: unknown): boolean {
@@ -226,6 +286,24 @@ router.get(
 
             if (existingByEmail) {
                 const user = existingByEmail;
+
+                // A deleted customer may start a genuinely new registration.
+                // Continue to the business-details screen; the verified Google
+                // identity alone never restores access or activates the user.
+                if (user.isDeleted && user.role === 'customer') {
+                    const ticket: RegistrationTicketPayload = {
+                        purpose: 'google_registration',
+                        googleId: String(profile.id),
+                        email,
+                        name: typeof profile.displayName === 'string' ? profile.displayName.slice(0, 120) : '',
+                        avatar: googleAvatar,
+                        locale,
+                    };
+                    const ticketToken = jwt.sign(ticket, jwtSecret, { expiresIn: '30m' });
+                    res.cookie(REGISTRATION_TICKET_COOKIE, ticketToken, shortLivedCookieOptions(30 * 60 * 1000));
+                    res.redirect(`${config.frontendUrl.replace(/\/$/, '')}/${locale}/auth/complete-registration`);
+                    return;
+                }
 
                 // Never silently attach a Google identity to a password
                 // account that merely shares the email address.
@@ -342,6 +420,47 @@ router.post('/google/complete-registration', authLimiter, async (req: Request, r
             $or: [{ email: ticket.email }, { googleId: ticket.googleId }],
         });
         if (existingUser) {
+            if (existingUser.isDeleted && existingUser.role === 'customer') {
+                const registrationFlags = await collectDuplicateFlags(
+                    companyName,
+                    vatNumber,
+                    existingUser._id,
+                );
+                const revived = await reviveDeletedCustomerRegistration(existingUser, {
+                    name,
+                    phone,
+                    password: `GOOGLE_OAUTH_${crypto.randomBytes(24).toString('hex')}`,
+                    method: 'google',
+                    company: { name: companyName, vatNumber, country, phone },
+                    flags: registrationFlags,
+                    locale,
+                    googleId: ticket.googleId,
+                    avatar: ticket.avatar,
+                });
+
+                res.clearCookie(REGISTRATION_TICKET_COOKIE, { path: '/api' });
+                const [emailResult] = await Promise.all([
+                    sendRegistrationEmail(revived, 'pending', { companyName }),
+                    notifyAdminOfRegistration(revived),
+                ]);
+                await logAudit({
+                    action: 'UPDATE',
+                    entity: 'User',
+                    entityId: revived._id.toString(),
+                    req,
+                    details: {
+                        registrationReactivatedFromSoftDelete: true,
+                        registrationMethod: 'google',
+                    },
+                });
+                res.status(202).json({
+                    success: true,
+                    status: 'pending_approval',
+                    emailNotificationSent: emailResult.success,
+                    message: 'Registration received and awaiting approval',
+                });
+                return;
+            }
             res.clearCookie(REGISTRATION_TICKET_COOKIE, { path: '/api' });
             return next(new AppError('An account already exists for this email', 409));
         }
@@ -488,6 +607,48 @@ router.post('/register', authLimiter, async (req: Request, res: Response, next: 
         // told (by email) that an account already exists.
         const existingUser = await User.findOne({ email });
         if (existingUser) {
+            // Soft deletion preserves the email for history and referential
+            // integrity. Reuse that record as a fresh pending request instead
+            // of trapping the address forever behind the unique index.
+            if (existingUser.isDeleted && existingUser.role === 'customer') {
+                const registrationFlags = await collectDuplicateFlags(
+                    companyName,
+                    vatNumber,
+                    existingUser._id,
+                );
+                const revived = await reviveDeletedCustomerRegistration(existingUser, {
+                    name,
+                    phone,
+                    password,
+                    method: 'password',
+                    company: { name: companyName, vatNumber, country, phone },
+                    flags: registrationFlags,
+                    locale,
+                });
+
+                const [emailResult] = await Promise.all([
+                    sendRegistrationEmail(revived, 'pending', { companyName }),
+                    notifyAdminOfRegistration(revived),
+                ]);
+                await logAudit({
+                    action: 'UPDATE',
+                    entity: 'User',
+                    entityId: revived._id.toString(),
+                    req,
+                    details: {
+                        registrationReactivatedFromSoftDelete: true,
+                        registrationMethod: 'password',
+                    },
+                });
+                res.status(202).json({
+                    success: true,
+                    status: 'pending_approval',
+                    emailNotificationSent: emailResult.success,
+                    message: 'Registration received and awaiting approval',
+                });
+                return;
+            }
+
             // Legacy pending customers created before the complete business
             // registration flow existed have neither a company snapshot nor a
             // registration method. Treat their next valid password submission

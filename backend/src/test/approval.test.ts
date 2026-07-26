@@ -285,3 +285,66 @@ describe('legacy PATCH /api/v1/users/:id { isActive: true } compatibility', () =
         expect(patch.status).toBe(200);
     });
 });
+
+describe('soft-deleted customer re-registration', () => {
+    it('turns the same email into a fresh pending request and safely reuses its owned company on approval', async () => {
+        const original = await registerPendingUser();
+        const firstApproval = await request(app)
+            .post(`/api/v1/users/${original._id}/approve-registration`)
+            .set('Cookie', adminCookie);
+        expect(firstApproval.status).toBe(200);
+
+        const approved = await User.findById(original._id);
+        const originalCompanyId = String(approved!.company);
+        const originalTokenVersion = approved!.tokenVersion;
+
+        const deletion = await request(app)
+            .delete(`/api/v1/users/${original._id}`)
+            .set('Cookie', adminCookie);
+        expect(deletion.status).toBe(200);
+
+        const reRegistration = await request(app)
+            .post('/api/auth/register')
+            .send({
+                ...VALID_REGISTRATION,
+                name: 'ישראל נרשם מחדש',
+                password: 'FreshPassword2',
+            });
+        expect(reRegistration.status).toBe(202);
+        expect(reRegistration.body.status).toBe('pending_approval');
+
+        const revived = await User.findOne({ email: VALID_REGISTRATION.email });
+        expect(revived).not.toBeNull();
+        expect(String(revived!._id)).toBe(String(original._id));
+        expect(await User.countDocuments({ email: VALID_REGISTRATION.email })).toBe(1);
+        expect(revived!.name).toBe('ישראל נרשם מחדש');
+        expect(revived!.isDeleted).toBe(false);
+        expect(revived!.deletedAt).toBeUndefined();
+        expect(revived!.isActive).toBe(false);
+        expect(revived!.registrationStatus).toBe('pending');
+        expect(revived!.registrationMethod).toBe('password');
+        expect(revived!.company).toBeUndefined();
+        expect(revived!.approvedAt).toBeUndefined();
+        expect(revived!.approvedBy).toBeUndefined();
+        expect(revived!.tokenVersion).toBeGreaterThan(originalTokenVersion);
+
+        const pendingLogin = await request(app)
+            .post('/api/auth/login')
+            .send({ email: VALID_REGISTRATION.email, password: 'FreshPassword2' });
+        expect(pendingLogin.status).toBe(403);
+
+        const secondApproval = await request(app)
+            .post(`/api/v1/users/${original._id}/approve-registration`)
+            .set('Cookie', adminCookie);
+        expect(secondApproval.status).toBe(200);
+
+        const reapproved = await User.findById(original._id);
+        expect(String(reapproved!.company)).toBe(originalCompanyId);
+        expect(await Company.countDocuments({})).toBe(1);
+
+        const login = await request(app)
+            .post('/api/auth/login')
+            .send({ email: VALID_REGISTRATION.email, password: 'FreshPassword2' });
+        expect(login.status).toBe(200);
+    });
+});
