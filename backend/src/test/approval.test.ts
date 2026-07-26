@@ -408,4 +408,42 @@ describe('soft-deleted customer re-registration', () => {
         expect(await Company.countDocuments({})).toBe(1);
         expect(String((await Company.findById(orphan._id))!.owner)).toBe(String(pending._id));
     });
+
+    it('reclaims and renames the same historical company when its VAT is unchanged', async () => {
+        const original = await registerPendingUser();
+        await request(app)
+            .post(`/api/v1/users/${original._id}/approve-registration`)
+            .set('Cookie', adminCookie);
+
+        const firstApproved = await User.findById(original._id);
+        const historicalCompanyId = String(firstApproved!.company);
+
+        await request(app)
+            .delete(`/api/v1/users/${original._id}`)
+            .set('Cookie', adminCookie);
+
+        const newCompanyName = 'שם מסחרי חדש לאותה חברה';
+        const reRegistration = await request(app)
+            .post('/api/auth/register')
+            .send({
+                ...VALID_REGISTRATION,
+                companyName: newCompanyName,
+                password: 'RenamedCompany4',
+            });
+        expect(reRegistration.status).toBe(202);
+
+        const revived = await User.findOne({ email: VALID_REGISTRATION.email });
+        const approval = await request(app)
+            .post(`/api/v1/users/${revived!._id}/approve-registration`)
+            .set('Cookie', adminCookie);
+        expect(approval.status).toBe(200);
+
+        const reapproved = await User.findById(revived!._id);
+        const company = await Company.findById(historicalCompanyId);
+        expect(String(reapproved!.company)).toBe(historicalCompanyId);
+        expect(await Company.countDocuments({})).toBe(1);
+        expect(company!.name).toBe(newCompanyName);
+        expect(company!.vatNumber).toBe(VALID_REGISTRATION.vatNumber);
+        expect(String(company!.owner)).toBe(String(revived!._id));
+    });
 });
