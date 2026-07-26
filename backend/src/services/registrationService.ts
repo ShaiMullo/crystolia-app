@@ -67,6 +67,24 @@ export async function ensureCompanyFromSnapshot(
         Company.findOne({ vatNumber: snapshot.vatNumber }).select('_id owner email billingEmail').lean(),
     ]);
 
+    const mayReclaim = async (
+        candidate: NonNullable<typeof vatTaken>,
+    ): Promise<boolean> => {
+        const normalizedEmail = user.email.toLowerCase();
+        const ownerMatches = candidate.owner && String(candidate.owner) === String(user._id);
+        const ownerMissing = !candidate.owner;
+        const contactMatches = [candidate.email, candidate.billingEmail]
+            .some((value) => value?.toLowerCase() === normalizedEmail);
+        if (!ownerMatches && !ownerMissing && !contactMatches) return false;
+
+        const anotherLiveUser = await User.exists({
+            _id: { $ne: user._id },
+            company: candidate._id,
+            isDeleted: { $ne: true },
+        });
+        return !anotherLiveUser;
+    };
+
     // Legacy/demo data may contain the exact company but no longer have a live
     // user linked after all its users were soft-deleted. An explicit admin
     // approval may safely reclaim that exact name+VAT pair when the old owner
@@ -78,18 +96,7 @@ export async function ensureCompanyFromSnapshot(
         && String(nameTaken._id) === String(vatTaken._id)
     ) {
         const candidate = nameTaken;
-        const normalizedEmail = user.email.toLowerCase();
-        const ownerMatches = candidate.owner && String(candidate.owner) === String(user._id);
-        const ownerMissing = !candidate.owner;
-        const contactMatches = [candidate.email, candidate.billingEmail]
-            .some((value) => value?.toLowerCase() === normalizedEmail);
-        const anotherLiveUser = await User.exists({
-            _id: { $ne: user._id },
-            company: candidate._id,
-            isDeleted: { $ne: true },
-        });
-
-        if (!anotherLiveUser && (ownerMatches || ownerMissing || contactMatches)) {
+        if (await mayReclaim(candidate)) {
             await Company.updateOne(
                 { _id: candidate._id },
                 { $set: { owner: user._id } },
@@ -98,6 +105,35 @@ export async function ensureCompanyFromSnapshot(
             user.isCompanyOwner = true;
             return { ok: true };
         }
+    }
+
+    // A VAT/company number is the durable legal identity; a business name may
+    // legitimately change between registrations. If that VAT belongs to this
+    // user's historical/orphaned company and the requested new name is free,
+    // reclaim and rename the same Company instead of creating a duplicate.
+    // Orders/invoices keep their original company reference and remain intact.
+    if (
+        vatTaken
+        && (!nameTaken || String(nameTaken._id) === String(vatTaken._id))
+        && await mayReclaim(vatTaken)
+    ) {
+        await Company.updateOne(
+            { _id: vatTaken._id },
+            {
+                $set: {
+                    name: snapshot.name,
+                    owner: user._id,
+                    country: snapshot.country,
+                    phone: snapshot.phone || user.phone,
+                    email: user.email,
+                    billingEmail: user.email,
+                },
+            },
+            { runValidators: true },
+        );
+        user.set('company', vatTaken._id);
+        user.isCompanyOwner = true;
+        return { ok: true };
     }
 
     if (nameTaken) return { ok: false, conflictField: 'name' };
