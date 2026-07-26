@@ -137,4 +137,39 @@ describe('Google registration completion', () => {
         expect(user!.googleId).toBeUndefined();
         expect(user!.registrationMethod).toBe('password');
     });
+
+    it('revives a soft-deleted customer as a new pending Google registration', async () => {
+        const deleted = await User.create({
+            name: 'Deleted Customer',
+            email: 'google.user@example.com',
+            password: 'OldPassword1',
+            role: 'customer',
+            isActive: false,
+            isDeleted: true,
+            deletedAt: new Date(),
+            registrationStatus: 'approved',
+            registrationMethod: 'password',
+            tokenVersion: 4,
+        });
+
+        const res = await request(app)
+            .post('/api/auth/google/complete-registration')
+            .set('Cookie', ticketCookie())
+            .send(COMPLETION_BODY);
+        expect(res.status).toBe(202);
+        expect(res.body.status).toBe('pending_approval');
+
+        const revived = await User.findOne({ email: 'google.user@example.com' });
+        expect(String(revived!._id)).toBe(String(deleted._id));
+        expect(await User.countDocuments({ email: 'google.user@example.com' })).toBe(1);
+        expect(revived!.isDeleted).toBe(false);
+        expect(revived!.deletedAt).toBeUndefined();
+        expect(revived!.isActive).toBe(false);
+        expect(revived!.registrationStatus).toBe('pending');
+        expect(revived!.registrationMethod).toBe('google');
+        expect(revived!.googleId).toBe('google-sub-123');
+        expect(revived!.avatar).toBe('https://lh3.googleusercontent.com/a/test-avatar');
+        expect(revived!.company).toBeUndefined();
+        expect(revived!.tokenVersion).toBe(5);
+    });
 });
