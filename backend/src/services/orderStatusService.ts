@@ -169,8 +169,14 @@ async function performTransition(
 
     try {
         const lines = (order.items || [])
-            .map((item) => ({ productId: item.productId?.toString(), quantity: item.quantity }))
-            .filter((line): line is { productId: string; quantity: number } => Boolean(line.productId));
+            .map((item) => ({
+                productId: item.productId?.toString(),
+                quantity: item.quantity,
+                // Human-readable line label so a refusal names the exact SKU
+                // the admin has to fix, not just "a product".
+                label: item.sku ? `[${item.sku}] ${item.productName}` : item.productName,
+            }))
+            .filter((line): line is { productId: string; quantity: number; label: string } => Boolean(line.productId));
         const reserved = hasActiveReservation(order, from);
         let nextReservedFlag = reserved;
 
@@ -190,7 +196,7 @@ async function performTransition(
                     });
                 } catch (err) {
                     throw new StockOperationError(
-                        `Cannot approve: stock reservation failed — ${(err as Error).message}`,
+                        `Cannot approve: stock reservation failed for ${line.label} — ${(err as Error).message}`,
                     );
                 }
             }
@@ -207,7 +213,7 @@ async function performTransition(
                     });
                 } catch (err) {
                     throw new StockOperationError(
-                        `Cannot ship: stock deduction failed — ${(err as Error).message}`,
+                        `Cannot ship: stock deduction failed for ${line.label} — ${(err as Error).message}`,
                     );
                 }
             }
@@ -229,7 +235,7 @@ async function performTransition(
                     // The transaction aborts: the order REMAINS approved with
                     // its reservation and inventoryReserved=true intact.
                     throw new StockOperationError(
-                        `Cannot change status to '${to}': stock release failed — ${(err as Error).message}`,
+                        `Cannot change status to '${to}': stock release failed for ${line.label} — ${(err as Error).message}`,
                     );
                 }
             }

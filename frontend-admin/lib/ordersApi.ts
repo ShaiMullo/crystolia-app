@@ -75,3 +75,11 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
     const res = await api.get("/v1/analytics/finance");
     return res.data.data;
 }
+
+/** Re-send the FAILED customer notification for the order's current status.
+ *  Backend enforces: only after a recorded failure, double-submit guarded,
+ *  audited. Returns the per-channel outcome. */
+export async function retryOrderNotification(id: string): Promise<{ email: string; sms: string }> {
+    const res = await api.post(`/v1/orders/${id}/notifications/retry`);
+    return res.data.data;
+}

@@ -145,6 +145,11 @@ export default function SystemPage() {
                         <Button variant="outline" size="sm" iconStart={<RefreshCw size={14} />} onClick={fetchAll}>
                             {t("common.refresh")}
                         </Button>
+                        <Link href="/admin/system/go-live">
+                            <Button variant="outline" size="sm" iconStart={<ShieldCheck size={14} />}>
+                                {t("system.goLiveLink")}
+                            </Button>
+                        </Link>
                         <Link href="/admin/system/backups">
                             <Button variant="outline" size="sm" iconStart={<Database size={14} />}>
                                 {t("backups.title")}

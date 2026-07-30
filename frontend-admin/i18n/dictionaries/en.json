@@ -724,6 +724,20 @@
     "paymentMethods": {
       "bank_transfer": "Bank transfer",
       "credit_card": "Credit card"
+    },
+    "errors": {
+      "cardProviderMissing": "Cannot approve a card order: no verified card provider is connected. Ask the customer to switch to bank transfer, or integrate a real provider.",
+      "paymentConfigBlocked": "Approval blocked: the selected payment method's configuration is invalid. Check Settings → Payment methods.",
+      "insufficientStock": "Approval blocked: not enough available stock. Details:",
+      "concurrentChange": "The order was updated by another request — reload the page and try again.",
+      "transactionsUnavailable": "Operational error: the database does not support transactions (see server log)."
+    },
+    "notifications": {
+      "retryNotification": "Retry customer notification",
+      "retrySuccess": "Notification re-sent (email: {email}, SMS: {sms})",
+      "retryNothing": "No failed notification to retry",
+      "retryInProgress": "A retry is already in progress — wait a moment",
+      "lastNotificationFailed": "The last customer notification failed (email or SMS)"
     }
   },
   "invoices": {
@@ -914,7 +928,7 @@
       "iban": "IBAN (optional)",
       "cardEnabled": "Enable credit-card payment",
       "paymentUrl": "Secure payment URL",
-      "paymentUrlHint": "Enter an HTTPS link from the payment provider. A unique link per order requires the provider's API.",
+      "paymentUrlHint": "Future provider field. A static link is NOT an active integration — customers will not see card payment until a verified provider is connected.",
       "cardUrlRequired": "Enabling credit-card payment requires an HTTPS provider URL",
       "cardUrlDemo": "The demo payment page is not a real provider and cannot be saved. Enter a real provider URL or disable the card method.",
       "cardStatusNotConfigured": "Not configured — customers will not see a card option until a valid provider URL is set",
@@ -1441,7 +1455,45 @@
   "system": {
     "pageTitle": "System",
     "pageSubtitle": "Operational health, scheduled jobs and diagnostics.",
-    "loading": "Loading system status…"
+    "loading": "Loading system status…",
+    "goLive": {
+      "title": "Go-Live Readiness",
+      "subtitle": "One snapshot: what is ready, what is missing, and where to fix it",
+      "platform": "Platform & database",
+      "transactions": "MongoDB transactions (order & inventory processing)",
+      "topology": "Topology",
+      "invoiceIndex": "Unique invoice-per-order index",
+      "payments": "Payment methods",
+      "bankTransfer": "Bank transfer",
+      "bankConfigured": "Configured — verify the details are the REAL account before going live",
+      "bankMissing": "Bank details missing",
+      "creditCard": "Credit card",
+      "creditCardUnavailable": "Unavailable — no verified card provider is connected. Customers do not see this option.",
+      "creditCardEnabledWarning": "The \"enabled\" flag is still stored in Settings but has no customer effect. Consider turning it off until a real provider is integrated.",
+      "stock": "Stock",
+      "stockSummary": "{ready} of {tracked} tracked products ready ({active} active products)",
+      "stockReady": "Opening stock for every tracked product",
+      "stockNotReadyHint": "Approving orders for products without available stock will be blocked",
+      "openInventory": "Open Inventory",
+      "openSettings": "Open Settings",
+      "sku": "SKU",
+      "product": "Product",
+      "status": "Status",
+      "noInventoryRow": "No inventory row",
+      "zeroAvailable": "Zero available",
+      "integrations": "Integrations",
+      "email": "Transactional email",
+      "sms": "SMS",
+      "googleOauth": "Google sign-in",
+      "accounting": "Accounting (Green Invoice)",
+      "errorTracking": "Error tracking",
+      "uptimeAlerts": "Uptime alerts",
+      "notConfigured": "Not configured",
+      "ownerDecision": "Awaiting owner decision (provider/channel)",
+      "operations": "Operations",
+      "checkedAt": "Checked"
+    },
+    "goLiveLink": "Go-Live Readiness"
   },
   "health": {
     "title": "Health score",

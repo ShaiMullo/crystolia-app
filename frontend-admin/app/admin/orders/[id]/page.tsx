@@ -29,7 +29,7 @@ import { PaymentModal } from "@/components/payments/PaymentModal";
 import { RejectOrderDialog } from "@/components/orders/RejectOrderDialog";
 import { useAdminI18n } from "@/i18n/I18nProvider";
 import { formatCurrency, formatDateTime, shortId } from "@/lib/format";
-import { getOrder, updateOrder, type OrderUpsertPayload } from "@/lib/ordersApi";
+import { getOrder, updateOrder, retryOrderNotification, type OrderUpsertPayload } from "@/lib/ordersApi";
 import { listCustomers } from "@/lib/customersApi";
 import { listProducts } from "@/lib/inventoryApi";
 import type { Locale } from "@/i18n";
@@ -90,6 +90,24 @@ export default function OrderDetailPage() {
         };
     }, []);
 
+    // Backend refusals arrive as English operational messages; map the known
+    // ones to localized admin copy while KEEPING the actionable detail (the
+    // exact SKU) that the backend includes.
+    const localizeOrderError = useCallback((raw?: string): string => {
+        if (!raw) return t("orders.toasts.statusFailed");
+        if (raw.includes("No verified card payment provider")) return t("orders.errors.cardProviderMissing");
+        if (raw.includes("stock reservation failed") || raw.includes("stock deduction failed")) {
+            const detail = raw.replace(/^Cannot (approve|ship): stock (reservation|deduction) failed\s*/, "");
+            return `${t("orders.errors.insufficientStock")} ${detail}`;
+        }
+        if (raw.startsWith("Cannot approve:")) return t("orders.errors.paymentConfigBlocked");
+        if (raw.includes("being processed by another request") || raw.includes("status changed")) {
+            return t("orders.errors.concurrentChange");
+        }
+        if (raw.includes("replica set")) return t("orders.errors.transactionsUnavailable");
+        return raw;
+    }, [t]);
+
     const handleStatusChange = async (status: OrderStatus) => {
         if (!order || status === order.status) return;
         if (status === "rejected") {
@@ -103,7 +121,7 @@ export default function OrderDetailPage() {
             await fetchOrder();
         } catch (err: unknown) {
             const e = err as { response?: { data?: { error?: string; message?: string } } };
-            toast.error(e.response?.data?.error || e.response?.data?.message || t("orders.toasts.statusFailed"));
+            toast.error(localizeOrderError(e.response?.data?.error || e.response?.data?.message));
         } finally {
             setSavingStatus(false);
         }
@@ -119,9 +137,42 @@ export default function OrderDetailPage() {
             await fetchOrder();
         } catch (err: unknown) {
             const e = err as { response?: { data?: { error?: string; message?: string } } };
-            toast.error(e.response?.data?.error || e.response?.data?.message || t("orders.toasts.statusFailed"));
+            toast.error(localizeOrderError(e.response?.data?.error || e.response?.data?.message));
         } finally {
             setSavingStatus(false);
+        }
+    };
+
+    // The latest customer notification for the CURRENT status failed on at
+    // least one channel → offer a safe, audited manual retry.
+    const lastNotificationFailed = React.useMemo(() => {
+        const events = (order?.timeline ?? [])
+            .filter((e) => e.type === "customer_order_notification"
+                && (e.meta as { status?: string } | undefined)?.status === order?.status);
+        const last = events[events.length - 1];
+        const meta = last?.meta as { email?: string; sms?: string } | undefined;
+        return Boolean(meta && (meta.email === "failed" || meta.sms === "failed"));
+    }, [order]);
+
+    const [retrying, setRetrying] = useState(false);
+    const handleRetryNotification = async () => {
+        if (!order || retrying) return;
+        setRetrying(true);
+        try {
+            const result = await retryOrderNotification(order._id);
+            toast.success(
+                t("orders.notifications.retrySuccess")
+                    .replace("{email}", result.email)
+                    .replace("{sms}", result.sms),
+            );
+            await fetchOrder();
+        } catch (err: unknown) {
+            const e = err as { response?: { status?: number; data?: { error?: string; message?: string } } };
+            if (e.response?.status === 429) toast.error(t("orders.notifications.retryInProgress"));
+            else if (e.response?.status === 409) toast.error(t("orders.notifications.retryNothing"));
+            else toast.error(e.response?.data?.error || e.response?.data?.message || t("orders.toasts.statusFailed"));
+        } finally {
+            setRetrying(false);
         }
     };
 
@@ -210,6 +261,18 @@ export default function OrderDetailPage() {
                         {editable && (
                             <Button size="sm" iconStart={<Pencil size={14} />} onClick={() => setEditOpen(true)}>
                                 {t("common.edit")}
+                            </Button>
+                        )}
+                        {lastNotificationFailed && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                iconStart={<Activity size={14} />}
+                                onClick={handleRetryNotification}
+                                disabled={retrying}
+                                title={t("orders.notifications.lastNotificationFailed")}
+                            >
+                                {t("orders.notifications.retryNotification")}
                             </Button>
                         )}
                     </>

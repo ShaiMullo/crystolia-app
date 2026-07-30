@@ -193,3 +193,50 @@ export async function downloadExport(dataset: ExportDataset, format: "csv" | "js
     a.remove();
     URL.revokeObjectURL(url);
 }
+
+// ── Go-Live readiness ────────────────────────────────────────────────────────
+// Secret-free snapshot: booleans, counts, SKU lists and issue texts only.
+
+export interface GoLiveStockItem {
+    sku?: string;
+    name: string;
+    status: "READY" | "NO_INVENTORY_ROW" | "ZERO_AVAILABLE";
+}
+
+export interface GoLivePaymentMethod {
+    method: "bank_transfer" | "credit_card";
+    enabled: boolean;
+    configured: boolean;
+    provider: string;
+    staticLinkUsable?: boolean;
+    issues: string[];
+}
+
+export interface GoLiveReadiness {
+    database: { transactionsReady: boolean; topology: string; reason?: string };
+    criticalIndexes: { invoiceOrderUnique: { ready: boolean; reason?: string } };
+    payments: { methods: GoLivePaymentMethod[]; anyConfigured: boolean };
+    stock: {
+        activeProducts: number;
+        trackedProducts: number;
+        readyProducts: number;
+        notReady: GoLiveStockItem[];
+        ready: boolean;
+    };
+    integrations: {
+        email: boolean;
+        sms: boolean;
+        whatsapp: boolean;
+        googleOauth: boolean;
+        greenInvoice: boolean;
+        errorTracking: boolean;
+        uptimeAlerts: boolean;
+    };
+    operations: { backups: string; uptimeMonitor: string };
+    checkedAt: string;
+}
+
+export async function getGoLiveReadiness(): Promise<GoLiveReadiness> {
+    const res = await api.get("/v1/system/go-live");
+    return res.data.data;
+}

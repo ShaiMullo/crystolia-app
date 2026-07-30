@@ -203,6 +203,97 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     }
 });
 
+// ━━ POST /api/crm/orders/:id/notifications/retry - resend a FAILED
+// customer notification for the order's current status.
+// Safe by construction: only runs when the latest notification attempt for
+// the current status recorded a failure; double-submit is blocked by an
+// atomic 30-second claim on notificationRetryAt; every attempt is recorded
+// on the timeline and audit-logged. Nothing else about the order changes.
+const NOTIFICATION_RETRY_WINDOW_MS = 30 * 1000;
+
+router.post('/:id/notifications/retry', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        if (!validate.objectId(req.params.id)) throw new AppError('Invalid Order ID', 400);
+        const order = await Order.findById(req.params.id);
+        if (!order) throw new AppError('Order not found', 404);
+
+        if (!isCustomerNotifiableStatus(order.status)) {
+            throw new AppError('The current order status has no customer notification to retry', 409);
+        }
+
+        // Latest notification attempt for the CURRENT status must have failed.
+        const lastForStatus = [...order.timeline].reverse().find(
+            (e) => e.type === 'customer_order_notification'
+                && (e.meta as { status?: string } | undefined)?.status === order.status,
+        );
+        const lastMeta = lastForStatus?.meta as { email?: string; sms?: string } | undefined;
+        const hasFailure = lastMeta && (lastMeta.email === 'failed' || lastMeta.sms === 'failed');
+        if (!hasFailure) {
+            throw new AppError('The last notification for this status did not fail — nothing to retry', 409);
+        }
+
+        // Atomic double-submit guard.
+        const now = new Date();
+        const claimed = await Order.findOneAndUpdate(
+            {
+                _id: order._id,
+                $or: [
+                    { notificationRetryAt: { $exists: false } },
+                    { notificationRetryAt: null },
+                    { notificationRetryAt: { $lt: new Date(now.getTime() - NOTIFICATION_RETRY_WINDOW_MS) } },
+                ],
+            },
+            { $set: { notificationRetryAt: now } },
+            { new: true },
+        );
+        if (!claimed) {
+            throw new AppError('A notification retry is already in progress — wait a moment and reload', 429);
+        }
+
+        const actorId = req.user?._id?.toString();
+        const notifications = await notifyCustomerOfOrderStatus(claimed, claimed.status)
+            .catch((error: unknown) => ({
+                email: { success: false, error: error instanceof Error ? error.message : 'Notification failed' },
+                sms: { success: false, error: error instanceof Error ? error.message : 'Notification failed' },
+            }));
+
+        claimed.timeline.push({
+            type: 'customer_order_notification',
+            at: new Date(),
+            actorId,
+            meta: {
+                status: claimed.status,
+                retry: true,
+                email: notifications.email.success ? 'sent' : 'failed',
+                sms: notifications.sms.success ? 'sent' : 'failed',
+            },
+        });
+        await claimed.save();
+
+        await logAudit({
+            action: 'NOTIFICATION_RETRY',
+            entity: 'Order',
+            entityId: claimed._id.toString(),
+            req,
+            details: {
+                status: claimed.status,
+                email: notifications.email.success ? 'sent' : 'failed',
+                sms: notifications.sms.success ? 'sent' : 'failed',
+            },
+        });
+
+        res.json({
+            success: true,
+            data: {
+                email: notifications.email.success ? 'sent' : 'failed',
+                sms: notifications.sms.success ? 'sent' : 'failed',
+            },
+        });
+    } catch (err) {
+        next(err);
+    }
+});
+
 // ━━ PATCH /api/crm/orders/:id - edit items / notes / status
 router.patch('/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
