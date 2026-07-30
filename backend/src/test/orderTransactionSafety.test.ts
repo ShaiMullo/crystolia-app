@@ -13,6 +13,7 @@ import {
     authCookieFor,
     PAYMENT_OPTIONS_BANK_ENABLED,
 } from './testApp.js';
+import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Company from '../models/Company.js';
 import Settings from '../models/Settings.js';
@@ -21,6 +22,7 @@ import Order from '../models/Order.js';
 import Invoice from '../models/Invoice.js';
 import Inventory from '../models/Inventory.js';
 import InventoryMovement from '../models/InventoryMovement.js';
+import PurchaseOrder from '../models/PurchaseOrder.js';
 
 const app = buildTestApp();
 
@@ -170,6 +172,77 @@ describe('failure injection: transaction leaves no partial state', () => {
         expect(await Invoice.countDocuments({ order: order._id })).toBe(0);
         // Approval notification must not have gone out (it is timeline-recorded).
         expect(stored?.timeline.some((e: { type: string }) => e.type === 'customer_order_notification')).toBe(false);
+    });
+});
+
+describe('/api/ready on a replica set', () => {
+    it('reports ready with the topology once the invoice index exists', async () => {
+        const res = await request(app).get('/api/ready');
+        expect(res.status).toBe(200);
+        expect(res.body.ready).toBe(true);
+        expect(res.body.topology).toBe('replica_set');
+    });
+});
+
+describe('transactional production stock writers', () => {
+    it('manual inventory movement commits summary + movement together', async () => {
+        const admin = await createAdmin();
+        const product = await Product.create({
+            name: 'מוצר ידני', sku: 'MAN-TXN', price: 10, taxRate: 0, stockTrackingEnabled: true,
+        });
+        await Inventory.create({ product: product._id, location: 'main', quantity: 5, reservedQuantity: 0 });
+
+        const res = await request(app)
+            .post('/api/v1/inventory/movements')
+            .set('Cookie', authCookieFor(admin))
+            .send({ productId: product._id.toString(), type: 'in', quantity: 3 });
+        expect(res.status).toBe(201);
+
+        expect((await Inventory.findOne({ product: product._id }).lean())?.quantity).toBe(8);
+        expect(await InventoryMovement.countDocuments({ product: product._id, type: 'in' })).toBe(1);
+    });
+
+    it('PO receiving failure rolls back PO status, received quantities, summary and movement log', async () => {
+        const admin = await createAdmin();
+        const product = await Product.create({
+            name: 'מוצר רכש', sku: 'PO-TXN', price: 10, taxRate: 0, stockTrackingEnabled: true,
+        });
+        await Inventory.create({ product: product._id, location: 'main', quantity: 1, reservedQuantity: 0 });
+        const po = await PurchaseOrder.create({
+            poNumber: 'PO-TXN-1',
+            supplier: new mongoose.Types.ObjectId(),
+            status: 'ordered',
+            items: [{ product: product._id, productName: product.name, quantity: 10, receivedQuantity: 0, unitCost: 5 }],
+            totalCost: 50,
+            timeline: [],
+        });
+
+        // The movement-log write fails mid-receiving → the WHOLE receive
+        // transaction (PO line, PO status, inventory summary) must abort.
+        vi.spyOn(InventoryMovement, 'create').mockRejectedValueOnce(new Error('injected PO log failure'));
+
+        const res = await request(app)
+            .post(`/api/v1/purchase-orders/${po._id}/receive`)
+            .set('Cookie', authCookieFor(admin))
+            .send({ receipts: [{ productId: product._id.toString(), quantity: 4 }] });
+        expect(res.status).toBeGreaterThanOrEqual(500);
+
+        const stored = await PurchaseOrder.findById(po._id).lean();
+        expect(stored?.status).toBe('ordered');
+        expect(stored?.items[0].receivedQuantity).toBe(0);
+        expect((await Inventory.findOne({ product: product._id }).lean())?.quantity).toBe(1);
+        expect(await InventoryMovement.countDocuments({ product: product._id })).toBe(0);
+
+        // And a clean retry succeeds end-to-end.
+        const retry = await request(app)
+            .post(`/api/v1/purchase-orders/${po._id}/receive`)
+            .set('Cookie', authCookieFor(admin))
+            .send({ receipts: [{ productId: product._id.toString(), quantity: 4 }] });
+        expect(retry.status).toBe(200);
+        const after = await PurchaseOrder.findById(po._id).lean();
+        expect(after?.status).toBe('partially_received');
+        expect(after?.items[0].receivedQuantity).toBe(4);
+        expect((await Inventory.findOne({ product: product._id }).lean())?.quantity).toBe(5);
     });
 });
 

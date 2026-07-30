@@ -7,7 +7,7 @@
 
 import mongoose from 'mongoose';
 import PurchaseOrder from '../models/PurchaseOrder.js';
-import { withTransaction } from '../db/withTransaction.js';
+import { runRequiredTransaction } from '../db/withTransaction.js';
 import { applyMovement } from './inventoryService.js';
 
 function round2(n: number): number {
@@ -39,7 +39,11 @@ export async function receivePurchaseOrder(
     receipts: ReceiptLine[],
     actorId?: string,
 ): Promise<ReceiveResult> {
-    const { result, transactional } = await withTransaction(async (session) => {
+    // Production stock mutation — receiving increments PO lines AND writes
+    // inventory in/movement records; all of it commits in ONE transaction
+    // or not at all. Standalone deployments get an operational 503
+    // (TransactionsUnavailableError) with the PO and inventory untouched.
+    const result = await runRequiredTransaction(async (session) => {
         const po = await PurchaseOrder.findById(poId).session(session ?? null);
         if (!po) throw new Error('Purchase order not found');
         if (po.status === 'cancelled') throw new Error('Cannot receive a cancelled purchase order');
@@ -83,5 +87,6 @@ export async function receivePurchaseOrder(
         return { status: po.status, received: applied };
     });
 
-    return { ...result, transactional };
+    // Receiving only ever runs transactionally now (runRequiredTransaction).
+    return { ...result, transactional: true };
 }

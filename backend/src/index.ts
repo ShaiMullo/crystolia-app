@@ -13,7 +13,8 @@ import cookieParser from 'cookie-parser';
 
 import { config, logIntegrationConfigSummary } from './config/index.js';
 import { connectDatabase, disconnectDatabase, isDatabaseConnected } from './db/connection.js';
-import { recheckInvoiceIndexReadiness, invoiceIndexReadiness } from './db/indexReadiness.js';
+import { recheckInvoiceIndexReadiness } from './db/indexReadiness.js';
+import { transactionReadiness } from './db/transactionReadiness.js';
 import leadsRouter from './routes/leads.js';
 import crmRouter from './routes/crm.js';
 import crmCustomersRouter from './routes/crmCustomers.js';
@@ -135,20 +136,13 @@ app.get('/api/health', (_req: Request, res: Response) => {
     });
 });
 
-// Readiness probe (for Kubernetes / operators). Not-ready when the DB is
-// down OR a critical index (unique Invoice.order) could not be built —
-// order approval refuses to run without it, so operators must see it here
-// rather than discover it via failing approvals.
-app.get('/api/ready', async (_req: Request, res: Response) => {
-    if (!isDatabaseConnected()) {
-        return res.status(503).json({ ready: false, reason: 'Database not connected' });
-    }
-    const invoiceIndex = await invoiceIndexReadiness();
-    if (!invoiceIndex.ready) {
-        return res.status(503).json({ ready: false, reason: invoiceIndex.reason });
-    }
-    res.status(200).json({ ready: true });
-});
+// Readiness probe (deploys, compose healthcheck, Kubernetes). Not-ready
+// when the DB is down, MongoDB transactions are unavailable (standalone —
+// production inventory/order processing refuses to run), or the critical
+// unique Invoice.order index could not be built. /api/live stays the
+// process-liveness endpoint.
+import { readyHandler } from './routes/ready.js';
+app.get('/api/ready', readyHandler);
 
 // Liveness probe (for Kubernetes)
 app.get('/api/live', (_req: Request, res: Response) => {
@@ -312,6 +306,15 @@ async function startServer(): Promise<void> {
             console.log('🧱 Critical indexes: ready (Invoice.order unique)');
         } else {
             console.error(`🚨 Critical index NOT ready: ${invoiceIndex.reason} — order approval is disabled until fixed`);
+        }
+
+        // Transaction-capability check (read-only `hello`): standalone
+        // MongoDB cannot run production inventory/order processing.
+        const txnReady = await transactionReadiness();
+        if (txnReady.ready) {
+            console.log(`🧱 Transactions: supported (topology: ${txnReady.topology})`);
+        } else {
+            console.error(`🚨 Transactions NOT available: ${txnReady.reason}`);
         }
 
         // Seed default admin in development

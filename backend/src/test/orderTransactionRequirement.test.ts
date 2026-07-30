@@ -6,6 +6,7 @@
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import request from 'supertest';
+import mongoose from 'mongoose';
 import {
     buildTestApp,
     startTestDb,
@@ -23,6 +24,7 @@ import Order from '../models/Order.js';
 import Invoice from '../models/Invoice.js';
 import Inventory from '../models/Inventory.js';
 import InventoryMovement from '../models/InventoryMovement.js';
+import PurchaseOrder from '../models/PurchaseOrder.js';
 import { applyMovement } from '../services/inventoryService.js';
 import { recheckInvoiceIndexReadiness } from '../db/indexReadiness.js';
 
@@ -79,6 +81,63 @@ beforeEach(async () => {
         currency: 'ILS',
         boxPrices: [],
         paymentOptions: PAYMENT_OPTIONS_BANK_ENABLED,
+    });
+});
+
+describe('/api/ready on standalone MongoDB', () => {
+    it('reports not-ready with the transaction-topology reason', async () => {
+        const res = await request(app).get('/api/ready');
+        expect(res.status).toBe(503);
+        expect(res.body.ready).toBe(false);
+        expect(res.body.reason).toMatch(/replica set or mongos/i);
+        expect(res.body.topology).toBe('standalone');
+    });
+});
+
+describe('production stock writers refuse without transactions', () => {
+    it('manual inventory movement returns 503 and writes neither summary nor movement', async () => {
+        const admin = await createAdmin();
+        const product = await Product.create({
+            name: 'מוצר ידני', sku: 'MAN-503', price: 10, taxRate: 0, stockTrackingEnabled: true,
+        });
+        await Inventory.create({ product: product._id, location: 'main', quantity: 5, reservedQuantity: 0 });
+
+        const res = await request(app)
+            .post('/api/v1/inventory/movements')
+            .set('Cookie', authCookieFor(admin))
+            .send({ productId: product._id.toString(), type: 'in', quantity: 3 });
+        expect(res.status).toBe(503);
+        expect(res.body.error || res.body.message).toMatch(/replica set/i);
+
+        expect((await Inventory.findOne({ product: product._id }).lean())?.quantity).toBe(5);
+        expect(await InventoryMovement.countDocuments({ product: product._id })).toBe(0);
+    });
+
+    it('PO receiving returns 503 and changes neither PO nor inventory', async () => {
+        const admin = await createAdmin();
+        const product = await Product.create({
+            name: 'מוצר רכש', sku: 'PO-503', price: 10, taxRate: 0, stockTrackingEnabled: true,
+        });
+        const po = await PurchaseOrder.create({
+            poNumber: 'PO-503-1',
+            supplier: new mongoose.Types.ObjectId(),
+            status: 'ordered',
+            items: [{ product: product._id, productName: product.name, quantity: 10, receivedQuantity: 0, unitCost: 5 }],
+            totalCost: 50,
+            timeline: [],
+        });
+
+        const res = await request(app)
+            .post(`/api/v1/purchase-orders/${po._id}/receive`)
+            .set('Cookie', authCookieFor(admin))
+            .send({ receipts: [{ productId: product._id.toString(), quantity: 4 }] });
+        expect(res.status).toBe(503);
+
+        const stored = await PurchaseOrder.findById(po._id).lean();
+        expect(stored?.status).toBe('ordered');
+        expect(stored?.items[0].receivedQuantity).toBe(0);
+        expect(await Inventory.countDocuments({ product: product._id })).toBe(0);
+        expect(await InventoryMovement.countDocuments({ product: product._id })).toBe(0);
     });
 });
 

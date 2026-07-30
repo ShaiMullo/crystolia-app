@@ -71,10 +71,13 @@ services:
       PORT: "4000"
     expose:
       - "4000"
-    # Compose-level healthcheck (mirrors the image HEALTHCHECK) so Caddy's
-    # depends_on can wait for a ready backend instead of racing its boot.
+    # Compose-level READINESS gate: /api/ready also verifies MongoDB
+    # transaction support and the unique Invoice.order index, so a deploy
+    # against a standalone Mongo (or broken invoice data) fails loudly
+    # instead of reporting success. /api/live (the image HEALTHCHECK in
+    # backend/Dockerfile) remains the plain process-liveness probe.
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4000/api/live"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4000/api/ready"]
       interval: 30s
       timeout: 5s
       start_period: 20s

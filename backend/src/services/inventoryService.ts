@@ -9,12 +9,17 @@
 //    availability guards live in the query filter, so concurrent movements
 //    can never both pass a read-time check and oversell.
 //  * With a session, summary + movement join the caller's transaction.
-//  * WITHOUT a session, a failed movement-log write triggers an EXACT
-//    revert of the summary change (computed from the pre-image), so the
-//    summary and the log cannot diverge even on the standalone path.
+//    EVERY production API that mutates tracked stock runs with a session
+//    via runRequiredTransaction (order transitions, manual movements,
+//    PO receiving) — that transaction is the actual consistency guarantee.
+//  * WITHOUT a session (development/seed usage only), a failed
+//    movement-log write triggers a compensating revert computed from the
+//    pre-image. This is BEST-EFFORT defense: the revert itself can fail
+//    (it logs CRITICAL when it does). No production stock mutation may
+//    rely on this path.
 //  * Multi-line order flows (reserve/ship every line or none) do NOT live
-//    here — they require a real transaction and are orchestrated by
-//    orderStatusService via runRequiredTransaction.
+//    here — they are orchestrated by orderStatusService inside one
+//    required transaction.
 
 import mongoose, { ClientSession } from 'mongoose';
 import Inventory from '../models/Inventory.js';
@@ -75,8 +80,10 @@ export async function applyMovement(input: MovementInput) {
     }
 
     let row = await getOrCreateInventoryRow(productId, location, session);
-    // Exact inverse of the summary change, used ONLY on the sessionless
-    // path when the movement-log write fails after the summary applied.
+    // Inverse of the summary change, used ONLY on the sessionless path
+    // (dev/seed) when the movement-log write fails after the summary
+    // applied. Best-effort: the revert itself can fail — production paths
+    // must run with a session instead of relying on this.
     let revertUpdate: Record<string, unknown> | null = null;
 
     if (product.stockTrackingEnabled) {
