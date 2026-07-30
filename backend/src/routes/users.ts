@@ -3,6 +3,7 @@
 // ===============================================
 
 import { Router, Request, Response, NextFunction } from 'express';
+import { randomUUID } from 'crypto';
 import User from '../models/User.js';
 import { protect, authorize } from '../middleware/auth.js';
 import { AppError, validate } from '../utils/validation.js';
@@ -267,7 +268,21 @@ router.post('/:id/reject-registration', protect, authorize('admin'), async (req:
 // POST /api/users/:id/resend-registration-email
 // 🔒 Protected: Admin Only. Resends the email that matches the request's
 // current status (pending / approved / rejected).
+// Safe-delivery rules (PR #80 review):
+//  * an email recorded as `sent` is never resent (409 NOTHING_TO_RETRY);
+//  * a never-recorded or `unknown` outcome (crash mid-send) requires
+//    body.confirmUnknown=true — an explicit admin acknowledgment of
+//    possible duplication;
+//  * the atomic claim binds the exact registration status AND the exact
+//    recorded delivery value plus a lease token, so a concurrent resend or
+//    a status change invalidates it (429/409);
+//  * the status is persisted as `unknown` BEFORE the provider call, so a
+//    crash is visible and never auto-resent. NOT idempotent end-to-end:
+//    the email provider offers no documented idempotency key — the
+//    `unknown` state is the honest mitigation.
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const REGISTRATION_RETRY_STALE_MS = 10 * 60 * 1000;
+
 router.post('/:id/resend-registration-email', protect, authorize('admin'), async (req: Request, res: Response, next: NextFunction) => {
     try {
         if (!validate.objectId(req.params.id)) {
@@ -284,24 +299,86 @@ router.post('/:id/resend-registration-email', protect, authorize('admin'), async
             : user.registrationStatus === 'rejected'
                 ? 'rejected'
                 : 'pending';
-        const companyName = user.registrationCompany?.name
-            || (user.company as any)?.name
+        const field = `${kind}EmailStatus` as const;
+        const current = user.registrationNotifications?.[field] ?? null;
+
+        if (current === 'sent') {
+            return res.status(409).json({ success: false, error: 'NOTHING_TO_RETRY' });
+        }
+        if ((current === 'unknown' || current === null) && req.body?.confirmUnknown !== true) {
+            return res.status(409).json({ success: false, error: 'UNKNOWN_DELIVERY_CONFIRM_REQUIRED' });
+        }
+
+        const attemptId = randomUUID();
+        const now = new Date();
+        const claimed = await User.findOneAndUpdate(
+            {
+                _id: user._id,
+                registrationStatus: user.registrationStatus,
+                [`registrationNotifications.${field}`]: current,
+                $or: [
+                    { 'registrationNotifications.retryAttemptId': { $exists: false } },
+                    { 'registrationNotifications.retryAttemptId': null },
+                    { 'registrationNotifications.retryStartedAt': { $lt: new Date(now.getTime() - REGISTRATION_RETRY_STALE_MS) } },
+                ],
+            },
+            {
+                $set: {
+                    'registrationNotifications.retryAttemptId': attemptId,
+                    'registrationNotifications.retryStartedAt': now,
+                    // Persisted BEFORE the provider call — a crash leaves an
+                    // explicit `unknown`, never a silent duplicate later.
+                    [`registrationNotifications.${field}`]: 'unknown',
+                    [`registrationNotifications.${kind}EmailAt`]: now,
+                },
+            },
+            { new: true },
+        ).populate('company', 'name');
+        if (!claimed) {
+            return res.status(429).json({ success: false, error: 'RETRY_IN_PROGRESS' });
+        }
+
+        const companyName = claimed.registrationCompany?.name
+            || (claimed.company as any)?.name
             || undefined;
-        const emailResult = await sendRegistrationEmail(user, kind, {
+        // sendRegistrationEmail records the final sent/failed/skipped itself.
+        const emailResult = await sendRegistrationEmail(claimed, kind, {
             companyName,
             // The stored reason is only re-shared when the admin asks for it.
-            reason: kind === 'rejected' && req.body?.shareReason === true ? user.rejectionReason : undefined,
+            reason: kind === 'rejected' && req.body?.shareReason === true ? claimed.rejectionReason : undefined,
         });
+
+        // Release the lease only if it is still OURS.
+        await User.updateOne(
+            { _id: user._id, 'registrationNotifications.retryAttemptId': attemptId },
+            { $unset: { 'registrationNotifications.retryAttemptId': 1, 'registrationNotifications.retryStartedAt': 1 } },
+        );
 
         await logAudit({
             action: 'UPDATE',
             entity: 'User',
             entityId: req.params.id,
             req,
-            details: { registrationEmailResent: kind, sent: emailResult.success },
+            details: {
+                registrationEmailResent: kind,
+                sent: emailResult.success,
+                attemptId,
+                result: emailResult.success
+                    ? 'sent'
+                    : emailResult.error === 'Configuration missing' ? 'skipped' : 'failed',
+            },
         });
 
-        res.json({ success: true, data: { kind, sent: emailResult.success } });
+        res.json({
+            success: true,
+            data: {
+                kind,
+                sent: emailResult.success,
+                result: emailResult.success
+                    ? 'sent'
+                    : emailResult.error === 'Configuration missing' ? 'skipped' : 'failed',
+            },
+        });
     } catch (error) {
         next(error);
     }

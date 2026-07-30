@@ -14,7 +14,7 @@ import {
 } from "@/lib/registrationsApi";
 import { UserAvatar } from "@/components/users/UserAvatar";
 
-const NOTIFICATION_TONE: Record<NotificationStatus, Tone> = { sent: "success", failed: "danger", skipped: "neutral" };
+const NOTIFICATION_TONE: Record<NotificationStatus, Tone> = { sent: "success", failed: "danger", skipped: "neutral", unknown: "warning" };
 const FLAG_KEYS: Record<string, string> = {
     "possible-duplicate-vat": "possibleDuplicateVat",
     "possible-duplicate-name": "possibleDuplicateName",
@@ -31,18 +31,28 @@ function Row({ label, value, ltr }: { label: string; value: React.ReactNode; ltr
     );
 }
 
-/** Full read-only view of a registration request (modal + detail page). */
-export function RegistrationDetails({ registration }: { registration: RegistrationRequest }) {
+/** Full read-only view of a registration request (modal + detail page).
+ *  When `onRetryNotification` is provided, the email row matching the
+ *  CURRENT registration status offers a retry action unless it was sent. */
+export function RegistrationDetails({ registration, onRetryNotification, retrying }: {
+    registration: RegistrationRequest;
+    onRetryNotification?: () => void;
+    retrying?: boolean;
+}) {
     const { t, locale } = useAdminI18n();
     const r = registration;
     const company = registrationCompanyOf(r);
     const notifications = r.registrationNotifications;
 
-    const notificationRows: Array<{ label: string; status?: NotificationStatus; at?: string }> = [
-        { label: t("registrations.details.pendingEmail"), status: notifications?.pendingEmailStatus, at: notifications?.pendingEmailAt },
-        { label: t("registrations.details.approvedEmail"), status: notifications?.approvedEmailStatus, at: notifications?.approvedEmailAt },
-        { label: t("registrations.details.rejectedEmail"), status: notifications?.rejectedEmailStatus, at: notifications?.rejectedEmailAt },
-        { label: t("registrations.details.adminSms"), status: notifications?.adminSmsStatus, at: notifications?.adminSmsAt },
+    const currentKindKey = r.registrationStatus === "approved"
+        ? "approvedEmail"
+        : r.registrationStatus === "rejected" ? "rejectedEmail" : "pendingEmail";
+
+    const notificationRows: Array<{ key: string; label: string; status?: NotificationStatus; at?: string }> = [
+        { key: "pendingEmail", label: t("registrations.details.pendingEmail"), status: notifications?.pendingEmailStatus, at: notifications?.pendingEmailAt },
+        { key: "approvedEmail", label: t("registrations.details.approvedEmail"), status: notifications?.approvedEmailStatus, at: notifications?.approvedEmailAt },
+        { key: "rejectedEmail", label: t("registrations.details.rejectedEmail"), status: notifications?.rejectedEmailStatus, at: notifications?.rejectedEmailAt },
+        { key: "adminSms", label: t("registrations.details.adminSms"), status: notifications?.adminSmsStatus, at: notifications?.adminSmsAt },
     ];
 
     return (
@@ -113,7 +123,7 @@ export function RegistrationDetails({ registration }: { registration: Registrati
                     {t("registrations.details.notifications")}
                 </p>
                 <div className="space-y-1.5">
-                    {notificationRows.map(({ label, status, at }) => (
+                    {notificationRows.map(({ key, label, status, at }) => (
                         <div key={label} className="flex items-center justify-between gap-3 text-sm">
                             <span className="text-gray-700 dark:text-gray-300">{label}</span>
                             <span className="flex items-center gap-2">
@@ -125,6 +135,16 @@ export function RegistrationDetails({ registration }: { registration: Registrati
                                 <Badge tone={status ? NOTIFICATION_TONE[status] : "neutral"}>
                                     {status ? t(`registrations.notification.${status}`) : "—"}
                                 </Badge>
+                                {onRetryNotification && key === currentKindKey && status !== "sent" && (
+                                    <button
+                                        type="button"
+                                        onClick={onRetryNotification}
+                                        disabled={retrying}
+                                        className="text-xs font-medium text-yellow-600 hover:underline disabled:opacity-50 dark:text-yellow-400"
+                                    >
+                                        {t("registrations.notification.retry")}
+                                    </button>
+                                )}
                             </span>
                         </div>
                     ))}

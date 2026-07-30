@@ -243,6 +243,22 @@ describe('Invoice.order unique index readiness', () => {
         const broken = await recheckInvoiceIndexReadiness();
         expect(broken.ready).toBe(false);
         expect(broken.reason).toBeTruthy();
+        expect(broken.code).toMatch(/^INVOICE_ORDER_INDEX_/);
+        // Sanitized: the raw driver error (index names, duplicate-key VALUES,
+        // db identifiers) stays in server logs, never in the readiness payload.
+        const rawReadiness = JSON.stringify(broken);
+        expect(rawReadiness).not.toContain('E11000');
+        expect(rawReadiness).not.toContain('dup key');
+        expect(rawReadiness).not.toContain(otherOrderId.toString());
+        expect(rawReadiness).not.toMatch(/mongodb|27017/i);
+
+        // The same sanitization holds on /api/ready itself.
+        const readyRes = await request(app).get('/api/ready');
+        expect(readyRes.status).toBe(503);
+        const rawReady = JSON.stringify(readyRes.body);
+        expect(rawReady).not.toContain('E11000');
+        expect(rawReady).not.toContain('dup key');
+        expect(rawReady).not.toContain(otherOrderId.toString());
 
         // Approval refuses to run rather than silently continuing without
         // its concurrency guarantee.

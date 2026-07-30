@@ -535,7 +535,14 @@
       "failed": "נכשל",
       "skipped": "לא מוגדר",
       "email": "מייל",
-      "sms": "SMS"
+      "sms": "SMS",
+      "unknown": "לא ידוע",
+      "retry": "שליחה חוזרת",
+      "retrySent": "המייל נשלח מחדש בהצלחה",
+      "retryFailedAgain": "השליחה החוזרת נכשלה — בדקו את הגדרות הדוא\"ל",
+      "retryInProgress": "שליחה חוזרת כבר מתבצעת — המתינו רגע",
+      "retryNothing": "אין מה לשלוח מחדש — המייל האחרון נשלח בהצלחה",
+      "unknownConfirm": "תוצאת המשלוח הקודם אינה ידועה (ייתכן שהמייל כבר נמסר). שליחה חוזרת עלולה ליצור כפילות. להמשיך?"
     },
     "filters": {
       "status": "סטטוס",
@@ -734,10 +741,22 @@
     },
     "notifications": {
       "retryNotification": "שליחה חוזרת של עדכון ללקוח",
-      "retrySuccess": "העדכון נשלח מחדש (דוא\"ל: {email}, SMS: {sms})",
+      "retrySuccess": "העדכון נשלח מחדש בהצלחה",
       "retryNothing": "אין כשל לשליחה חוזרת",
       "retryInProgress": "שליחה חוזרת כבר מתבצעת — המתינו רגע",
-      "lastNotificationFailed": "העדכון האחרון ללקוח נכשל (דוא\"ל או SMS)"
+      "lastNotificationFailed": "העדכון האחרון ללקוח נכשל (דוא\"ל או SMS)",
+      "retryPartial": "נשלח חלקית — חלק מהערוצים נכשלו",
+      "retryFailed": "השליחה החוזרת נכשלה בכל הערוצים",
+      "unknownConfirm": "תוצאת המשלוח הקודם אינה ידועה (ייתכן שההודעה כבר נמסרה). שליחה חוזרת עלולה ליצור כפילות. להמשיך?",
+      "channel": {
+        "email": "דוא\"ל",
+        "sms": "SMS"
+      },
+      "result": {
+        "sent": "נשלח",
+        "failed": "נכשל",
+        "skipped": "דולג (חסרה הגדרה)"
+      }
     }
   },
   "invoices": {
@@ -1491,7 +1510,21 @@
       "notConfigured": "לא מוגדר",
       "ownerDecision": "ממתין להחלטת בעלים (ספק/ערוץ)",
       "operations": "תפעול",
-      "checkedAt": "נבדק"
+      "checkedAt": "נבדק",
+      "integrationsHonesty": "קיום מפתחות אינו הוכחת תקינות: \"מוגדר\" אינו \"מאומת\". ירוק יוצג רק לאחר אימות אמיתי.",
+      "bankOwnerVerificationRequired": "פרטים שמורים בהגדרות, אך נדרש אימות בעלים שאלה פרטי החשבון האמיתיים (ייתכנו ערכי הדגמה)",
+      "backupsLine": "גיבוי יומי דרך GitHub Actions ({workflow})",
+      "uptimeLine": "ניטור זמינות כל 5 דקות דרך GitHub Actions ({workflow})",
+      "opStatus": {
+        "external_manual_check_required": "מנוהל מחוץ למערכת — יש לוודא ידנית שהריצה האחרונה ירוקה"
+      },
+      "states": {
+        "not_configured": "לא מוגדר",
+        "configured_unverified": "מוגדר — טרם אומת בפועל",
+        "configured_sandbox_unverified": "מוגדר במצב Sandbox — אינו מוכן לפרודקשן",
+        "verified": "מאומת",
+        "failed": "נכשל באימות"
+      }
     },
     "goLiveLink": "מוכנות להפעלה"
   },

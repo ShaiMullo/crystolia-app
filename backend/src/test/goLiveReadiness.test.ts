@@ -16,6 +16,7 @@ import Company from '../models/Company.js';
 import Settings from '../models/Settings.js';
 import Product from '../models/Product.js';
 import Inventory from '../models/Inventory.js';
+import { config as configRef } from '../config/index.js';
 
 const app = buildTestApp();
 
@@ -88,6 +89,41 @@ describe('GET /api/v1/system/go-live', () => {
         expect(card.configured).toBe(false); // never "configured" without a verified provider
         const bank = res.body.data.payments.methods.find((m: { method: string }) => m.method === 'bank_transfer');
         expect(bank.configured).toBe(true);
+        // Non-empty bank fields are NOT verification — the owner must confirm.
+        expect(res.body.data.payments.bankVerification).toBe('owner_confirmation_required');
+    });
+
+    it('integration states are structured and never claim verification from config presence', async () => {
+        const admin = await createAdmin();
+        const res = await request(app).get('/api/v1/system/go-live').set('Cookie', authCookieFor(admin));
+        const integrations = res.body.data.integrations;
+        // Test env: everything unconfigured (setup.ts strips provider env).
+        for (const key of ['email', 'sms', 'googleOauth', 'greenInvoice', 'errorTracking', 'uptimeAlerts']) {
+            expect(integrations[key], key).toBe('not_configured');
+        }
+        // Config presence may only ever yield *_unverified — never 'verified'.
+        expect(Object.values(integrations)).not.toContain('verified');
+        // External workflows are manual-check items, not claimed successes.
+        expect(res.body.data.operations.backups.status).toBe('external_manual_check_required');
+        expect(res.body.data.operations.uptimeMonitor.status).toBe('external_manual_check_required');
+    });
+
+    it('Green Invoice sandbox mode is visible as sandbox, never production-ready', async () => {
+        const admin = await createAdmin();
+        const original = { ...configRef.greenInvoice };
+        try {
+            configRef.greenInvoice.apiId = 'gi-test-id';
+            configRef.greenInvoice.secret = 'gi-test-secret';
+            configRef.greenInvoice.sandbox = true;
+            const res = await request(app).get('/api/v1/system/go-live').set('Cookie', authCookieFor(admin));
+            expect(res.body.data.integrations.greenInvoice).toBe('configured_sandbox_unverified');
+            // Credentials that were injected must not leak into the response.
+            const raw = JSON.stringify(res.body);
+            expect(raw).not.toContain('gi-test-id');
+            expect(raw).not.toContain('gi-test-secret');
+        } finally {
+            Object.assign(configRef.greenInvoice, original);
+        }
     });
 
     it('computes stock readiness exactly as approval will enforce it', async () => {

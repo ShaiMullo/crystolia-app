@@ -28,7 +28,7 @@ import {
 import { UserAvatar } from "@/components/users/UserAvatar";
 
 const STATUS_TONE: Record<string, Tone> = { pending: "warning", approved: "success", rejected: "danger" };
-const NOTIFICATION_TONE: Record<NotificationStatus, Tone> = { sent: "success", failed: "danger", skipped: "neutral" };
+const NOTIFICATION_TONE: Record<NotificationStatus, Tone> = { sent: "success", failed: "danger", skipped: "neutral", unknown: "warning" };
 
 interface RegistrationsTableProps {
     registrations: RegistrationRequest[];

@@ -37,7 +37,7 @@ import {
 } from "@/components/ui";
 import { OperationalError } from "@/components/system/OperationalError";
 import { useAdminI18n } from "@/i18n/I18nProvider";
-import { getGoLiveReadiness, type GoLiveReadiness } from "@/lib/systemApi";
+import { getGoLiveReadiness, type GoLiveReadiness, type IntegrationState } from "@/lib/systemApi";
 
 type Tone = "success" | "warning" | "danger";
 
@@ -146,11 +146,14 @@ export default function GoLivePage() {
             <Card>
                 <CardTitle><span className="inline-flex items-center gap-2"><Banknote size={16} />{t("system.goLive.payments")}</span></CardTitle>
                 <div className="mt-3">
+                    {/* "Configured" is never shown green: non-empty fields are
+                        not verified real details until the owner confirms. */}
                     <StatusRow
-                        ok={Boolean(bank?.configured)}
+                        ok={false}
+                        warn={Boolean(bank?.configured)}
                         label={t("system.goLive.bankTransfer")}
                         detail={bank?.configured
-                            ? t("system.goLive.bankConfigured")
+                            ? t("system.goLive.bankOwnerVerificationRequired")
                             : (bank?.issues.join("; ") || t("system.goLive.bankMissing"))}
                         actionHref="/admin/settings"
                         actionLabel={t("system.goLive.openSettings")}
@@ -221,27 +224,43 @@ export default function GoLivePage() {
 
             <Card>
                 <CardTitle><span className="inline-flex items-center gap-2"><PlugZap size={16} />{t("system.goLive.integrations")}</span></CardTitle>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t("system.goLive.integrationsHonesty")}</p>
                 <div className="mt-3">
-                    <StatusRow ok={integrations.email} warn label={t("system.goLive.email")}
-                        detail={integrations.email ? undefined : t("system.goLive.notConfigured")} />
-                    <StatusRow ok={integrations.sms} warn label={t("system.goLive.sms")}
-                        detail={integrations.sms ? undefined : t("system.goLive.notConfigured")} />
-                    <StatusRow ok={integrations.googleOauth} warn label={t("system.goLive.googleOauth")}
-                        detail={integrations.googleOauth ? undefined : t("system.goLive.notConfigured")} />
-                    <StatusRow ok={integrations.greenInvoice} warn label={t("system.goLive.accounting")}
-                        detail={integrations.greenInvoice ? undefined : t("system.goLive.notConfigured")} />
-                    <StatusRow ok={integrations.errorTracking} warn label={t("system.goLive.errorTracking")}
-                        detail={integrations.errorTracking ? undefined : t("system.goLive.ownerDecision")} />
-                    <StatusRow ok={integrations.uptimeAlerts} warn label={t("system.goLive.uptimeAlerts")}
-                        detail={integrations.uptimeAlerts ? undefined : t("system.goLive.ownerDecision")} />
+                    {([
+                        ["email", t("system.goLive.email")],
+                        ["sms", t("system.goLive.sms")],
+                        ["googleOauth", t("system.goLive.googleOauth")],
+                        ["greenInvoice", t("system.goLive.accounting")],
+                        ["errorTracking", t("system.goLive.errorTracking")],
+                        ["uptimeAlerts", t("system.goLive.uptimeAlerts")],
+                    ] as Array<[keyof typeof integrations, string]>).map(([key, label]) => {
+                        const state = integrations[key] as IntegrationState;
+                        // Only a real verification could ever be green; config
+                        // presence is always amber ("unverified").
+                        return (
+                            <StatusRow
+                                key={key}
+                                ok={state === "verified"}
+                                warn={state !== "failed"}
+                                label={label}
+                                detail={t(`system.goLive.states.${state}`)}
+                            />
+                        );
+                    })}
                 </div>
             </Card>
 
             <Card>
                 <CardTitle><span className="inline-flex items-center gap-2"><ShieldCheck size={16} />{t("system.goLive.operations")}</span></CardTitle>
                 <div className="mt-3 space-y-2 text-sm text-gray-600 dark:text-gray-300">
-                    <p>• {data.operations.backups}</p>
-                    <p>• {data.operations.uptimeMonitor}</p>
+                    <p>
+                        • {t("system.goLive.backupsLine").replace("{workflow}", data.operations.backups.workflow)}
+                        {" — "}{t(`system.goLive.opStatus.${data.operations.backups.status}`)}
+                    </p>
+                    <p>
+                        • {t("system.goLive.uptimeLine").replace("{workflow}", data.operations.uptimeMonitor.workflow)}
+                        {" — "}{t(`system.goLive.opStatus.${data.operations.uptimeMonitor.status}`)}
+                    </p>
                     <p className="text-xs text-gray-400">{t("system.goLive.checkedAt")}: {new Date(data.checkedAt).toLocaleString()}</p>
                 </div>
             </Card>

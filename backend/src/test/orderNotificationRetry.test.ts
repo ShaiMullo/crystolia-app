@@ -1,8 +1,11 @@
-// Admin "retry customer notification": only after a recorded failure,
-// double-submit protected, audited, and side-effect free otherwise.
+// Admin "retry customer notification" — the FULL safety matrix from the
+// PR #80 review: per-channel selection (a sent channel is never resent),
+// durable attempt records, exact-status/seq claims, stale-lease → unknown,
+// explicit confirmation for unknown delivery, and honest outcomes.
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import request from 'supertest';
+import axios from 'axios';
 import {
     buildTestApp,
     startTestDb,
@@ -17,23 +20,46 @@ import Company from '../models/Company.js';
 import Settings from '../models/Settings.js';
 import Order from '../models/Order.js';
 import AuditLog from '../models/AuditLog.js';
+import NotificationAttempt from '../models/NotificationAttempt.js';
+import { config } from '../config/index.js';
+import { retryOrderNotification } from '../services/orderNotificationRetryService.js';
 
 const app = buildTestApp();
 
+const originalEmail = { ...config.email };
+const originalSms = { ...config.sms };
+
 beforeAll(async () => {
     await startTestDb();
+    await NotificationAttempt.init();
 });
 afterAll(async () => {
     await stopTestDb();
 });
+afterEach(() => {
+    Object.assign(config.email, originalEmail);
+    Object.assign(config.sms, originalSms);
+    vi.restoreAllMocks();
+});
+
+/** Make BOTH providers "configured" and every provider HTTP call succeed. */
+function mockProvidersUp() {
+    config.email.apiKey = 'SG.test-key';
+    config.email.fromAddress = 'no-reply@test.crystolia.com';
+    config.sms.accountSid = 'ACtest';
+    config.sms.authToken = 'token';
+    config.sms.fromNumber = '+15550001111';
+    vi.spyOn(axios, 'post').mockResolvedValue({ status: 202, data: { sid: 'SM-RETRY-1' } });
+}
 
 let counter = 0;
-async function approvedOrderWith(notificationMeta: Record<string, unknown> | null) {
+async function orderWithNotification(meta: Record<string, unknown> | null, overrides: Record<string, unknown> = {}) {
     counter += 1;
     const company = await Company.create({ name: `חברת ריטריי ${counter}`, vatNumber: `51100000${counter}` });
     const customer = await User.create({
         name: 'לקוח ריטריי',
         email: `retry-${counter}@example.com`,
+        phone: overrides.noPhone ? undefined : '0500000001',
         password: 'RetryPass1',
         role: 'customer',
         company: company._id,
@@ -41,10 +67,8 @@ async function approvedOrderWith(notificationMeta: Record<string, unknown> | nul
         registrationStatus: 'approved',
     });
     const timeline: Array<Record<string, unknown>> = [{ type: 'order_created', at: new Date() }];
-    if (notificationMeta) {
-        timeline.push({ type: 'customer_order_notification', at: new Date(), meta: notificationMeta });
-    }
-    return Order.create({
+    if (meta) timeline.push({ type: 'customer_order_notification', at: new Date(), meta });
+    const order = await Order.create({
         company: company._id,
         createdBy: customer._id,
         items: [{ productName: 'שמן', quantity: 1, price: 50 }],
@@ -53,83 +77,238 @@ async function approvedOrderWith(notificationMeta: Record<string, unknown> | nul
         paymentPreference: 'bank_transfer',
         inventoryReserved: true,
         timeline,
+        ...(overrides.order as Record<string, unknown> ?? {}),
     });
+    return { order, customer };
 }
+
+const retryReq = (id: unknown, cookie: string, body: Record<string, unknown> = {}) =>
+    request(app).post(`/api/v1/orders/${id}/notifications/retry`).set('Cookie', cookie).send(body);
 
 beforeEach(async () => {
     await clearDb();
+    await NotificationAttempt.init();
     await Settings.create({
-        key: 'business',
-        minimumOrderAmount: 0,
-        currency: 'ILS',
-        boxPrices: [],
+        key: 'business', minimumOrderAmount: 0, currency: 'ILS', boxPrices: [],
         paymentOptions: PAYMENT_OPTIONS_BANK_ENABLED,
     });
 });
 
-describe('POST /api/v1/orders/:id/notifications/retry', () => {
-    it('retries after a recorded failure: timeline entry + audit log', async () => {
+describe('per-channel selection', () => {
+    it('email sent + SMS failed → ONLY the SMS channel is attempted', async () => {
         const admin = await createAdmin();
-        const order = await approvedOrderWith({ status: 'approved', email: 'failed', sms: 'failed' });
+        const { order } = await orderWithNotification({ status: 'approved', email: 'sent', sms: 'failed' });
 
-        const res = await request(app)
-            .post(`/api/v1/orders/${order._id}/notifications/retry`)
-            .set('Cookie', authCookieFor(admin));
+        const res = await retryReq(order._id, authCookieFor(admin));
         expect(res.status).toBe(200);
-        // Providers are unconfigured in tests → the retry itself records
-        // another failure, which is exactly what must be visible.
-        expect(res.body.data.email).toBe('failed');
+        expect(res.body.data.attempted).toEqual(['sms']);
+        expect(res.body.data.results.email).toBeUndefined();
 
+        // The durable attempt record proves what was actually sent.
+        const attempt = await NotificationAttempt.findOne({ order: order._id }).lean();
+        expect(attempt?.channels).toEqual(['sms']);
+        // The retry timeline entry covers ONLY the attempted channel.
         const stored = await Order.findById(order._id).lean();
-        const retryEvents = stored?.timeline.filter(
-            (e: { type: string; meta?: { retry?: boolean } }) => e.type === 'customer_order_notification' && e.meta?.retry === true,
+        const retryEvent = stored?.timeline.find((e: { meta?: { retry?: boolean } }) => e.meta?.retry === true);
+        expect((retryEvent?.meta as { email?: string }).email).toBeUndefined();
+        expect((retryEvent?.meta as { sms?: string }).sms).toBeTruthy();
+    });
+
+    it('SMS sent + email failed → ONLY the email channel is attempted', async () => {
+        const admin = await createAdmin();
+        const { order } = await orderWithNotification({ status: 'approved', email: 'failed', sms: 'sent' });
+
+        const res = await retryReq(order._id, authCookieFor(admin));
+        expect(res.status).toBe(200);
+        expect(res.body.data.attempted).toEqual(['email']);
+        expect((await NotificationAttempt.findOne({ order: order._id }).lean())?.channels).toEqual(['email']);
+    });
+
+    it('a permanently missing phone never causes email duplication', async () => {
+        const admin = await createAdmin();
+        const { order } = await orderWithNotification(
+            { status: 'approved', email: 'sent', sms: 'failed' },
+            { noPhone: true },
         );
-        expect(retryEvents).toHaveLength(1);
+
+        // First retry: SMS only, and it cannot deliver (no phone).
+        const first = await retryReq(order._id, authCookieFor(admin));
+        expect(first.status).toBe(200);
+        expect(first.body.data.attempted).toEqual(['sms']);
+        expect(first.body.data.outcome).toBe('failed');
+
+        // Second retry: STILL only SMS — the sent email is never re-attempted.
+        const second = await retryReq(order._id, authCookieFor(admin));
+        expect(second.status).toBe(200);
+        expect(second.body.data.attempted).toEqual(['sms']);
+        const attempts = await NotificationAttempt.find({ order: order._id }).lean();
+        expect(attempts.every((a) => a.channels.length === 1 && a.channels[0] === 'sms')).toBe(true);
+    });
+});
+
+describe('claims, concurrency and staleness', () => {
+    it('two concurrent retries → exactly one attempt', async () => {
+        const admin = await createAdmin();
+        const cookie = authCookieFor(admin);
+        const { order } = await orderWithNotification({ status: 'approved', email: 'failed', sms: 'failed' });
+
+        const [r1, r2] = await Promise.all([
+            retryReq(order._id, cookie),
+            retryReq(order._id, cookie),
+        ]);
+        const statuses = [r1.status, r2.status].sort();
+        expect(statuses[0]).toBe(200);
+        expect([409, 429]).toContain(statuses[1]);
+        expect(await NotificationAttempt.countDocuments({ order: order._id })).toBe(1);
+    });
+
+    it('a status change between eligibility read and claim invalidates the claim', async () => {
+        const admin = await createAdmin();
+        const { order } = await orderWithNotification({ status: 'approved', email: 'failed', sms: 'failed' });
+
+        // Read the doc (eligibility snapshot), then the status changes.
+        const stale = await Order.findById(order._id);
+        await Order.updateOne({ _id: order._id }, { $set: { status: 'shipped' } });
+
+        const result = await retryOrderNotification(stale!, { actorId: String(admin._id) });
+        expect(result.ok).toBe(false);
+        if (!result.ok) expect(result.refusal.code).toBe('STATE_CHANGED');
+        expect(await NotificationAttempt.countDocuments({ order: order._id })).toBe(0);
+    });
+
+    it('a completed retry in between invalidates the next claim (seq guard)', async () => {
+        const admin = await createAdmin();
+        const cookie = authCookieFor(admin);
+        const { order } = await orderWithNotification({ status: 'approved', email: 'failed', sms: 'failed' });
+
+        const stale = await Order.findById(order._id); // seq snapshot: null
+        expect((await retryReq(order._id, cookie)).status).toBe(200); // bumps notificationSeq
+
+        const result = await retryOrderNotification(stale!, { actorId: String(admin._id) });
+        expect(result.ok).toBe(false);
+        if (!result.ok) expect(result.refusal.code).toBe('STATE_CHANGED');
+    });
+
+    it('a stale in-progress attempt resolves to `unknown` and requires explicit confirmation', async () => {
+        const admin = await createAdmin();
+        const cookie = authCookieFor(admin);
+        const { order } = await orderWithNotification({ status: 'approved', email: 'failed', sms: 'failed' });
+
+        // Simulate a crash: an old in-progress attempt holding the lease.
+        const staleId = 'stale-attempt-0001';
+        await NotificationAttempt.create({
+            order: order._id, forStatus: 'approved', attemptId: staleId,
+            channels: ['email', 'sms'], status: 'in_progress',
+            startedAt: new Date(Date.now() - 11 * 60 * 1000),
+        });
+        await Order.updateOne({ _id: order._id }, { $set: { activeNotificationAttempt: staleId } });
+
+        // Without confirmation: refused, and the stale attempt is now `unknown`.
+        const refused = await retryReq(order._id, cookie);
+        expect(refused.status).toBe(409);
+        expect(refused.body.error).toBe('UNKNOWN_DELIVERY_CONFIRM_REQUIRED');
+        expect((await NotificationAttempt.findOne({ attemptId: staleId }).lean())?.status).toBe('unknown');
+
+        // With explicit confirmation: proceeds.
+        const confirmed = await retryReq(order._id, cookie, { confirmUnknown: true });
+        expect(confirmed.status).toBe(200);
+        expect(confirmed.body.data.attempted.sort()).toEqual(['email', 'sms']);
+    });
+
+    it('a fresh in-progress attempt blocks with 429 and is NOT auto-resolved', async () => {
+        const admin = await createAdmin();
+        const { order } = await orderWithNotification({ status: 'approved', email: 'failed', sms: 'failed' });
+        await NotificationAttempt.create({
+            order: order._id, forStatus: 'approved', attemptId: 'live-attempt-1',
+            channels: ['email'], status: 'in_progress', startedAt: new Date(),
+        });
+
+        const res = await retryReq(order._id, authCookieFor(admin));
+        expect(res.status).toBe(429);
+        expect((await NotificationAttempt.findOne({ attemptId: 'live-attempt-1' }).lean())?.status).toBe('in_progress');
+    });
+});
+
+describe('honest outcomes', () => {
+    it('all channels fail → outcome "failed"', async () => {
+        const admin = await createAdmin();
+        const { order } = await orderWithNotification({ status: 'approved', email: 'failed', sms: 'failed' });
+
+        const res = await retryReq(order._id, authCookieFor(admin));
+        expect(res.status).toBe(200);
+        expect(res.body.data.outcome).toBe('failed'); // nothing was delivered
+    });
+
+    it('partial success → outcome "partial"', async () => {
+        const admin = await createAdmin();
+        const { order } = await orderWithNotification({ status: 'approved', email: 'failed', sms: 'failed' });
+
+        // Email up (Twilio Email shares the account credentials) while SMS
+        // stays unconfigured (no sender number/service) → email sends,
+        // SMS is skipped → partial.
+        config.sms.accountSid = 'ACtest';
+        config.sms.authToken = 'token';
+        config.email.fromAddress = 'no-reply@test.crystolia.com';
+        vi.spyOn(axios, 'post').mockResolvedValue({ status: 202, data: {} });
+
+        const res = await retryReq(order._id, authCookieFor(admin));
+        expect(res.status).toBe(200);
+        expect(res.body.data.results.email).toBe('sent');
+        expect(res.body.data.results.sms).toBe('skipped');
+        expect(res.body.data.outcome).toBe('partial');
+    });
+
+    it('full success → outcome "success", and a further retry finds nothing to do', async () => {
+        const admin = await createAdmin();
+        const cookie = authCookieFor(admin);
+        const { order } = await orderWithNotification({ status: 'approved', email: 'failed', sms: 'failed' });
+        mockProvidersUp();
+
+        const res = await retryReq(order._id, cookie);
+        expect(res.status).toBe(200);
+        expect(res.body.data.outcome).toBe('success');
+        expect(res.body.data.results).toEqual({ email: 'sent', sms: 'sent' });
+
+        // Both channels now `sent` — a repeat retry must refuse, not resend.
+        const repeat = await retryReq(order._id, cookie);
+        expect(repeat.status).toBe(409);
+        expect(repeat.body.error).toBe('NOTHING_TO_RETRY');
+        expect(await NotificationAttempt.countDocuments({ order: order._id })).toBe(1);
+    });
+
+    it('audit log records categories/outcomes only — never recipient details', async () => {
+        const admin = await createAdmin();
+        const { order, customer } = await orderWithNotification({ status: 'approved', email: 'failed', sms: 'failed' });
+        expect((await retryReq(order._id, authCookieFor(admin))).status).toBe(200);
 
         const audit = await AuditLog.findOne({ action: 'NOTIFICATION_RETRY', entityId: order._id.toString() }).lean();
         expect(audit).toBeTruthy();
+        const raw = JSON.stringify(audit?.details ?? {});
+        expect(raw).not.toContain(customer.email);
+        expect(raw).not.toContain('0500000001');
+        // The attempt record is equally clean.
+        const attempt = await NotificationAttempt.findOne({ order: order._id }).lean();
+        const attemptRaw = JSON.stringify(attempt ?? {});
+        expect(attemptRaw).not.toContain(customer.email);
+        expect(attemptRaw).not.toContain('0500000001');
     });
+});
 
-    it('is double-submit protected: an immediate second retry returns 429', async () => {
+describe('eligibility guards', () => {
+    it('refuses when everything already sent / nothing recorded', async () => {
         const admin = await createAdmin();
-        const order = await approvedOrderWith({ status: 'approved', email: 'failed', sms: 'sent' });
         const cookie = authCookieFor(admin);
+        const sentOrder = await orderWithNotification({ status: 'approved', email: 'sent', sms: 'sent' });
+        expect((await retryReq(sentOrder.order._id, cookie)).status).toBe(409);
 
-        expect((await request(app).post(`/api/v1/orders/${order._id}/notifications/retry`).set('Cookie', cookie)).status).toBe(200);
-        const second = await request(app).post(`/api/v1/orders/${order._id}/notifications/retry`).set('Cookie', cookie);
-        expect(second.status).toBe(429);
-
-        const stored = await Order.findById(order._id).lean();
-        const retryEvents = stored?.timeline.filter(
-            (e: { type: string; meta?: { retry?: boolean } }) => e.type === 'customer_order_notification' && e.meta?.retry === true,
-        );
-        expect(retryEvents).toHaveLength(1); // exactly one send happened
-    });
-
-    it('refuses when the last notification for the current status succeeded', async () => {
-        const admin = await createAdmin();
-        const order = await approvedOrderWith({ status: 'approved', email: 'sent', sms: 'sent' });
-        const res = await request(app)
-            .post(`/api/v1/orders/${order._id}/notifications/retry`)
-            .set('Cookie', authCookieFor(admin));
+        const noneOrder = await orderWithNotification(null);
+        const res = await retryReq(noneOrder.order._id, cookie);
         expect(res.status).toBe(409);
-    });
-
-    it('refuses when there was no notification attempt at all', async () => {
-        const admin = await createAdmin();
-        const order = await approvedOrderWith(null);
-        const res = await request(app)
-            .post(`/api/v1/orders/${order._id}/notifications/retry`)
-            .set('Cookie', authCookieFor(admin));
-        expect(res.status).toBe(409);
+        expect(res.body.error).toBe('NOTHING_TO_RETRY');
     });
 
     it('is admin-only', async () => {
-        const order = await approvedOrderWith({ status: 'approved', email: 'failed', sms: 'failed' });
-        const customer = await User.findOne({ email: `retry-${counter}@example.com` });
-        const res = await request(app)
-            .post(`/api/v1/orders/${order._id}/notifications/retry`)
-            .set('Cookie', authCookieFor(customer!));
-        expect(res.status).toBe(403);
+        const { order, customer } = await orderWithNotification({ status: 'approved', email: 'failed', sms: 'failed' });
+        expect((await retryReq(order._id, authCookieFor(customer))).status).toBe(403);
     });
 });

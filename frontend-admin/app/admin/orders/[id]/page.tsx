@@ -143,34 +143,63 @@ export default function OrderDetailPage() {
         }
     };
 
-    // The latest customer notification for the CURRENT status failed on at
-    // least one channel → offer a safe, audited manual retry.
-    const lastNotificationFailed = React.useMemo(() => {
-        const events = (order?.timeline ?? [])
-            .filter((e) => e.type === "customer_order_notification"
-                && (e.meta as { status?: string } | undefined)?.status === order?.status);
-        const last = events[events.length - 1];
-        const meta = last?.meta as { email?: string; sms?: string } | undefined;
-        return Boolean(meta && (meta.email === "failed" || meta.sms === "failed"));
+    // Per-channel: walk the timeline newest-first and take the FIRST value
+    // seen for each channel (a retry entry may cover only one channel). The
+    // button is offered when any channel's latest state is not "sent".
+    const notificationRetryAvailable = React.useMemo(() => {
+        const state: { email?: string; sms?: string } = {};
+        const timeline = order?.timeline ?? [];
+        for (let i = timeline.length - 1; i >= 0; i -= 1) {
+            const event = timeline[i];
+            if (event.type !== "customer_order_notification") continue;
+            const meta = event.meta as { status?: string; email?: string; sms?: string } | undefined;
+            if (meta?.status !== order?.status) continue;
+            if (state.email === undefined && meta?.email) state.email = meta.email;
+            if (state.sms === undefined && meta?.sms) state.sms = meta.sms;
+            if (state.email !== undefined && state.sms !== undefined) break;
+        }
+        const values = [state.email, state.sms].filter(Boolean);
+        return values.length > 0 && values.some((v) => v !== "sent");
     }, [order]);
 
     const [retrying, setRetrying] = useState(false);
-    const handleRetryNotification = async () => {
+    const handleRetryNotification = async (confirmUnknown = false) => {
         if (!order || retrying) return;
         setRetrying(true);
         try {
-            const result = await retryOrderNotification(order._id);
-            toast.success(
-                t("orders.notifications.retrySuccess")
-                    .replace("{email}", result.email)
-                    .replace("{sms}", result.sms),
-            );
+            const result = await retryOrderNotification(order._id, confirmUnknown ? { confirmUnknown } : {});
+            const summary = result.attempted
+                .map((c) => `${t(`orders.notifications.channel.${c}`)}: ${t(`orders.notifications.result.${result.results[c] ?? "failed"}`)}`)
+                .join(", ");
+            // Honest outcome mapping: green only when EVERYTHING requested
+            // was sent; amber for partial; red when nothing went out.
+            if (result.outcome === "success") {
+                toast.success(`${t("orders.notifications.retrySuccess")} (${summary})`);
+            } else if (result.outcome === "partial") {
+                toast(`${t("orders.notifications.retryPartial")} (${summary})`, { icon: "⚠️" });
+            } else {
+                toast.error(`${t("orders.notifications.retryFailed")} (${summary})`);
+            }
             await fetchOrder();
         } catch (err: unknown) {
             const e = err as { response?: { status?: number; data?: { error?: string; message?: string } } };
-            if (e.response?.status === 429) toast.error(t("orders.notifications.retryInProgress"));
-            else if (e.response?.status === 409) toast.error(t("orders.notifications.retryNothing"));
-            else toast.error(e.response?.data?.error || e.response?.data?.message || t("orders.toasts.statusFailed"));
+            const code = e.response?.data?.error;
+            if (code === "UNKNOWN_DELIVERY_CONFIRM_REQUIRED") {
+                // Possible duplication — require an explicit admin decision.
+                if (window.confirm(t("orders.notifications.unknownConfirm"))) {
+                    setRetrying(false);
+                    await handleRetryNotification(true);
+                    return;
+                }
+            } else if (e.response?.status === 429) {
+                toast.error(t("orders.notifications.retryInProgress"));
+            } else if (code === "STATE_CHANGED") {
+                toast.error(t("orders.errors.concurrentChange"));
+            } else if (e.response?.status === 409) {
+                toast.error(t("orders.notifications.retryNothing"));
+            } else {
+                toast.error(e.response?.data?.message || t("orders.toasts.statusFailed"));
+            }
         } finally {
             setRetrying(false);
         }
@@ -263,12 +292,12 @@ export default function OrderDetailPage() {
                                 {t("common.edit")}
                             </Button>
                         )}
-                        {lastNotificationFailed && (
+                        {notificationRetryAvailable && (
                             <Button
                                 variant="outline"
                                 size="sm"
                                 iconStart={<Activity size={14} />}
-                                onClick={handleRetryNotification}
+                                onClick={() => handleRetryNotification()}
                                 disabled={retrying}
                                 title={t("orders.notifications.lastNotificationFailed")}
                             >

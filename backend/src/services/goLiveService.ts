@@ -12,7 +12,27 @@ import Settings from '../models/Settings.js';
 import { transactionReadiness } from '../db/transactionReadiness.js';
 import { invoiceIndexReadiness } from '../db/indexReadiness.js';
 import { getPaymentMethodsStatus } from './payments/paymentStatusService.js';
+import { isEmailConfigured } from './emailService.js';
+import { isSmsConfigured } from './smsService.js';
 import { config } from '../config/index.js';
+
+/**
+ * Honest integration states. Credentials existing is NOT proof the
+ * integration works — we only ever report `configured_unverified` from
+ * config presence. `verified`/`failed` are reserved for future real
+ * verification (test sends / provider health calls) and are never emitted
+ * from configuration alone.
+ */
+export type IntegrationState =
+    | 'not_configured'
+    | 'configured_unverified'
+    | 'configured_sandbox_unverified'
+    | 'verified'
+    | 'failed';
+
+function presenceState(configured: boolean): IntegrationState {
+    return configured ? 'configured_unverified' : 'not_configured';
+}
 
 export interface StockItemReadiness {
     sku?: string;
@@ -48,6 +68,9 @@ export async function getGoLiveReadiness() {
     const notReady = items.filter((i) => i.status !== 'READY');
 
     const payments = getPaymentMethodsStatus(settings?.paymentOptions);
+    const bank = payments.methods.find((m) => m.method === 'bank_transfer');
+
+    const greenInvoiceConfigured = Boolean(config.greenInvoice.apiId && config.greenInvoice.secret);
 
     return {
         database: {
@@ -56,9 +79,17 @@ export async function getGoLiveReadiness() {
             ...(txn.reason ? { reason: txn.reason } : {}),
         },
         criticalIndexes: {
+            // Sanitized by indexReadiness itself — stable code + safe hint.
             invoiceOrderUnique: invoiceIndex,
         },
-        payments,
+        payments: {
+            ...payments,
+            // Non-empty bank fields prove nothing about correctness (demo
+            // placeholders exist in production today). The method stays
+            // "owner verification required" until an explicit, audited
+            // production confirmation flow exists.
+            bankVerification: bank?.configured ? 'owner_confirmation_required' : 'not_configured',
+        },
         stock: {
             activeProducts: products.length,
             trackedProducts: tracked.length,
@@ -66,22 +97,36 @@ export async function getGoLiveReadiness() {
             notReady,
             ready: notReady.length === 0,
         },
-        // Presence booleans only — never the values themselves.
+        // Structured states, derived from the SAME config checks the send
+        // paths use (isEmailConfigured/isSmsConfigured). Presence of
+        // credentials is never shown as "verified".
         integrations: {
-            email: Boolean(config.email.fromAddress && (config.email.apiKey || config.sms.accountSid)),
-            sms: Boolean(config.sms.accountSid && config.sms.authToken
-                && (config.sms.messagingServiceSid || config.sms.fromNumber)),
-            whatsapp: Boolean(config.whatsapp.instanceId && config.whatsapp.token),
-            googleOauth: Boolean(config.google.clientId && config.google.clientSecret),
-            greenInvoice: Boolean(config.greenInvoice.apiId && config.greenInvoice.secret),
-            errorTracking: false, // no provider integrated yet (owner decision)
-            uptimeAlerts: false,  // uptime monitor runs in GitHub Actions without alerting
+            email: presenceState(isEmailConfigured()),
+            sms: presenceState(isSmsConfigured()),
+            whatsapp: presenceState(Boolean(config.whatsapp.instanceId && config.whatsapp.token)),
+            googleOauth: presenceState(Boolean(config.google.clientId && config.google.clientSecret)),
+            greenInvoice: greenInvoiceConfigured
+                ? (config.greenInvoice.sandbox
+                    ? 'configured_sandbox_unverified' as IntegrationState
+                    : 'configured_unverified' as IntegrationState)
+                : 'not_configured' as IntegrationState,
+            errorTracking: 'not_configured' as IntegrationState,
+            uptimeAlerts: 'not_configured' as IntegrationState,
         },
-        // Operational facts that live outside the app (GitHub Actions) —
-        // static descriptors, no tokens available or needed here.
+        // These live in GitHub Actions: the app has no evidence about the
+        // latest run, so they are explicitly manual-check items — structured
+        // codes the frontend translates, never English prose from here.
         operations: {
-            backups: 'Daily mongodump → S3 (SSE, 35-day retention) with in-pipeline restore test — .github/workflows/database-backup.yml',
-            uptimeMonitor: 'Every 5 minutes via GitHub Actions (no alert channel wired yet) — .github/workflows/uptime-monitor.yml',
+            backups: {
+                source: 'github_actions',
+                workflow: 'database-backup.yml',
+                status: 'external_manual_check_required',
+            },
+            uptimeMonitor: {
+                source: 'github_actions',
+                workflow: 'uptime-monitor.yml',
+                status: 'external_manual_check_required',
+            },
         },
         checkedAt: new Date().toISOString(),
     };

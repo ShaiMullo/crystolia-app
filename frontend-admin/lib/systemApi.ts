@@ -212,10 +212,27 @@ export interface GoLivePaymentMethod {
     issues: string[];
 }
 
+export type IntegrationState =
+    | "not_configured"
+    | "configured_unverified"
+    | "configured_sandbox_unverified"
+    | "verified"
+    | "failed";
+
+export interface GoLiveOperationsItem {
+    source: string;
+    workflow: string;
+    status: string;
+}
+
 export interface GoLiveReadiness {
     database: { transactionsReady: boolean; topology: string; reason?: string };
-    criticalIndexes: { invoiceOrderUnique: { ready: boolean; reason?: string } };
-    payments: { methods: GoLivePaymentMethod[]; anyConfigured: boolean };
+    criticalIndexes: { invoiceOrderUnique: { ready: boolean; code?: string; reason?: string } };
+    payments: {
+        methods: GoLivePaymentMethod[];
+        anyConfigured: boolean;
+        bankVerification: "owner_confirmation_required" | "not_configured";
+    };
     stock: {
         activeProducts: number;
         trackedProducts: number;
@@ -224,15 +241,15 @@ export interface GoLiveReadiness {
         ready: boolean;
     };
     integrations: {
-        email: boolean;
-        sms: boolean;
-        whatsapp: boolean;
-        googleOauth: boolean;
-        greenInvoice: boolean;
-        errorTracking: boolean;
-        uptimeAlerts: boolean;
+        email: IntegrationState;
+        sms: IntegrationState;
+        whatsapp: IntegrationState;
+        googleOauth: IntegrationState;
+        greenInvoice: IntegrationState;
+        errorTracking: IntegrationState;
+        uptimeAlerts: IntegrationState;
     };
-    operations: { backups: string; uptimeMonitor: string };
+    operations: { backups: GoLiveOperationsItem; uptimeMonitor: GoLiveOperationsItem };
     checkedAt: string;
 }
 

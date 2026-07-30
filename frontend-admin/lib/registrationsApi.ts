@@ -10,7 +10,7 @@ export function notifyRegistrationsChanged(): void {
 
 export type RegistrationStatus = "pending" | "approved" | "rejected";
 export type RegistrationMethod = "password" | "google";
-export type NotificationStatus = "sent" | "failed" | "skipped";
+export type NotificationStatus = "sent" | "failed" | "skipped" | "unknown";
 
 export interface RegistrationNotifications {
     pendingEmailStatus?: NotificationStatus;
@@ -141,9 +141,18 @@ export async function rejectRegistration(id: string, payload: RejectRegistration
 export interface ResendRegistrationEmailResult {
     kind: "pending" | "approved" | "rejected";
     sent: boolean;
+    result: "sent" | "failed" | "skipped";
 }
 
-export async function resendRegistrationEmail(id: string, shareReason = false): Promise<ResendRegistrationEmailResult> {
-    const res = await api.post(`/v1/users/${id}/resend-registration-email`, { shareReason });
+/** Resend the registration email matching the current status. Backend
+ *  safe-delivery rules: a `sent` email is never resent (409
+ *  NOTHING_TO_RETRY); an unknown/never-recorded outcome requires
+ *  confirmUnknown=true (possible duplication acknowledged); concurrent
+ *  resends get 429. */
+export async function resendRegistrationEmail(
+    id: string,
+    options: { shareReason?: boolean; confirmUnknown?: boolean } = {},
+): Promise<ResendRegistrationEmailResult> {
+    const res = await api.post(`/v1/users/${id}/resend-registration-email`, options);
     return res.data?.data;
 }

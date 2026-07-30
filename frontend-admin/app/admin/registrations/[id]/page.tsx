@@ -55,6 +55,40 @@ export default function RegistrationDetailPage() {
         fetchRegistration();
     }, [fetchRegistration]);
 
+    const [retryingNotification, setRetryingNotification] = useState(false);
+    const handleRetryNotification = useCallback(async (confirmUnknown = false) => {
+        if (!id || retryingNotification) return;
+        setRetryingNotification(true);
+        try {
+            const result = await resendRegistrationEmail(id, confirmUnknown ? { confirmUnknown } : {});
+            if (result.sent) {
+                toast.success(t("registrations.notification.retrySent"));
+            } else {
+                toast.error(t("registrations.notification.retryFailedAgain"));
+            }
+            await fetchRegistration();
+        } catch (err: unknown) {
+            const e = err as { response?: { status?: number; data?: { error?: string } } };
+            const code = e.response?.data?.error;
+            if (code === "UNKNOWN_DELIVERY_CONFIRM_REQUIRED") {
+                // Possible duplication — require an explicit admin decision.
+                if (window.confirm(t("registrations.notification.unknownConfirm"))) {
+                    setRetryingNotification(false);
+                    await handleRetryNotification(true);
+                    return;
+                }
+            } else if (e.response?.status === 429) {
+                toast.error(t("registrations.notification.retryInProgress"));
+            } else if (e.response?.status === 409) {
+                toast.error(t("registrations.notification.retryNothing"));
+            } else {
+                toast.error(t("registrations.toasts.resendFailed"));
+            }
+        } finally {
+            setRetryingNotification(false);
+        }
+    }, [id, retryingNotification, fetchRegistration, t]);
+
     const name = registration?.name || registration?.email || "";
     const BackIcon = dir === "rtl" ? ArrowLeft : ArrowRight;
 
@@ -92,18 +126,7 @@ export default function RegistrationDetailPage() {
         });
     };
 
-    const resend = () => {
-        if (!registration) return;
-        run({
-            request: () => resendRegistrationEmail(registration._id),
-            errorMessage: t("registrations.toasts.resendFailed"),
-            onSuccess: (data) => {
-                if (data.sent) toast.success(t("registrations.toasts.resent"));
-                else toast.error(t("registrations.toasts.emailNotSent"));
-                fetchRegistration();
-            },
-        });
-    };
+    const resend = () => handleRetryNotification();
 
     return (
         <div className="space-y-6">
@@ -128,7 +151,11 @@ export default function RegistrationDetailPage() {
             ) : (
                 <>
                     <Card>
-                        <RegistrationDetails registration={registration} />
+                        <RegistrationDetails
+                            registration={registration}
+                            onRetryNotification={() => handleRetryNotification()}
+                            retrying={retryingNotification}
+                        />
                         <div className="mt-6 flex flex-wrap items-center justify-end gap-2 border-t border-gray-100 pt-4 dark:border-gray-800">
                             <Button variant="outline" onClick={resend} disabled={busy}>
                                 {t("registrations.actions.resendEmail")}
