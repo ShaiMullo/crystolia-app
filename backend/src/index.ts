@@ -11,7 +11,7 @@ import { Server } from 'http';
 
 import cookieParser from 'cookie-parser';
 
-import { config } from './config/index.js';
+import { config, logIntegrationConfigSummary } from './config/index.js';
 import { connectDatabase, disconnectDatabase, isDatabaseConnected } from './db/connection.js';
 import leadsRouter from './routes/leads.js';
 import crmRouter from './routes/crm.js';
@@ -79,6 +79,14 @@ app.use(cors({
 // 🚀 SECURITY: Cookie Parser
 // REQUIRED to read req.cookies.auth_token
 app.use(cookieParser());
+
+// 💳 Payment provider webhooks — mounted BEFORE csrf/json on purpose:
+// provider servers send no Origin header (csrf would reject them) and
+// signature verification needs the raw body. Authentication for this
+// surface is the provider signature, never cookies. Currently fail-closed:
+// every call gets 503 until a real provider is integrated.
+import paymentWebhooksRouter from './routes/paymentWebhooks.js';
+app.use('/api/payments/webhooks', paymentWebhooksRouter);
 
 // 🚀 SECURITY: CSRF Protection
 // Verifies Origin/Referer for state-changing requests
@@ -281,6 +289,10 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function startServer(): Promise<void> {
     try {
+        // One explicit line per unconfigured integration, instead of
+        // scattered warnings that scroll away.
+        logIntegrationConfigSummary();
+
         // Connect to MongoDB
         await connectDatabase();
 

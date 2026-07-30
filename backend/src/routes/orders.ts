@@ -10,7 +10,8 @@ import Company from '../models/Company.js';
 import Settings from '../models/Settings.js';
 import { AppError } from '../utils/validation.js';
 import { logAudit } from '../services/auditService.js';
-import { reserveForOrder, releaseForOrder, shipForOrder } from '../services/inventoryService.js';
+import { transitionError, applyInventorySideEffects } from '../services/orderStatusService.js';
+import { orderLimiter } from '../middleware/rateLimiter.js';
 import { computeOrderTotals, RawOrderItem } from '../services/orderService.js';
 import { resolveOrderSkus } from '../services/catalogService.js';
 import { enabledPaymentMethods, isPaymentPreference, paymentConfigError } from '../utils/paymentOptions.js';
@@ -35,9 +36,19 @@ router.use(protect);
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 // POST place order (Customer Only) — legacy: POST /api/orders
+// Optional client-generated idempotency key — a UUID fits, anything else
+// id-shaped works too. Wrong shape is rejected rather than silently ignored
+// so a typo'd integration can't believe it has dedupe protection.
+const CLIENT_REQUEST_ID = /^[A-Za-z0-9._-]{8,64}$/;
+
 export const placeOrder = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { items: requestedItems, notes, paymentPreference } = req.body;
+        const { items: requestedItems, notes, paymentPreference, clientRequestId } = req.body;
+
+        if (clientRequestId !== undefined
+            && (typeof clientRequestId !== 'string' || !CLIENT_REQUEST_ID.test(clientRequestId))) {
+            return next(new AppError('clientRequestId must be 8-64 characters of [A-Za-z0-9._-]', 400));
+        }
 
         if (!Array.isArray(requestedItems) || requestedItems.length === 0) {
             return next(new AppError('Order must contain at least one item', 400));
@@ -126,21 +137,36 @@ export const placeOrder = async (req: Request, res: Response, next: NextFunction
             }
         }
 
-        const newOrder = await Order.create({
-            company: user.company,
-            createdBy: user._id,
-            items: totals.items.map((item, index) => ({
-                ...item,
-                sku: requestedSkus[index],
-            })),
-            totalAmount,
-            subtotal: totals.subtotal,
-            taxTotal: totals.taxTotal,
-            status: 'pending',
-            paymentPreference,
-            notes,
-            timeline: [{ type: 'order_created', at: new Date(), actorId: user._id?.toString() }],
-        });
+        let newOrder;
+        try {
+            newOrder = await Order.create({
+                company: user.company,
+                createdBy: user._id,
+                items: totals.items.map((item, index) => ({
+                    ...item,
+                    sku: requestedSkus[index],
+                })),
+                totalAmount,
+                subtotal: totals.subtotal,
+                taxTotal: totals.taxTotal,
+                status: 'pending',
+                paymentPreference,
+                clientRequestId,
+                notes,
+                timeline: [{ type: 'order_created', at: new Date(), actorId: user._id?.toString() }],
+            });
+        } catch (createErr) {
+            // Duplicate (createdBy, clientRequestId) means this exact submission
+            // already succeeded — a double-click or network retry. Return the
+            // existing order instead of creating a second one.
+            if ((createErr as { code?: number }).code === 11000 && clientRequestId) {
+                const existing = await Order.findOne({ createdBy: user._id, clientRequestId });
+                if (existing) {
+                    return res.status(200).json({ success: true, data: existing, deduplicated: true });
+                }
+            }
+            throw createErr;
+        }
 
         await logAudit({
             action: 'CREATE',
@@ -222,7 +248,7 @@ export const listOrders = async (req: Request, res: Response, next: NextFunction
 };
 
 // ━━━ Legacy /api/orders mounts (unchanged behavior) ━━━
-router.post('/', authorize('customer'), placeOrder);
+router.post('/', authorize('customer'), orderLimiter, placeOrder);
 router.get('/', listOrders);
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -249,6 +275,12 @@ router.patch('/:id', authorize('admin', 'agent'), async (req: Request, res: Resp
         }
 
         const previousStatus = order.status;
+        // Explicit state machine — illegal jumps (completed→pending,
+        // shipped→approved, …) are refused instead of silently applied.
+        const invalidTransition = transitionError(previousStatus, status);
+        if (invalidTransition) {
+            return next(new AppError(invalidTransition, 409));
+        }
         if (status === 'rejected') {
             const reason = typeof rejectionReason === 'string' ? rejectionReason.trim() : '';
             if (!reason) return next(new AppError('Rejection reason is required', 400));
@@ -275,22 +307,13 @@ router.patch('/:id', authorize('admin', 'agent'), async (req: Request, res: Resp
                 meta: { from: previousStatus, to: status },
             });
         }
-        await order.save();
-
-        // ━━━ Inventory side-effects (best-effort, never block response) ━━━
-        const orderItems = (order.items || []).map((it) => ({
-            productId: it.productId?.toString(),
-            quantity: it.quantity,
-        }));
+        // ━━━ Inventory side-effects (best-effort, never block response;
+        // failures land on the timeline + admin notifications) ━━━
         const actorId = req.user?._id?.toString();
-
-        if (status === 'approved' && previousStatus !== 'approved') {
-            await reserveForOrder(order._id, orderItems, actorId);
-        } else if ((status === 'cancelled' || status === 'rejected') && previousStatus === 'approved') {
-            await releaseForOrder(order._id, orderItems, actorId);
-        } else if (status === 'shipped' && previousStatus !== 'shipped' && previousStatus !== 'completed') {
-            await shipForOrder(order._id, orderItems, actorId);
+        if (previousStatus !== status) {
+            await applyInventorySideEffects(order, previousStatus, actorId);
         }
+        await order.save();
 
         await logAudit({
             action: 'UPDATE',

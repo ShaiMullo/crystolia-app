@@ -45,15 +45,17 @@ is needed in that environment.
 
 ## Backups
 
-Phase 8 added a **metadata-only** backup layer (`BackupManifest`, Admin →
-System → Backups). It records manifests and document counts; it does **not**
-perform real dumps. For production you still need real backups:
+Two layers exist:
 
-- `mongodump` on a schedule (cron / k8s CronJob), or
-- managed snapshots (Atlas / cloud provider).
-
-Wire real backup execution behind the existing manifest layer in a future
-phase (see Phase 10 recommendations).
+1. **Real dumps (authoritative):** `.github/workflows/database-backup.yml`
+   runs daily (02:30 UTC): `mongodump --archive --gzip` on the production
+   box, SHA-256 checksum, an automated **restore test** into a throwaway
+   `mongo:7` container, then upload to S3 (SSE-AES256) under
+   `mongodb/YYYY/MM/DD/`. Retention: 35 days via S3 lifecycle.
+   Human restore procedure: see `docs/deployment/restore.md`.
+2. **Metadata layer (UI only):** the Phase-8 `BackupManifest` screen
+   (Admin → System → Backups) records manifests and document counts. It does
+   **not** perform dumps and is not the backup system.
 
 ## Diagnostics
 

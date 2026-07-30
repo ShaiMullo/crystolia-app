@@ -17,11 +17,41 @@ export function isPaymentPreference(value: unknown): value is PaymentPreference 
 
 type PaymentOptions = ISettings['paymentOptions'] | undefined | null;
 
-/** Methods a customer may currently select (admin-enabled ones only). */
+/**
+ * The school-demo placeholder screens must never be treated as a real card
+ * provider. Any URL whose path contains a demo payment route is rejected on
+ * save and treated as UNCONFIGURED everywhere else, so production fails
+ * closed instead of emailing customers a link to a demo page.
+ */
+export function isDemoPaymentUrl(value: unknown): boolean {
+    const raw = String(value ?? '').trim();
+    if (!raw) return false;
+    try {
+        const parsed = new URL(raw);
+        return /(^|\/)(payment-demo)(\/|$)/.test(parsed.pathname)
+            || /^\/(he|en|ru)\/orders\/[^/]+\/pay\/?$/.test(parsed.pathname);
+    } catch {
+        return /payment-demo/.test(raw);
+    }
+}
+
+/** True only when the card method has a usable real-provider URL. */
+export function isCardPaymentConfigured(paymentOptions: PaymentOptions): boolean {
+    const card = paymentOptions?.creditCard;
+    if (!card?.enabled) return false;
+    const url = String(card.paymentUrl || '').trim();
+    return url.startsWith('https://') && !isDemoPaymentUrl(url);
+}
+
+/**
+ * Methods a customer may currently select. Enabled-but-unusable card config
+ * (missing/non-HTTPS/demo URL) is excluded — a method is only offered when
+ * the customer could actually complete it.
+ */
 export function enabledPaymentMethods(paymentOptions: PaymentOptions): PaymentPreference[] {
     const enabled: PaymentPreference[] = [];
     if (paymentOptions?.bankTransfer?.enabled) enabled.push('bank_transfer');
-    if (paymentOptions?.creditCard?.enabled) enabled.push('credit_card');
+    if (isCardPaymentConfigured(paymentOptions)) enabled.push('credit_card');
     return enabled;
 }
 
@@ -54,5 +84,8 @@ export function paymentConfigError(
     if (!card?.enabled) return 'Credit-card payment is disabled in Settings';
     const url = String(card.paymentUrl || '').trim();
     if (!url.startsWith('https://')) return 'Credit-card payment URL is missing or not HTTPS';
+    if (isDemoPaymentUrl(url)) {
+        return 'Credit-card payment URL points to the demo payment page — configure a real provider URL in Settings';
+    }
     return null;
 }

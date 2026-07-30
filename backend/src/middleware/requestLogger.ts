@@ -33,16 +33,25 @@ declare global {
 // Health/probe paths — suppress from logs to avoid Loki noise.
 const SKIP_PATHS = new Set(['/', '/health', '/api/health', '/api/ready', '/api/live']);
 
+// Inbound correlation IDs are honored only when they look like an ID —
+// anything else is replaced so log lines can't be polluted via the header.
+const SAFE_REQUEST_ID = /^[A-Za-z0-9._-]{8,64}$/;
+
 export function requestLogger(req: Request, res: Response, next: NextFunction): void {
     if (SKIP_PATHS.has(req.path)) {
         return next();
     }
 
-    const requestId = randomUUID();
+    const inbound = req.headers['x-request-id'];
+    const requestId = typeof inbound === 'string' && SAFE_REQUEST_ID.test(inbound)
+        ? inbound
+        : randomUUID();
     const startMs = Date.now();
 
-    // Attach so downstream handlers (error handler, route handlers) can include it.
+    // Attach so downstream handlers (error handler, route handlers) can include
+    // it, and echo it so clients/edge proxies can correlate across services.
     req.requestId = requestId;
+    res.setHeader('X-Request-Id', requestId);
 
     res.on('finish', () => {
         const status = res.statusCode;

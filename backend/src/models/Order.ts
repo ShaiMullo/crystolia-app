@@ -36,6 +36,13 @@ export interface IOrder extends Document, ISyncable {
     /** How the customer intends to pay. Optional: orders placed before the
      *  payment-preference feature have none and keep loading unchanged. */
     paymentPreference?: 'bank_transfer' | 'credit_card';
+    /** True while stock is reserved for this order. Deliberately has NO
+     *  schema default: legacy orders stay undefined and their reservation
+     *  state is inferred from the previous status (see orderStatusService). */
+    inventoryReserved?: boolean;
+    /** Client-generated idempotency key for order placement. Unique per
+     *  creator (partial index) so a double-submit returns the first order. */
+    clientRequestId?: string;
     rejectionReason?: string;
     notes?: string;
     timeline: IOrderTimelineEvent[];
@@ -91,6 +98,15 @@ const OrderSchema = new Schema<IOrder>(
             type: String,
             enum: ['bank_transfer', 'credit_card'],
         },
+        inventoryReserved: {
+            type: Boolean,
+        },
+        clientRequestId: {
+            type: String,
+            trim: true,
+            minlength: 8,
+            maxlength: 64,
+        },
         rejectionReason: {
             type: String,
             trim: true,
@@ -106,6 +122,14 @@ const OrderSchema = new Schema<IOrder>(
     {
         timestamps: true,
     }
+);
+
+// Duplicate-submission guard: the same creator may never hold two orders
+// with the same clientRequestId. Partial so legacy orders (no key) are
+// unaffected and the field stays optional.
+OrderSchema.index(
+    { createdBy: 1, clientRequestId: 1 },
+    { unique: true, partialFilterExpression: { clientRequestId: { $type: 'string' } } },
 );
 
 // Additive ERP-sync metadata (optional fields; no index — see syncableFields.ts)

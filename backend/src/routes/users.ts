@@ -574,6 +574,9 @@ router.delete('/:id', protect, authorize('admin'), async (req: Request, res: Res
         user.isDeleted = true;
         user.deletedAt = new Date();
         user.isActive = false; // excluded from listings + blocked by protect immediately
+        // Defense-in-depth: invalidate any live sessions too, consistent with
+        // password reset/change — isActive alone already blocks protect().
+        user.tokenVersion = (user.tokenVersion || 0) + 1;
         await user.save();
 
         await logAudit({

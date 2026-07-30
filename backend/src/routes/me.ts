@@ -15,6 +15,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { protect, authorize } from '../middleware/auth.js';
 import { getMyProfile, completeProfile, updateProfile } from './customers.js';
 import { placeOrder, listOrders } from './orders.js';
+import { orderLimiter } from '../middleware/rateLimiter.js';
 import User from '../models/User.js';
 import { AppError } from '../utils/validation.js';
 import { normalizeUploadedAvatar } from '../utils/avatar.js';
@@ -81,7 +82,7 @@ router.get('/catalog', authorize('customer'), async (_req: Request, res: Respons
 // ── Customer orders (own only) ───────────────────────────────────────────────
 // listOrders is role-aware; gating to 'customer' keeps /me/orders scoped to the
 // caller's own company (POST mirrors the legacy customer-only placement).
-router.post('/orders', authorize('customer'), placeOrder);              // ← POST /api/orders
+router.post('/orders', authorize('customer'), orderLimiter, placeOrder); // ← POST /api/orders
 router.get('/orders', authorize('customer'), listOrders);               // ← GET /api/orders (customer-scoped)
 
 export default router;

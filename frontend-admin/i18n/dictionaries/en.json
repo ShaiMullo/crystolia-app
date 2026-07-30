@@ -914,7 +914,11 @@
       "iban": "IBAN (optional)",
       "cardEnabled": "Enable credit-card payment",
       "paymentUrl": "Secure payment URL",
-      "paymentUrlHint": "Enter an HTTPS link from the payment provider. A unique link per order requires the provider's API."
+      "paymentUrlHint": "Enter an HTTPS link from the payment provider. A unique link per order requires the provider's API.",
+      "cardUrlRequired": "Enabling credit-card payment requires an HTTPS provider URL",
+      "cardUrlDemo": "The demo payment page is not a real provider and cannot be saved. Enter a real provider URL or disable the card method.",
+      "cardStatusNotConfigured": "Not configured — customers will not see a card option until a valid provider URL is set",
+      "cardStatusExternalLink": "Configured as a static external link — no automatic payment confirmation (no card provider is integrated)"
     },
     "toasts": {
       "saved": "Settings saved",
