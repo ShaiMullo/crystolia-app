@@ -44,6 +44,13 @@ compose pull
 echo "▶ Starting services"
 compose up -d --remove-orphans
 
+# `up -d` does not recreate Caddy when only its bind-mounted Caddyfile
+# changed, so edge config (headers, sites) would silently keep running the
+# old version. Graceful zero-downtime reload; falls back to a restart.
+echo "▶ Reloading Caddy config"
+compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile \
+  || compose restart caddy
+
 echo "▶ Waiting for the backend to become healthy"
 ok=""
 for i in $(seq 1 20); do
