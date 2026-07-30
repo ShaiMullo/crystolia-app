@@ -88,21 +88,53 @@ export async function deriveChannelStates(order: IOrder): Promise<{ email: Chann
     return state;
 }
 
-/** Resolve stale in-progress attempts (crashed process) to explicit `unknown`. */
-export async function resolveStaleAttempts(orderId: IOrder['_id']): Promise<void> {
+/**
+ * Reconcile the order's notification lease with reality. Repeatable and
+ * safe after any partial failure — every write is GUARDED by the exact
+ * attemptId it targets, so a stolen/newer lease is never cleared, and each
+ * intermediate state (crash between any two steps) is repaired by simply
+ * running this again. Deliberately plain guarded writes rather than a
+ * transaction: a recovery path must not itself fail on transaction
+ * availability, and no intermediate state here is unsafe — the lease only
+ * ever blocks work, never corrupts it.
+ *
+ * Invariant on return: Order.activeNotificationAttempt is either absent or
+ * points to a FRESH in-progress NotificationAttempt. Specifically:
+ *  - stale in_progress attempt        → marked unknown, its lease cleared;
+ *  - lease → unknown/completed attempt → lease cleared;
+ *  - lease → NO attempt document       → orphan lease cleared;
+ *  - lease → fresh in-progress attempt → left untouched.
+ */
+export async function reconcileNotificationLease(orderId: IOrder['_id']): Promise<void> {
     const staleBefore = new Date(Date.now() - ATTEMPT_STALE_MS);
+
+    // 1) A crashed mid-send attempt: in_progress past the TTL → explicit
+    //    unknown, then release ITS lease (guarded — never someone else's).
     const stale = await NotificationAttempt.findOneAndUpdate(
         { order: orderId, status: 'in_progress', startedAt: { $lt: staleBefore } },
         { $set: { status: 'unknown', finishedAt: new Date() } },
         { new: true },
     );
     if (stale) {
-        // Release the order lease only if it still belongs to the stale attempt.
         await Order.updateOne(
             { _id: orderId, activeNotificationAttempt: stale.attemptId },
             { $unset: { activeNotificationAttempt: 1 } },
         );
     }
+
+    // 2) A lease that no longer points at live work: its attempt is
+    //    unknown (e.g. crash between "mark unknown" and "release lease"),
+    //    completed, or missing entirely. Clear it — guarded by the exact
+    //    value read, so a newer lease claimed in between is never touched.
+    const order = await Order.findById(orderId).select('activeNotificationAttempt').lean();
+    const lease = order?.activeNotificationAttempt;
+    if (!lease) return;
+    const attempt = await NotificationAttempt.findOne({ attemptId: lease }).select('status').lean();
+    if (attempt?.status === 'in_progress') return; // fresh live work — keep the lock
+    await Order.updateOne(
+        { _id: orderId, activeNotificationAttempt: lease },
+        { $unset: { activeNotificationAttempt: 1 } },
+    );
 }
 
 export type RetryRefusal =
@@ -138,7 +170,7 @@ export async function retryOrderNotification(
         return { ok: false, refusal: { code: 'NOT_NOTIFIABLE', httpStatus: 409 } };
     }
 
-    await resolveStaleAttempts(order._id);
+    await reconcileNotificationLease(order._id);
 
     // A FRESH in-progress attempt means another admin is mid-retry.
     const live = await NotificationAttempt.findOne({ order: order._id, status: 'in_progress' }).lean();
@@ -275,10 +307,20 @@ export async function retryOrderNotification(
     } catch (err) {
         // The provider calls DID run — the outcome exists but could not be
         // recorded consistently. Mark our attempt `unknown` (guarded by
-        // attemptId) so the next retry demands explicit confirmation.
+        // attemptId) so the next retry demands explicit confirmation, and
+        // then release the order lease IF it is still ours — otherwise the
+        // unknown attempt would hold the lease forever (stale resolution
+        // only targets in_progress). Ordered unknown-first: a crash between
+        // the two writes leaves "lease → unknown attempt", which
+        // reconcileNotificationLease repairs on the next touch. A stolen /
+        // newer lease never matches the guard and is never cleared.
         await NotificationAttempt.updateOne(
             { attemptId, status: 'in_progress' },
             { $set: { status: 'unknown', finishedAt: new Date() } },
+        ).catch(() => undefined);
+        await Order.updateOne(
+            { _id: order._id, activeNotificationAttempt: attemptId },
+            { $unset: { activeNotificationAttempt: 1 } },
         ).catch(() => undefined);
         if (err instanceof StaleFinalizationError || err instanceof TransactionsUnavailableError) {
             return {

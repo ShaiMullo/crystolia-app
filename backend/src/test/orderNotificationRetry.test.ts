@@ -22,7 +22,7 @@ import Order from '../models/Order.js';
 import AuditLog from '../models/AuditLog.js';
 import NotificationAttempt from '../models/NotificationAttempt.js';
 import { config } from '../config/index.js';
-import { retryOrderNotification } from '../services/orderNotificationRetryService.js';
+import { retryOrderNotification, reconcileNotificationLease } from '../services/orderNotificationRetryService.js';
 
 const app = buildTestApp();
 
@@ -407,6 +407,118 @@ describe('mutual exclusion with status transitions', () => {
             .set('Cookie', cookie)
             .send({ status: 'shipped' });
         expect(after.status).toBe(200);
+    });
+});
+
+describe('lease reconciliation (recovery invariant)', () => {
+    const shipReq = (id: unknown, cookie: string) =>
+        request(app).patch(`/api/orders/${id}`).set('Cookie', cookie).send({ status: 'shipped' });
+
+    it('finalization conflict while the lease is still OURS releases it — no permanent lock', async () => {
+        const admin = await createAdmin();
+        const cookie = authCookieFor(admin);
+        const { order } = await orderWithNotification({ status: 'approved', email: 'failed', sms: 'failed' });
+        mockProvidersUp();
+
+        // Failpoint: the finalization's ORDER write reports no match while
+        // the lease is genuinely still ours.
+        const original = Order.findOneAndUpdate.bind(Order);
+        vi.spyOn(Order, 'findOneAndUpdate').mockImplementation(((filter: unknown, update: { $inc?: { notificationSeq?: number } }, opts: unknown) => {
+            if (update?.$inc?.notificationSeq) return Promise.resolve(null);
+            return original(filter as never, update as never, opts as never);
+        }) as never);
+
+        const res = await retryReq(order._id, cookie);
+        expect(res.status).toBe(409);
+        expect(res.body.error).toBe('FINALIZATION_CONFLICT');
+
+        vi.restoreAllMocks();
+        const stored = await Order.findById(order._id).lean();
+        expect(stored?.activeNotificationAttempt ?? null).toBeNull(); // OUR lease released
+        expect((await NotificationAttempt.findOne({ order: order._id }).lean())?.status).toBe('unknown');
+
+        // The order is fully workable again: a normal transition proceeds.
+        expect((await shipReq(order._id, cookie)).status).toBe(200);
+    });
+
+    it('crash between "mark unknown" and "release lease" is repaired by reconciliation', async () => {
+        const admin = await createAdmin();
+        const cookie = authCookieFor(admin);
+        const { order } = await orderWithNotification({ status: 'approved', email: 'failed', sms: 'failed' });
+        await NotificationAttempt.create({
+            order: order._id, forStatus: 'approved', attemptId: 'crashed-after-unknown',
+            channels: ['email'], status: 'unknown', startedAt: new Date(), finishedAt: new Date(),
+        });
+        await Order.updateOne({ _id: order._id }, { $set: { activeNotificationAttempt: 'crashed-after-unknown' } });
+
+        // A normal status transition self-heals via reconciliation and wins.
+        expect((await shipReq(order._id, cookie)).status).toBe(200);
+        expect((await Order.findById(order._id).lean())?.activeNotificationAttempt ?? null).toBeNull();
+    });
+
+    it('an orphan lease with NO attempt document is repaired', async () => {
+        const admin = await createAdmin();
+        const cookie = authCookieFor(admin);
+        const { order } = await orderWithNotification({ status: 'approved', email: 'failed', sms: 'failed' });
+        await Order.updateOne({ _id: order._id }, { $set: { activeNotificationAttempt: 'ghost-attempt' } });
+
+        expect((await shipReq(order._id, cookie)).status).toBe(200);
+        expect((await Order.findById(order._id).lean())?.activeNotificationAttempt ?? null).toBeNull();
+    });
+
+    it('a lease pointing at a COMPLETED attempt is repaired', async () => {
+        const admin = await createAdmin();
+        const cookie = authCookieFor(admin);
+        const { order } = await orderWithNotification({ status: 'approved', email: 'failed', sms: 'failed' });
+        await NotificationAttempt.create({
+            order: order._id, forStatus: 'approved', attemptId: 'completed-but-leased',
+            channels: ['email'], status: 'completed', startedAt: new Date(), finishedAt: new Date(),
+        });
+        await Order.updateOne({ _id: order._id }, { $set: { activeNotificationAttempt: 'completed-but-leased' } });
+
+        expect((await shipReq(order._id, cookie)).status).toBe(200);
+        expect((await Order.findById(order._id).lean())?.activeNotificationAttempt ?? null).toBeNull();
+    });
+
+    it('a FRESH live attempt keeps its lease through reconciliation', async () => {
+        const admin = await createAdmin();
+        const cookie = authCookieFor(admin);
+        const { order } = await orderWithNotification({ status: 'approved', email: 'failed', sms: 'failed' });
+        await NotificationAttempt.create({
+            order: order._id, forStatus: 'approved', attemptId: 'fresh-live',
+            channels: ['email'], status: 'in_progress', startedAt: new Date(),
+        });
+        await Order.updateOne({ _id: order._id }, { $set: { activeNotificationAttempt: 'fresh-live' } });
+
+        await reconcileNotificationLease(order._id);
+        expect((await Order.findById(order._id).lean())?.activeNotificationAttempt).toBe('fresh-live');
+        expect((await shipReq(order._id, cookie)).status).toBe(409); // still excluded, correctly
+    });
+
+    it('a stolen/newer lease is never cleared — every clear is guarded by the exact value it targets', async () => {
+        const { order } = await orderWithNotification({ status: 'approved', email: 'failed', sms: 'failed' });
+        // NOTE: "stale in_progress attempt exists WHILE a newer fresh lease
+        // is live" is unrepresentable by design (the unique partial index
+        // allows one in_progress attempt per order), so the protection is
+        // the GUARDED WRITE itself. Prove it directly: the DB holds lease B
+        // (fresh live work); a clear issued for a previously-read value A —
+        // exactly what reconciliation/finalization would issue after losing
+        // a race — must be a no-op.
+        await NotificationAttempt.create({
+            order: order._id, forStatus: 'approved', attemptId: 'newer-live-B',
+            channels: ['sms'], status: 'in_progress', startedAt: new Date(),
+        });
+        await Order.updateOne({ _id: order._id }, { $set: { activeNotificationAttempt: 'newer-live-B' } });
+
+        const clear = await Order.updateOne(
+            { _id: order._id, activeNotificationAttempt: 'older-read-A' },
+            { $unset: { activeNotificationAttempt: 1 } },
+        );
+        expect(clear.modifiedCount).toBe(0);
+
+        // And full reconciliation also leaves the fresh lease intact.
+        await reconcileNotificationLease(order._id);
+        expect((await Order.findById(order._id).lean())?.activeNotificationAttempt).toBe('newer-live-B');
     });
 });
 

@@ -34,7 +34,7 @@ import {
 import { invoiceIndexReadiness } from '../db/indexReadiness.js';
 import { paymentConfigError } from '../utils/paymentOptions.js';
 import { unlockedOrderFilter as lockFreeFilter, notificationLeaseFreeFilter } from './orderLocks.js';
-import { resolveStaleAttempts } from './orderNotificationRetryService.js';
+import { reconcileNotificationLease } from './orderNotificationRetryService.js';
 
 export type OrderStatus = IOrder['status'];
 
@@ -342,7 +342,7 @@ export async function changeOrderStatus(input: StatusChangeInput): Promise<Statu
     // A crashed retry (stale in-progress attempt still holding the order's
     // notification lease) must not block transitions forever — resolve it
     // to `unknown` first; FRESH leases still exclude us below.
-    await resolveStaleAttempts(orderPre._id);
+    await reconcileNotificationLease(orderPre._id);
 
     if (to === 'approved') {
         // An approval sends the customer their selected payment

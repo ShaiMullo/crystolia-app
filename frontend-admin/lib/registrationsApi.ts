@@ -178,4 +178,3 @@ export function currentRegistrationEmail(r: RegistrationRequest): {
     }
     return { kind: "pending", status: n?.pendingEmailStatus, at: n?.pendingEmailAt };
 }
-

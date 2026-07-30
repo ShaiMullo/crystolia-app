@@ -23,7 +23,7 @@ export function unlockedOrderFilter(now = new Date()) {
 }
 
 /** Matches orders with NO live notification-retry lease. Staleness is
- *  resolved via resolveStaleAttempts (the lease has no own timestamp — its
+ *  resolved via reconcileNotificationLease (the lease has no own timestamp — its
  *  age lives on the NotificationAttempt document). */
 export function notificationLeaseFreeFilter() {
     return {
