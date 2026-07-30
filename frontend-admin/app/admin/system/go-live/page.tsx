@@ -228,7 +228,8 @@ export default function GoLivePage() {
                 <div className="mt-3">
                     {([
                         ["email", t("system.goLive.email")],
-                        ["sms", t("system.goLive.sms")],
+                        ["smsTransport", t("system.goLive.smsTransport")],
+                        ["adminSmsRecipient", t("system.goLive.adminSmsRecipient")],
                         ["googleOauth", t("system.goLive.googleOauth")],
                         ["greenInvoice", t("system.goLive.accounting")],
                         ["errorTracking", t("system.goLive.errorTracking")],

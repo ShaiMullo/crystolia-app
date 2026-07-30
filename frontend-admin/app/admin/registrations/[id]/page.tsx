@@ -15,6 +15,7 @@ import {
     approveRegistration,
     rejectRegistration,
     resendRegistrationEmail,
+    currentRegistrationEmail,
     notifyRegistrationsChanged,
     type RegistrationRequest,
     type RejectRegistrationPayload,
@@ -157,9 +158,11 @@ export default function RegistrationDetailPage() {
                             retrying={retryingNotification}
                         />
                         <div className="mt-6 flex flex-wrap items-center justify-end gap-2 border-t border-gray-100 pt-4 dark:border-gray-800">
-                            <Button variant="outline" onClick={resend} disabled={busy}>
-                                {t("registrations.actions.resendEmail")}
-                            </Button>
+                            {currentRegistrationEmail(registration).status !== "sent" && (
+                                <Button variant="outline" onClick={resend} disabled={busy || retryingNotification}>
+                                    {t("registrations.actions.resendEmail")}
+                                </Button>
+                            )}
                             {registration.registrationStatus === "pending" && (
                                 <Button variant="danger" onClick={() => setRejectOpen(true)} disabled={busy}>
                                     {t("registrations.actions.reject")}

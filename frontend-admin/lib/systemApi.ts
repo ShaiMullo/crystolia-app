@@ -242,7 +242,8 @@ export interface GoLiveReadiness {
     };
     integrations: {
         email: IntegrationState;
-        sms: IntegrationState;
+        smsTransport: IntegrationState;
+        adminSmsRecipient: IntegrationState;
         whatsapp: IntegrationState;
         googleOauth: IntegrationState;
         greenInvoice: IntegrationState;

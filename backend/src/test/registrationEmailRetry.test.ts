@@ -161,3 +161,148 @@ describe('registration email retry', () => {
         expect(res.status).toBe(403);
     });
 });
+
+describe('mutual exclusion with approval/rejection', () => {
+    function configureEmail() {
+        config.sms.accountSid = 'ACtest';
+        config.sms.authToken = 'token';
+        config.email.fromAddress = 'no-reply@test.crystolia.com';
+    }
+
+    it('a live approval lock blocks the retry claim', async () => {
+        const admin = await createAdmin();
+        const user = await registration('pending', 'failed');
+        await User.updateOne({ _id: user._id }, {
+            $set: { approvalLock: 'live-approval', approvalInProgressAt: new Date() },
+        });
+        const res = await retryReq(user._id, authCookieFor(admin));
+        expect(res.status).toBe(429);
+    });
+
+    it('a live retry lease blocks approval AND rejection', async () => {
+        const admin = await createAdmin();
+        const cookie = authCookieFor(admin);
+        const user = await registration('pending', 'failed');
+        await User.updateOne({ _id: user._id }, {
+            $set: {
+                'registrationNotifications.retryAttemptId': 'live-retry',
+                'registrationNotifications.retryStartedAt': new Date(),
+            },
+        });
+
+        const approve = await request(app)
+            .post(`/api/users/${user._id}/approve-registration`)
+            .set('Cookie', cookie);
+        expect(approve.status).toBe(409);
+        expect((await User.findById(user._id).lean())?.registrationStatus).toBe('pending');
+
+        const reject = await request(app)
+            .post(`/api/users/${user._id}/reject-registration`)
+            .set('Cookie', cookie)
+            .send({ reason: 'סיבה' });
+        expect(reject.status).toBe(409);
+        expect((await User.findById(user._id).lean())?.registrationStatus).toBe('pending');
+    });
+
+    it('a real pending-email retry vs approval race: exactly one wins', async () => {
+        const admin = await createAdmin();
+        const cookie = authCookieFor(admin);
+        const user = await registration('pending', 'failed');
+        configureEmail();
+        vi.spyOn(axios, 'post').mockImplementation(
+            () => new Promise((resolve) => setTimeout(() => resolve({ status: 202, data: {} }), 150)),
+        );
+
+        // supertest is lazy — .then() forces the request to DISPATCH now.
+        const retryPromise = retryReq(user._id, cookie).then((r) => r);
+        await new Promise((resolve) => setTimeout(resolve, 40)); // retry lease is live mid-send
+        const approvePromise = request(app)
+            .post(`/api/users/${user._id}/approve-registration`)
+            .set('Cookie', cookie);
+
+        const [retryRes, approveRes] = await Promise.all([retryPromise, approvePromise]);
+        expect(retryRes.status).toBe(200);
+        expect(approveRes.status).toBe(409); // approval lost — retries later
+
+        const stored = await User.findById(user._id).lean();
+        expect(stored?.registrationStatus).toBe('pending');                 // unchanged
+        expect(stored?.registrationNotifications?.retryAttemptId ?? null).toBeNull(); // lease released
+        expect(stored?.approvalLock ?? null).toBeNull();                    // no lock remains
+
+        // With the lease released, approval now succeeds.
+        const after = await request(app)
+            .post(`/api/users/${user._id}/approve-registration`)
+            .set('Cookie', cookie);
+        expect(after.status).toBe(200);
+    });
+});
+
+describe('rejection reason-sharing on retry', () => {
+    function configureEmailWithCapture() {
+        config.sms.accountSid = 'ACtest';
+        config.sms.authToken = 'token';
+        config.email.fromAddress = 'no-reply@test.crystolia.com';
+        return vi.spyOn(axios, 'post').mockResolvedValue({ status: 202, data: {} });
+    }
+
+    it('repeats the ORIGINAL "share reason" decision by default', async () => {
+        const admin = await createAdmin();
+        const cookie = authCookieFor(admin);
+        const user = await registration('pending');
+        const spy = configureEmailWithCapture();
+
+        // Reject WITH the reason shared → decision persisted.
+        const reject = await request(app)
+            .post(`/api/users/${user._id}/reject-registration`)
+            .set('Cookie', cookie)
+            .send({ reason: 'סיבת דחייה לבדיקה', shareReason: true });
+        expect(reject.status).toBe(200);
+        expect((await User.findById(user._id).lean())?.rejectionReasonShared).toBe(true);
+
+        // Force a failed state, then retry WITHOUT specifying shareReason —
+        // the email must include the reason again (original decision).
+        await User.updateOne({ _id: user._id }, { $set: { 'registrationNotifications.rejectedEmailStatus': 'failed' } });
+        spy.mockClear();
+        const retry = await retryReq(user._id, cookie);
+        expect(retry.status).toBe(200);
+        expect(JSON.stringify(spy.mock.calls)).toContain('סיבת דחייה לבדיקה');
+    });
+
+    it('never silently adds the reason when the original rejection did not share it', async () => {
+        const admin = await createAdmin();
+        const cookie = authCookieFor(admin);
+        const user = await registration('pending');
+        const spy = configureEmailWithCapture();
+
+        const reject = await request(app)
+            .post(`/api/users/${user._id}/reject-registration`)
+            .set('Cookie', cookie)
+            .send({ reason: 'סיבה חסויה מאוד', shareReason: false });
+        expect(reject.status).toBe(200);
+        expect((await User.findById(user._id).lean())?.rejectionReasonShared).toBe(false);
+
+        await User.updateOne({ _id: user._id }, { $set: { 'registrationNotifications.rejectedEmailStatus': 'failed' } });
+        spy.mockClear();
+        const retry = await retryReq(user._id, cookie);
+        expect(retry.status).toBe(200);
+        expect(JSON.stringify(spy.mock.calls)).not.toContain('סיבה חסויה מאוד');
+    });
+
+    it('legacy records without the stored decision default to NOT sharing, with explicit override allowed', async () => {
+        const admin = await createAdmin();
+        const cookie = authCookieFor(admin);
+        const user = await registration('rejected', 'failed'); // no rejectionReasonShared stored
+        const spy = configureEmailWithCapture();
+
+        const retry = await retryReq(user._id, cookie);
+        expect(retry.status).toBe(200);
+        expect(JSON.stringify(spy.mock.calls)).not.toContain('סיבת דחייה לבדיקה');
+
+        // Explicit admin choice overrides the default.
+        await User.updateOne({ _id: user._id }, { $set: { 'registrationNotifications.rejectedEmailStatus': 'failed' } });
+        spy.mockClear();
+        const withReason = await retryReq(user._id, cookie, { shareReason: true });
+        expect(withReason.status).toBe(200);
+        expect(JSON.stringify(spy.mock.calls)).toContain('סיבת דחייה לבדיקה');
+    });
+});

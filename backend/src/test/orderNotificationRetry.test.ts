@@ -30,7 +30,9 @@ const originalEmail = { ...config.email };
 const originalSms = { ...config.sms };
 
 beforeAll(async () => {
-    await startTestDb();
+    // Replica set: the claim and finalization phases run in REQUIRED
+    // transactions (runRequiredTransaction has no fallback).
+    await startTestDb({ replSet: true });
     await NotificationAttempt.init();
 });
 afterAll(async () => {
@@ -291,6 +293,166 @@ describe('honest outcomes', () => {
         const attemptRaw = JSON.stringify(attempt ?? {});
         expect(attemptRaw).not.toContain(customer.email);
         expect(attemptRaw).not.toContain('0500000001');
+    });
+});
+
+describe('transactional phases (failpoints)', () => {
+    it('failure between order claim and attempt creation leaves neither lease nor attempt', async () => {
+        const admin = await createAdmin();
+        const { order } = await orderWithNotification({ status: 'approved', email: 'failed', sms: 'failed' });
+
+        vi.spyOn(NotificationAttempt, 'create').mockRejectedValueOnce(new Error('injected create failure'));
+        const doc = await Order.findById(order._id);
+        await expect(retryOrderNotification(doc!, { actorId: String(admin._id) })).rejects.toThrow('injected create failure');
+
+        // The claim transaction aborted: no orphan lease, no partial attempt.
+        const stored = await Order.findById(order._id).lean();
+        expect(stored?.activeNotificationAttempt ?? null).toBeNull();
+        expect(await NotificationAttempt.countDocuments({ order: order._id })).toBe(0);
+
+        // And the next retry proceeds normally.
+        const res = await retryReq(order._id, authCookieFor(admin));
+        expect(res.status).toBe(200);
+    });
+
+    it('finalization guard mismatch cannot create split state', async () => {
+        const admin = await createAdmin();
+        const { order } = await orderWithNotification({ status: 'approved', email: 'failed', sms: 'failed' });
+        mockProvidersUp();
+        vi.mocked(axios.post).mockImplementation(async () => {
+            // Mid-send: another process "steals" the lease (e.g. a stale-TTL
+            // takeover) — OUR finalization must then refuse to record.
+            await Order.updateOne({ _id: order._id }, { $set: { activeNotificationAttempt: 'stolen-lease' } });
+            return { status: 202, data: { sid: 'SM-X' } };
+        });
+
+        const res = await retryReq(order._id, authCookieFor(admin));
+        expect(res.status).toBe(409);
+        expect(res.body.error).toBe('FINALIZATION_CONFLICT');
+
+        // No split state: the attempt is NOT completed (it is `unknown`),
+        // the order got no timeline entry and no seq bump from us.
+        const attempt = await NotificationAttempt.findOne({ order: order._id }).lean();
+        expect(attempt?.status).toBe('unknown');
+        const stored = await Order.findById(order._id).lean();
+        expect(stored?.activeNotificationAttempt).toBe('stolen-lease'); // untouched
+        expect(stored?.notificationSeq ?? null).toBeNull();
+        expect(stored?.timeline.some((e: { meta?: { retry?: boolean } }) => e.meta?.retry === true)).toBe(false);
+    });
+});
+
+describe('mutual exclusion with status transitions', () => {
+    it('a live status-transition lock blocks the retry claim', async () => {
+        const admin = await createAdmin();
+        const { order } = await orderWithNotification({ status: 'approved', email: 'failed', sms: 'failed' });
+        await Order.updateOne({ _id: order._id }, { $set: { statusLockAt: new Date() } });
+
+        const res = await retryReq(order._id, authCookieFor(admin));
+        expect(res.status).toBe(409);
+        expect(res.body.error).toBe('STATE_CHANGED');
+        expect(await NotificationAttempt.countDocuments({ order: order._id })).toBe(0);
+    });
+
+    it('a live notification lease blocks status transitions', async () => {
+        const admin = await createAdmin();
+        const { order } = await orderWithNotification({ status: 'approved', email: 'failed', sms: 'failed' });
+        await NotificationAttempt.create({
+            order: order._id, forStatus: 'approved', attemptId: 'live-blocker',
+            channels: ['email'], status: 'in_progress', startedAt: new Date(),
+        });
+        await Order.updateOne({ _id: order._id }, { $set: { activeNotificationAttempt: 'live-blocker' } });
+
+        const res = await request(app)
+            .patch(`/api/orders/${order._id}`)
+            .set('Cookie', authCookieFor(admin))
+            .send({ status: 'shipped' });
+        expect(res.status).toBe(409);
+        expect((await Order.findById(order._id).lean())?.status).toBe('approved');
+    });
+
+    it('a real retry-vs-transition race: exactly one wins, no locks remain, no obsolete notification', async () => {
+        const admin = await createAdmin();
+        const cookie = authCookieFor(admin);
+        const { order } = await orderWithNotification({ status: 'approved', email: 'failed', sms: 'failed' });
+        mockProvidersUp();
+        vi.mocked(axios.post).mockImplementation(
+            () => new Promise((resolve) => setTimeout(() => resolve({ status: 202, data: { sid: 'SM-R' } }), 150)),
+        );
+
+        // supertest is lazy — .then() forces the request to DISPATCH now,
+        // so the retry genuinely holds its lease before the transition fires.
+        const retryPromise = retryReq(order._id, cookie).then((r) => r);
+        await new Promise((resolve) => setTimeout(resolve, 40)); // retry holds its lease mid-send
+        const transitionPromise = request(app)
+            .patch(`/api/orders/${order._id}`)
+            .set('Cookie', cookie)
+            .send({ status: 'shipped' });
+
+        const [retryRes, transitionRes] = await Promise.all([retryPromise, transitionPromise]);
+        expect(retryRes.status).toBe(200);
+        expect(transitionRes.status).toBe(409); // transition lost the race
+
+        const stored = await Order.findById(order._id).lean();
+        expect(stored?.status).toBe('approved');                       // no transition happened
+        expect(stored?.activeNotificationAttempt ?? null).toBeNull();  // no lock remains
+        expect(stored?.statusLockAt ?? null).toBeNull();
+        // The notification recorded is for the status it was claimed under —
+        // never an obsolete one.
+        const retryEvent = stored?.timeline.find((e: { meta?: { retry?: boolean } }) => e.meta?.retry === true);
+        expect((retryEvent?.meta as { status?: string }).status).toBe('approved');
+
+        // With the lease released, the transition now proceeds cleanly.
+        const after = await request(app)
+            .patch(`/api/orders/${order._id}`)
+            .set('Cookie', cookie)
+            .send({ status: 'shipped' });
+        expect(after.status).toBe(200);
+    });
+});
+
+describe('channel independence', () => {
+    it('no email + valid phone → SMS is still sent', async () => {
+        const admin = await createAdmin();
+        const { order, customer } = await orderWithNotification({ status: 'approved', email: 'failed', sms: 'failed' });
+        await User.collection.updateOne({ _id: customer._id }, { $unset: { email: 1 } });
+        mockProvidersUp();
+
+        const res = await retryReq(order._id, authCookieFor(admin));
+        expect(res.status).toBe(200);
+        expect(res.body.data.results.sms).toBe('sent');
+        expect(res.body.data.results.email).toBe('skipped'); // recipient missing ≠ SMS blocked
+        expect(res.body.data.outcome).toBe('partial');
+    });
+
+    it('valid email + no phone → email is still sent', async () => {
+        const admin = await createAdmin();
+        const { order } = await orderWithNotification(
+            { status: 'approved', email: 'failed', sms: 'failed' },
+            { noPhone: true },
+        );
+        mockProvidersUp();
+
+        const res = await retryReq(order._id, authCookieFor(admin));
+        expect(res.status).toBe(200);
+        expect(res.body.data.results.email).toBe('sent');
+        expect(res.body.data.results.sms).toBe('skipped');
+        expect(res.body.data.outcome).toBe('partial');
+    });
+
+    it('neither contact method → honest per-channel skipped results', async () => {
+        const admin = await createAdmin();
+        const { order, customer } = await orderWithNotification(
+            { status: 'approved', email: 'failed', sms: 'failed' },
+            { noPhone: true },
+        );
+        await User.collection.updateOne({ _id: customer._id }, { $unset: { email: 1 } });
+        mockProvidersUp();
+
+        const res = await retryReq(order._id, authCookieFor(admin));
+        expect(res.status).toBe(200);
+        expect(res.body.data.results.email).toBe('skipped');
+        expect(res.body.data.results.sms).toBe('skipped');
+        expect(res.body.data.outcome).toBe('failed'); // nothing delivered
     });
 });
 

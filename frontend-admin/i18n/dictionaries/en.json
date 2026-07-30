@@ -756,7 +756,9 @@
         "sent": "sent",
         "failed": "failed",
         "skipped": "skipped (not configured)"
-      }
+      },
+      "finalizationConflict": "The send ran but recording its result failed — state marked \"unknown\". Reload and check before retrying.",
+      "transactionsUnavailable": "Operational error: database transactions are required (see server log)."
     }
   },
   "invoices": {
@@ -1524,7 +1526,9 @@
         "configured_sandbox_unverified": "Configured in sandbox mode — not production-ready",
         "verified": "Verified",
         "failed": "Verification failed"
-      }
+      },
+      "smsTransport": "Customer SMS transport (Twilio)",
+      "adminSmsRecipient": "Admin SMS recipient"
     },
     "goLiveLink": "Go-Live Readiness"
   },

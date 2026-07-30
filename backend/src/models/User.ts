@@ -64,6 +64,10 @@ export interface IUser extends Document {
     rejectedAt?: Date;
     rejectedBy?: mongoose.Types.ObjectId;
     rejectionReason?: string;
+    /** Whether the rejection email actually included the stored reason —
+     *  a retry must repeat the ORIGINAL decision, never silently change it.
+     *  Legacy records (undefined) default to NOT sharing. */
+    rejectionReasonShared?: boolean;
     approvalInProgressAt?: Date;
     approvalLock?: string;
     isDeleted: boolean;
@@ -251,6 +255,9 @@ const UserSchema = new Schema<IUser>(
             type: String,
             trim: true,
             maxlength: 1000,
+        },
+        rejectionReasonShared: {
+            type: Boolean,
         },
         // Short-lived internal lock used while materialising the Company and
         // activating a registration. It prevents approve/reject races and is

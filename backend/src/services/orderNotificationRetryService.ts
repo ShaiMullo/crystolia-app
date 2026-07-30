@@ -29,6 +29,8 @@ import {
     sendCustomerOrderNotification,
     type CustomerNotificationChannel,
 } from './orderNotificationService.js';
+import { unlockedOrderFilter, notificationLeaseFreeFilter } from './orderLocks.js';
+import { runRequiredTransaction, TransactionsUnavailableError } from '../db/withTransaction.js';
 
 const ATTEMPT_STALE_MS = 10 * 60 * 1000;
 
@@ -108,7 +110,19 @@ export type RetryRefusal =
     | { code: 'NOTHING_TO_RETRY'; httpStatus: 409 }
     | { code: 'UNKNOWN_DELIVERY_CONFIRM_REQUIRED'; httpStatus: 409 }
     | { code: 'RETRY_IN_PROGRESS'; httpStatus: 429 }
-    | { code: 'STATE_CHANGED'; httpStatus: 409 };
+    | { code: 'STATE_CHANGED'; httpStatus: 409 }
+    | { code: 'FINALIZATION_CONFLICT'; httpStatus: 409 }
+    | { code: 'TRANSACTIONS_UNAVAILABLE'; httpStatus: 503 };
+
+class ClaimConflictError extends Error {
+    constructor() { super('retry claim conflict'); this.name = 'ClaimConflictError'; }
+}
+class AttemptExistsError extends Error {
+    constructor() { super('attempt already in progress'); this.name = 'AttemptExistsError'; }
+}
+class StaleFinalizationError extends Error {
+    constructor() { super('finalization guard mismatch'); this.name = 'StaleFinalizationError'; }
+}
 
 export interface RetryOutcome {
     attempted: CustomerNotificationChannel[];
@@ -145,45 +159,59 @@ export async function retryOrderNotification(
         return { ok: false, refusal: { code: 'NOTHING_TO_RETRY', httpStatus: 409 } };
     }
 
-    // ━━━ Atomic claim: exact status + the seq the eligibility was read at. ━━━
+    // ━━━ Claim phase — ONE transaction: the order lease (bound to the
+    // exact status, the seq the eligibility was read at, AND no live
+    // status-transition lock) plus the durable in-progress attempt commit
+    // together or not at all. A crash between them can no longer leave an
+    // orphan lease without an attempt record. Provider calls stay OUTSIDE
+    // the transaction.
     const attemptId = randomUUID();
     const seqRead = order.notificationSeq ?? null;
-    const claimed = await Order.findOneAndUpdate(
-        {
-            _id: order._id,
-            status: order.status,
-            notificationSeq: seqRead,
-            $or: [
-                { activeNotificationAttempt: { $exists: false } },
-                { activeNotificationAttempt: null },
-            ],
-        },
-        { $set: { activeNotificationAttempt: attemptId } },
-        { new: true },
-    );
-    if (!claimed) return { ok: false, refusal: { code: 'STATE_CHANGED', httpStatus: 409 } };
-
-    const releaseLease = () =>
-        Order.updateOne(
-            { _id: order._id, activeNotificationAttempt: attemptId },
-            { $unset: { activeNotificationAttempt: 1 } },
-        ).catch(() => undefined);
-
-    // ━━━ Durable attempt BEFORE any provider call. ━━━
+    let claimed: IOrder;
     try {
-        await NotificationAttempt.create({
-            order: order._id,
-            forStatus: claimed.status,
-            attemptId,
-            channels: retryable,
-            status: 'in_progress',
-            actorId: options.actorId,
-            startedAt: new Date(),
+        claimed = await runRequiredTransaction(async (session) => {
+            const claimedOrder = await Order.findOneAndUpdate(
+                {
+                    _id: order._id,
+                    status: order.status,
+                    notificationSeq: seqRead,
+                    // Symmetric mutual exclusion: no live retry lease AND no
+                    // live status-transition lock ($and keeps the two $or
+                    // fragments from clobbering each other).
+                    $and: [notificationLeaseFreeFilter(), unlockedOrderFilter()],
+                },
+                { $set: { activeNotificationAttempt: attemptId } },
+                { new: true, session: session ?? null },
+            );
+            if (!claimedOrder) throw new ClaimConflictError();
+            try {
+                await NotificationAttempt.create(
+                    [{
+                        order: order._id,
+                        forStatus: claimedOrder.status,
+                        attemptId,
+                        channels: retryable,
+                        status: 'in_progress',
+                        actorId: options.actorId,
+                        startedAt: new Date(),
+                    }],
+                    { session },
+                );
+            } catch (err) {
+                if ((err as { code?: number }).code === 11000) throw new AttemptExistsError();
+                throw err;
+            }
+            return claimedOrder;
         });
     } catch (err) {
-        await releaseLease();
-        if ((err as { code?: number }).code === 11000) {
+        if (err instanceof ClaimConflictError) {
+            return { ok: false, refusal: { code: 'STATE_CHANGED', httpStatus: 409 } };
+        }
+        if (err instanceof AttemptExistsError) {
             return { ok: false, refusal: { code: 'RETRY_IN_PROGRESS', httpStatus: 429 } };
+        }
+        if (err instanceof TransactionsUnavailableError) {
+            return { ok: false, refusal: { code: 'TRANSACTIONS_UNAVAILABLE', httpStatus: 503 } };
         }
         throw err;
     }
@@ -214,28 +242,54 @@ export async function retryOrderNotification(
         };
     }
 
-    // ━━━ Finalize: attempt doc first (keyed by OUR attemptId), then the
-    // order lease/seq/timeline (guarded by OUR attemptId — a stale process
-    // can never finalize a newer attempt). ━━━
-    await NotificationAttempt.updateOne(
-        { attemptId, status: 'in_progress' },
-        { $set: { status: 'completed', results: attemptResults, finishedAt: new Date() } },
-    );
-    await Order.updateOne(
-        { _id: order._id, activeNotificationAttempt: attemptId },
-        {
-            $unset: { activeNotificationAttempt: 1 },
-            $inc: { notificationSeq: 1 },
-            $push: {
-                timeline: {
-                    type: 'customer_order_notification',
-                    at: new Date(),
-                    actorId: options.actorId,
-                    meta: { status: claimed.status, retry: true, attemptId, ...results },
+    // ━━━ Finalize phase — ONE transaction: complete the EXACT attemptId
+    // and update the order (timeline + seq + lease release) together. Both
+    // guarded writes must match; otherwise the transaction aborts, the
+    // attempt stays in_progress and is immediately marked `unknown` — a
+    // recoverable state, never "completed attempt + inconsistent order". ━━━
+    try {
+        await runRequiredTransaction(async (session) => {
+            const finalizedAttempt = await NotificationAttempt.findOneAndUpdate(
+                { attemptId, status: 'in_progress' },
+                { $set: { status: 'completed', results: attemptResults, finishedAt: new Date() } },
+                { new: true, session: session ?? null },
+            );
+            const finalizedOrder = await Order.findOneAndUpdate(
+                { _id: order._id, activeNotificationAttempt: attemptId },
+                {
+                    $unset: { activeNotificationAttempt: 1 },
+                    $inc: { notificationSeq: 1 },
+                    $push: {
+                        timeline: {
+                            type: 'customer_order_notification',
+                            at: new Date(),
+                            actorId: options.actorId,
+                            meta: { status: claimed.status, retry: true, attemptId, ...results },
+                        },
+                    },
                 },
-            },
-        },
-    );
+                { new: true, session: session ?? null },
+            );
+            if (!finalizedAttempt || !finalizedOrder) throw new StaleFinalizationError();
+        });
+    } catch (err) {
+        // The provider calls DID run — the outcome exists but could not be
+        // recorded consistently. Mark our attempt `unknown` (guarded by
+        // attemptId) so the next retry demands explicit confirmation.
+        await NotificationAttempt.updateOne(
+            { attemptId, status: 'in_progress' },
+            { $set: { status: 'unknown', finishedAt: new Date() } },
+        ).catch(() => undefined);
+        if (err instanceof StaleFinalizationError || err instanceof TransactionsUnavailableError) {
+            return {
+                ok: false,
+                refusal: err instanceof TransactionsUnavailableError
+                    ? { code: 'TRANSACTIONS_UNAVAILABLE', httpStatus: 503 }
+                    : { code: 'FINALIZATION_CONFLICT', httpStatus: 409 },
+            };
+        }
+        throw err;
+    }
 
     const sent = retryable.filter((c) => results[c] === 'sent').length;
     const outcome: RetryOutcome['outcome'] = sent === retryable.length

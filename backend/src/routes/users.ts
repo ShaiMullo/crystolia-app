@@ -13,6 +13,8 @@ import {
     approveRegistration,
     rejectRegistration,
     ensureCompanyFromSnapshot,
+    approvalLockFreeFilter,
+    registrationRetryLeaseFreeFilter,
 } from '../services/registrationService.js';
 import { sendRegistrationEmail } from '../services/registrationNotificationService.js';
 
@@ -281,7 +283,6 @@ router.post('/:id/reject-registration', protect, authorize('admin'), async (req:
 //    the email provider offers no documented idempotency key — the
 //    `unknown` state is the honest mitigation.
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-const REGISTRATION_RETRY_STALE_MS = 10 * 60 * 1000;
 
 router.post('/:id/resend-registration-email', protect, authorize('admin'), async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -316,11 +317,9 @@ router.post('/:id/resend-registration-email', protect, authorize('admin'), async
                 _id: user._id,
                 registrationStatus: user.registrationStatus,
                 [`registrationNotifications.${field}`]: current,
-                $or: [
-                    { 'registrationNotifications.retryAttemptId': { $exists: false } },
-                    { 'registrationNotifications.retryAttemptId': null },
-                    { 'registrationNotifications.retryStartedAt': { $lt: new Date(now.getTime() - REGISTRATION_RETRY_STALE_MS) } },
-                ],
+                // Symmetric mutual exclusion: no live retry lease AND no live
+                // approval/rejection lock ($and keeps the $or fragments intact).
+                $and: [registrationRetryLeaseFreeFilter(now), approvalLockFreeFilter(now)],
             },
             {
                 $set: {
@@ -341,11 +340,18 @@ router.post('/:id/resend-registration-email', protect, authorize('admin'), async
         const companyName = claimed.registrationCompany?.name
             || (claimed.company as any)?.name
             || undefined;
+        // Reason-sharing repeats the ORIGINAL rejection decision unless the
+        // admin explicitly overrides it in this request. Legacy records
+        // without the stored decision default to NOT sharing — the reason is
+        // never silently added or dropped.
+        const shareReason = typeof req.body?.shareReason === 'boolean'
+            ? req.body.shareReason
+            : (claimed.rejectionReasonShared ?? false);
+
         // sendRegistrationEmail records the final sent/failed/skipped itself.
         const emailResult = await sendRegistrationEmail(claimed, kind, {
             companyName,
-            // The stored reason is only re-shared when the admin asks for it.
-            reason: kind === 'rejected' && req.body?.shareReason === true ? claimed.rejectionReason : undefined,
+            reason: kind === 'rejected' && shareReason ? claimed.rejectionReason : undefined,
         });
 
         // Release the lease only if it is still OURS.

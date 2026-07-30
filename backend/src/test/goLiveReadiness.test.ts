@@ -98,7 +98,7 @@ describe('GET /api/v1/system/go-live', () => {
         const res = await request(app).get('/api/v1/system/go-live').set('Cookie', authCookieFor(admin));
         const integrations = res.body.data.integrations;
         // Test env: everything unconfigured (setup.ts strips provider env).
-        for (const key of ['email', 'sms', 'googleOauth', 'greenInvoice', 'errorTracking', 'uptimeAlerts']) {
+        for (const key of ['email', 'smsTransport', 'adminSmsRecipient', 'googleOauth', 'greenInvoice', 'errorTracking', 'uptimeAlerts']) {
             expect(integrations[key], key).toBe('not_configured');
         }
         // Config presence may only ever yield *_unverified — never 'verified'.
@@ -106,6 +106,29 @@ describe('GET /api/v1/system/go-live', () => {
         // External workflows are manual-check items, not claimed successes.
         expect(res.body.data.operations.backups.status).toBe('external_manual_check_required');
         expect(res.body.data.operations.uptimeMonitor.status).toBe('external_manual_check_required');
+    });
+
+    it('customer SMS readiness depends on the TRANSPORT, not the admin recipient', async () => {
+        const admin = await createAdmin();
+        const originalSms = { ...configRef.sms };
+        const originalAdminPhone = configRef.adminPhone;
+        try {
+            // Transport fully configured, but NO admin phone: customer SMS
+            // must show configured while the admin recipient shows missing.
+            configRef.sms.accountSid = 'ACtest';
+            configRef.sms.authToken = 'token';
+            configRef.sms.fromNumber = '+15550001111';
+            configRef.adminPhone = '';
+            const res = await request(app).get('/api/v1/system/go-live').set('Cookie', authCookieFor(admin));
+            expect(res.body.data.integrations.smsTransport).toBe('configured_unverified');
+            expect(res.body.data.integrations.adminSmsRecipient).toBe('not_configured');
+            const raw = JSON.stringify(res.body);
+            expect(raw).not.toContain('ACtest');
+            expect(raw).not.toContain('+15550001111');
+        } finally {
+            Object.assign(configRef.sms, originalSms);
+            configRef.adminPhone = originalAdminPhone;
+        }
     });
 
     it('Green Invoice sandbox mode is visible as sandbox, never production-ready', async () => {

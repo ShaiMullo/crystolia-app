@@ -13,6 +13,7 @@ import {
     approveRegistration,
     rejectRegistration,
     resendRegistrationEmail,
+    currentRegistrationEmail,
     notifyRegistrationsChanged,
     type RegistrationRequest,
     type RegistrationsPagination,
@@ -204,9 +205,11 @@ export default function RegistrationsPage() {
                     description={displayName(viewTarget)}
                     footer={
                         <div className="flex flex-wrap items-center justify-end gap-2">
-                            <Button variant="outline" onClick={() => resend(viewTarget)} disabled={busy}>
-                                {t("registrations.actions.resendEmail")}
-                            </Button>
+                            {currentRegistrationEmail(viewTarget).status !== "sent" && (
+                                <Button variant="outline" onClick={() => resend(viewTarget)} disabled={busy}>
+                                    {t("registrations.actions.resendEmail")}
+                                </Button>
+                            )}
                             {viewTarget.registrationStatus === "pending" && (
                                 <Button variant="danger" onClick={() => setRejectTarget(viewTarget)} disabled={busy}>
                                     {t("registrations.actions.reject")}

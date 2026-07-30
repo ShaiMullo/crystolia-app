@@ -756,7 +756,9 @@
         "sent": "נשלח",
         "failed": "נכשל",
         "skipped": "דולג (חסרה הגדרה)"
-      }
+      },
+      "finalizationConflict": "השליחה בוצעה אך רישום התוצאה נכשל — המצב סומן \"לא ידוע\". רעננו ובדקו לפני ניסיון נוסף.",
+      "transactionsUnavailable": "שגיאה תפעולית: נדרשות טרנזקציות בסיס-נתונים (ראו יומן שרת)."
     }
   },
   "invoices": {
@@ -1524,7 +1526,9 @@
         "configured_sandbox_unverified": "מוגדר במצב Sandbox — אינו מוכן לפרודקשן",
         "verified": "מאומת",
         "failed": "נכשל באימות"
-      }
+      },
+      "smsTransport": "תשתית SMS ללקוחות (Twilio)",
+      "adminSmsRecipient": "נמען SMS למנהל"
     },
     "goLiveLink": "מוכנות להפעלה"
   },

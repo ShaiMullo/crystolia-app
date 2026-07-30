@@ -9,6 +9,7 @@ import type { Tone } from "@/lib/status";
 import {
     registrationCompanyOf,
     registrationMethodOf,
+    currentRegistrationEmail,
     type NotificationStatus,
     type RegistrationRequest,
 } from "@/lib/registrationsApi";
@@ -44,9 +45,9 @@ export function RegistrationDetails({ registration, onRetryNotification, retryin
     const company = registrationCompanyOf(r);
     const notifications = r.registrationNotifications;
 
-    const currentKindKey = r.registrationStatus === "approved"
-        ? "approvedEmail"
-        : r.registrationStatus === "rejected" ? "rejectedEmail" : "pendingEmail";
+    // Shared helper — no pending fallback for approved/rejected requests.
+    const currentEmail = currentRegistrationEmail(r);
+    const currentKindKey = `${currentEmail.kind}Email`;
 
     const notificationRows: Array<{ key: string; label: string; status?: NotificationStatus; at?: string }> = [
         { key: "pendingEmail", label: t("registrations.details.pendingEmail"), status: notifications?.pendingEmailStatus, at: notifications?.pendingEmailAt },

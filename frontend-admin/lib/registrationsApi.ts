@@ -156,3 +156,26 @@ export async function resendRegistrationEmail(
     const res = await api.post(`/v1/users/${id}/resend-registration-email`, options);
     return res.data?.data;
 }
+
+// ── Current-status registration email ────────────────────────────────────────
+// THE single source of truth for "which email matches this registration's
+// current status, and what happened to it". No pending-email fallback: a
+// sent pending email must never make an unrecorded approval/rejection email
+// look delivered.
+export type RegistrationEmailKind = "pending" | "approved" | "rejected";
+
+export function currentRegistrationEmail(r: RegistrationRequest): {
+    kind: RegistrationEmailKind;
+    status?: NotificationStatus;
+    at?: string;
+} {
+    const n = r.registrationNotifications;
+    if (r.registrationStatus === "approved") {
+        return { kind: "approved", status: n?.approvedEmailStatus, at: n?.approvedEmailAt };
+    }
+    if (r.registrationStatus === "rejected") {
+        return { kind: "rejected", status: n?.rejectedEmailStatus, at: n?.rejectedEmailAt };
+    }
+    return { kind: "pending", status: n?.pendingEmailStatus, at: n?.pendingEmailAt };
+}
+

@@ -195,6 +195,10 @@ export default function OrderDetailPage() {
                 toast.error(t("orders.notifications.retryInProgress"));
             } else if (code === "STATE_CHANGED") {
                 toast.error(t("orders.errors.concurrentChange"));
+            } else if (code === "FINALIZATION_CONFLICT") {
+                toast.error(t("orders.notifications.finalizationConflict"));
+            } else if (code === "TRANSACTIONS_UNAVAILABLE") {
+                toast.error(t("orders.notifications.transactionsUnavailable"));
             } else if (e.response?.status === 409) {
                 toast.error(t("orders.notifications.retryNothing"));
             } else {

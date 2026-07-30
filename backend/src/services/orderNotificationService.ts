@@ -104,10 +104,12 @@ export async function sendCustomerOrderNotification(
             .lean();
     }
 
-    if (!customer?.email) {
+    // Channels are INDEPENDENT: a missing email must not prevent the SMS
+    // (and vice versa). Only a missing customer record fails both.
+    if (!customer) {
         const results: { email?: SendEmailResult; sms?: SendSmsResult } = {};
-        if (channels.includes('email')) results.email = { success: false, error: 'Customer email missing' };
-        if (channels.includes('sms')) results.sms = { success: false, error: 'Customer phone missing' };
+        if (channels.includes('email')) results.email = { success: false, error: 'Customer record missing' };
+        if (channels.includes('sms')) results.sms = { success: false, error: 'Customer record missing' };
         return results;
     }
 
@@ -129,16 +131,18 @@ export async function sendCustomerOrderNotification(
 
     const [email, sms] = await Promise.all([
         channels.includes('email')
-            ? sendOrderStatusEmail({
-                to: customer.email,
-                name: customer.name,
-                locale,
-                orderId: order._id.toString(),
-                status,
-                totalAmount: order.totalAmount,
-                rejectionReason: order.rejectionReason,
-                payment,
-            })
+            ? (customer.email
+                ? sendOrderStatusEmail({
+                    to: customer.email,
+                    name: customer.name,
+                    locale,
+                    orderId: order._id.toString(),
+                    status,
+                    totalAmount: order.totalAmount,
+                    rejectionReason: order.rejectionReason,
+                    payment,
+                })
+                : Promise.resolve({ success: false, error: 'Customer email missing' } as SendEmailResult))
             : Promise.resolve(undefined),
         channels.includes('sms')
             ? (customer.phone

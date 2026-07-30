@@ -33,6 +33,8 @@ import {
 } from '../db/withTransaction.js';
 import { invoiceIndexReadiness } from '../db/indexReadiness.js';
 import { paymentConfigError } from '../utils/paymentOptions.js';
+import { unlockedOrderFilter as lockFreeFilter, notificationLeaseFreeFilter } from './orderLocks.js';
+import { resolveStaleAttempts } from './orderNotificationRetryService.js';
 
 export type OrderStatus = IOrder['status'];
 
@@ -66,25 +68,10 @@ function hasActiveReservation(order: IOrder, previousStatus: OrderStatus): boole
     return previousStatus === 'approved';
 }
 
-// A crashed process on the NON-transactional path must not leave an order
-// permanently locked (the transactional path aborts its lock atomically).
-const LOCK_TTL_MS = 2 * 60 * 1000;
-
-/**
- * Query fragment matching orders with NO live status-transition lock.
- * Exported so other order mutations (e.g. CRM item edits) can atomically
- * require "not currently transitioning" in their own update filters.
- */
-export function unlockedOrderFilter(now = new Date()) {
-    const staleBefore = new Date(now.getTime() - LOCK_TTL_MS);
-    return {
-        $or: [
-            { statusLockAt: { $exists: false } },
-            { statusLockAt: null },
-            { statusLockAt: { $lt: staleBefore } },
-        ],
-    };
-}
+// Lock fragments live in orderLocks.ts (shared with the notification-retry
+// workflow for symmetric mutual exclusion). Re-exported for existing
+// consumers (crmOrders item edits).
+export { unlockedOrderFilter } from './orderLocks.js';
 
 class TransitionConflictError extends Error {
     constructor() {
@@ -160,7 +147,11 @@ async function performTransition(
         {
             _id: input.orderId,
             status: from,
-            ...unlockedOrderFilter(now),
+            // Symmetric mutual exclusion with the notification-retry
+            // workflow: a transition may not start while a retry holds its
+            // lease (and the retry claim requires no live status lock).
+            // $and keeps the two $or fragments from clobbering each other.
+            $and: [lockFreeFilter(now), notificationLeaseFreeFilter()],
         },
         { $set: { statusLockAt: now } },
         { new: true, session: session ?? null },
@@ -347,6 +338,11 @@ export async function changeOrderStatus(input: StatusChangeInput): Promise<Statu
 
     const orderPre = await Order.findById(input.orderId);
     if (!orderPre) return { ok: false, httpStatus: 404, error: 'Order not found' };
+
+    // A crashed retry (stale in-progress attempt still holding the order's
+    // notification lease) must not block transitions forever — resolve it
+    // to `unknown` first; FRESH leases still exclude us below.
+    await resolveStaleAttempts(orderPre._id);
 
     if (to === 'approved') {
         // An approval sends the customer their selected payment

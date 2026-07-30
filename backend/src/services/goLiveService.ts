@@ -13,7 +13,7 @@ import { transactionReadiness } from '../db/transactionReadiness.js';
 import { invoiceIndexReadiness } from '../db/indexReadiness.js';
 import { getPaymentMethodsStatus } from './payments/paymentStatusService.js';
 import { isEmailConfigured } from './emailService.js';
-import { isSmsConfigured } from './smsService.js';
+import { isSmsTransportConfigured } from './smsService.js';
 import { config } from '../config/index.js';
 
 /**
@@ -102,7 +102,11 @@ export async function getGoLiveReadiness() {
         // credentials is never shown as "verified".
         integrations: {
             email: presenceState(isEmailConfigured()),
-            sms: presenceState(isSmsConfigured()),
+            // Customer SMS depends on the TRANSPORT (credentials + sender)
+            // only; the admin recipient is a separate concern — a missing
+            // admin phone must not report customer SMS as unconfigured.
+            smsTransport: presenceState(isSmsTransportConfigured()),
+            adminSmsRecipient: presenceState(Boolean(config.adminPhone)),
             whatsapp: presenceState(Boolean(config.whatsapp.instanceId && config.whatsapp.token)),
             googleOauth: presenceState(Boolean(config.google.clientId && config.google.clientSecret)),
             greenInvoice: greenInvoiceConfigured
