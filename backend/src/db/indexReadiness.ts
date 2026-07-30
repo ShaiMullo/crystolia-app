@@ -12,6 +12,9 @@ import Invoice from '../models/Invoice.js';
 
 export interface IndexReadiness {
     ready: boolean;
+    /** Stable machine-readable code — safe to expose on /api/ready. */
+    code?: string;
+    /** Sanitized human hint — NEVER contains raw driver errors. */
     reason?: string;
 }
 
@@ -34,14 +37,20 @@ async function checkNow(): Promise<IndexReadiness> {
         if (!orderIndex) {
             return {
                 ready: false,
-                reason: 'unique partial index on Invoice.order is missing',
+                code: 'INVOICE_ORDER_INDEX_MISSING',
+                reason: 'The invoice uniqueness index is missing — see server logs',
             };
         }
         return { ready: true };
     } catch (err) {
+        // The raw driver error can contain index names, duplicate key VALUES
+        // and database identifiers — log it server-side, expose a stable
+        // sanitized code/message only.
+        console.error('🚨 Invoice.order unique index build failed:', (err as Error).message);
         return {
             ready: false,
-            reason: `Invoice.order unique index could not be built: ${(err as Error).message}`,
+            code: 'INVOICE_ORDER_INDEX_UNAVAILABLE',
+            reason: 'The invoice uniqueness index could not be built (likely duplicate legacy invoices) — see server logs',
         };
     }
 }

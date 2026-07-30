@@ -21,6 +21,7 @@ import {
     isCustomerNotifiableStatus,
     notifyCustomerOfOrderStatus,
 } from '../services/orderNotificationService.js';
+import { retryOrderNotification } from '../services/orderNotificationRetryService.js';
 
 const router = Router();
 router.use(protect);
@@ -198,6 +199,48 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
             data: order.toObject(),
             ...(approvalError ? { approvalError } : {}),
         });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// ━━ POST /api/crm/orders/:id/notifications/retry - per-channel retry of
+// the customer notification for the order's CURRENT status. Only channels
+// whose latest delivery failed/was skipped are re-sent; `unknown` delivery
+// (crash mid-send) additionally requires body.confirmUnknown=true. Claim,
+// crash and concurrency semantics live in orderNotificationRetryService.
+router.post('/:id/notifications/retry', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        if (!validate.objectId(req.params.id)) throw new AppError('Invalid Order ID', 400);
+        const order = await Order.findById(req.params.id);
+        if (!order) throw new AppError('Order not found', 404);
+
+        const outcome = await retryOrderNotification(order, {
+            actorId: req.user?._id?.toString(),
+            confirmUnknown: req.body?.confirmUnknown === true,
+        });
+
+        if (!outcome.ok) {
+            return res.status(outcome.refusal.httpStatus).json({
+                success: false,
+                error: outcome.refusal.code,
+            });
+        }
+
+        await logAudit({
+            action: 'NOTIFICATION_RETRY',
+            entity: 'Order',
+            entityId: order._id.toString(),
+            req,
+            details: {
+                status: order.status,
+                attempted: outcome.result.attempted,
+                results: outcome.result.results,
+                outcome: outcome.result.outcome,
+            },
+        });
+
+        res.json({ success: true, data: outcome.result });
     } catch (err) {
         next(err);
     }

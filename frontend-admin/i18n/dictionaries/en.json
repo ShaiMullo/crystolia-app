@@ -535,7 +535,14 @@
       "failed": "Failed",
       "skipped": "Not configured",
       "email": "Email",
-      "sms": "SMS"
+      "sms": "SMS",
+      "unknown": "Unknown",
+      "retry": "Retry",
+      "retrySent": "Email re-sent successfully",
+      "retryFailedAgain": "Retry failed — check the email configuration",
+      "retryInProgress": "A retry is already in progress — wait a moment",
+      "retryNothing": "Nothing to resend — the last email was delivered",
+      "unknownConfirm": "The previous delivery outcome is unknown (the email may already have been delivered). Retrying may create a duplicate. Continue?"
     },
     "filters": {
       "status": "Status",
@@ -724,6 +731,34 @@
     "paymentMethods": {
       "bank_transfer": "Bank transfer",
       "credit_card": "Credit card"
+    },
+    "errors": {
+      "cardProviderMissing": "Cannot approve a card order: no verified card provider is connected. Ask the customer to switch to bank transfer, or integrate a real provider.",
+      "paymentConfigBlocked": "Approval blocked: the selected payment method's configuration is invalid. Check Settings → Payment methods.",
+      "insufficientStock": "Approval blocked: not enough available stock. Details:",
+      "concurrentChange": "The order was updated by another request — reload the page and try again.",
+      "transactionsUnavailable": "Operational error: the database does not support transactions (see server log)."
+    },
+    "notifications": {
+      "retryNotification": "Retry customer notification",
+      "retrySuccess": "Notification re-sent successfully",
+      "retryNothing": "No failed notification to retry",
+      "retryInProgress": "A retry is already in progress — wait a moment",
+      "lastNotificationFailed": "The last customer notification failed (email or SMS)",
+      "retryPartial": "Partially sent — some channels failed",
+      "retryFailed": "Retry failed on every channel",
+      "unknownConfirm": "The previous delivery outcome is unknown (the message may already have been delivered). Retrying may create a duplicate. Continue?",
+      "channel": {
+        "email": "Email",
+        "sms": "SMS"
+      },
+      "result": {
+        "sent": "sent",
+        "failed": "failed",
+        "skipped": "skipped (not configured)"
+      },
+      "finalizationConflict": "The send ran but recording its result failed — state marked \"unknown\". Reload and check before retrying.",
+      "transactionsUnavailable": "Operational error: database transactions are required (see server log)."
     }
   },
   "invoices": {
@@ -914,7 +949,7 @@
       "iban": "IBAN (optional)",
       "cardEnabled": "Enable credit-card payment",
       "paymentUrl": "Secure payment URL",
-      "paymentUrlHint": "Enter an HTTPS link from the payment provider. A unique link per order requires the provider's API.",
+      "paymentUrlHint": "Future provider field. A static link is NOT an active integration — customers will not see card payment until a verified provider is connected.",
       "cardUrlRequired": "Enabling credit-card payment requires an HTTPS provider URL",
       "cardUrlDemo": "The demo payment page is not a real provider and cannot be saved. Enter a real provider URL or disable the card method.",
       "cardStatusNotConfigured": "Not configured — customers will not see a card option until a valid provider URL is set",
@@ -1441,7 +1476,61 @@
   "system": {
     "pageTitle": "System",
     "pageSubtitle": "Operational health, scheduled jobs and diagnostics.",
-    "loading": "Loading system status…"
+    "loading": "Loading system status…",
+    "goLive": {
+      "title": "Go-Live Readiness",
+      "subtitle": "One snapshot: what is ready, what is missing, and where to fix it",
+      "platform": "Platform & database",
+      "transactions": "MongoDB transactions (order & inventory processing)",
+      "topology": "Topology",
+      "invoiceIndex": "Unique invoice-per-order index",
+      "payments": "Payment methods",
+      "bankTransfer": "Bank transfer",
+      "bankConfigured": "Configured — verify the details are the REAL account before going live",
+      "bankMissing": "Bank details missing",
+      "creditCard": "Credit card",
+      "creditCardUnavailable": "Unavailable — no verified card provider is connected. Customers do not see this option.",
+      "creditCardEnabledWarning": "The \"enabled\" flag is still stored in Settings but has no customer effect. Consider turning it off until a real provider is integrated.",
+      "stock": "Stock",
+      "stockSummary": "{ready} of {tracked} tracked products ready ({active} active products)",
+      "stockReady": "Opening stock for every tracked product",
+      "stockNotReadyHint": "Approving orders for products without available stock will be blocked",
+      "openInventory": "Open Inventory",
+      "openSettings": "Open Settings",
+      "sku": "SKU",
+      "product": "Product",
+      "status": "Status",
+      "noInventoryRow": "No inventory row",
+      "zeroAvailable": "Zero available",
+      "integrations": "Integrations",
+      "email": "Transactional email",
+      "sms": "SMS",
+      "googleOauth": "Google sign-in",
+      "accounting": "Accounting (Green Invoice)",
+      "errorTracking": "Error tracking",
+      "uptimeAlerts": "Uptime alerts",
+      "notConfigured": "Not configured",
+      "ownerDecision": "Awaiting owner decision (provider/channel)",
+      "operations": "Operations",
+      "checkedAt": "Checked",
+      "integrationsHonesty": "Credential presence is not proof of correctness: \"configured\" is not \"verified\". Green appears only after real verification.",
+      "bankOwnerVerificationRequired": "Details are saved in Settings, but owner verification that these are the REAL account details is required (demo values may exist)",
+      "backupsLine": "Daily backup via GitHub Actions ({workflow})",
+      "uptimeLine": "Uptime monitoring every 5 minutes via GitHub Actions ({workflow})",
+      "opStatus": {
+        "external_manual_check_required": "Managed outside the app — manually verify the latest run is green"
+      },
+      "states": {
+        "not_configured": "Not configured",
+        "configured_unverified": "Configured — not yet verified in practice",
+        "configured_sandbox_unverified": "Configured in sandbox mode — not production-ready",
+        "verified": "Verified",
+        "failed": "Verification failed"
+      },
+      "smsTransport": "Customer SMS transport (Twilio)",
+      "adminSmsRecipient": "Admin SMS recipient"
+    },
+    "goLiveLink": "Go-Live Readiness"
   },
   "health": {
     "title": "Health score",

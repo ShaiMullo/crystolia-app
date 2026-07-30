@@ -48,6 +48,14 @@ export interface IOrder extends Document, ISyncable {
      *  atomically claim this lock (see orderStatusService). Stale locks
      *  (crashed process) expire after a TTL. */
     statusLockAt?: Date;
+    /** attemptId of the notification retry currently holding the order's
+     *  retry lease (see routes/crmOrders.ts) — cleared on finalize by the
+     *  SAME attempt only. */
+    activeNotificationAttempt?: string;
+    /** Increments on every finalized notification write; retry claims bind
+     *  to the value they read, so a retry completed in between invalidates
+     *  the claim. */
+    notificationSeq?: number;
     rejectionReason?: string;
     notes?: string;
     timeline: IOrderTimelineEvent[];
@@ -108,6 +116,12 @@ const OrderSchema = new Schema<IOrder>(
         },
         statusLockAt: {
             type: Date,
+        },
+        activeNotificationAttempt: {
+            type: String,
+        },
+        notificationSeq: {
+            type: Number,
         },
         clientRequestId: {
             type: String,

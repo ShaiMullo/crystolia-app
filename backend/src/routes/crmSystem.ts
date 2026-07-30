@@ -14,6 +14,7 @@ import { validate, AppError } from '../utils/validation.js';
 import { logAudit } from '../services/auditService.js';
 import { reconciliationStatus } from '../services/reconciliationService.js';
 import { getReplicaDiagnostics } from '../services/diagnosticsService.js';
+import { getGoLiveReadiness } from '../services/goLiveService.js';
 import { createBackupManifest, verifyBackupManifest, listBackupManifests } from '../services/backupService.js';
 import { runJobNow, JOB_DEFINITIONS } from '../jobs/scheduler.js';
 import { resetRateLimitStore } from '../middleware/rateLimit.js';
@@ -22,6 +23,16 @@ import { config } from '../config/index.js';
 const router = Router();
 router.use(protect);
 router.use(authorize('admin'));
+
+// ━━ GET /api/crm/system/go-live - full go-live readiness snapshot
+// Secret-free by design: booleans, counts, SKU lists and issue texts only.
+router.get('/go-live', async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        res.json({ success: true, data: await getGoLiveReadiness() });
+    } catch (err) {
+        next(err);
+    }
+});
 
 // ━━ GET /api/crm/system/health - aggregate operational health
 router.get('/health', async (_req: Request, res: Response, next: NextFunction) => {

@@ -32,6 +32,31 @@ export type RejectOutcome =
     | { status: 'not_found' };
 
 const APPROVAL_LOCK_TTL_MS = 2 * 60 * 1000;
+const REGISTRATION_RETRY_LEASE_TTL_MS = 10 * 60 * 1000;
+
+/** No live approval/rejection lock (stale locks pass). Shared with the
+ *  registration-email retry so the two workflows exclude each other. */
+export function approvalLockFreeFilter(now = new Date()) {
+    const staleBefore = new Date(now.getTime() - APPROVAL_LOCK_TTL_MS);
+    return {
+        $or: [
+            { approvalLock: { $exists: false } },
+            { approvalInProgressAt: { $lt: staleBefore } },
+        ],
+    };
+}
+
+/** No live registration-email retry lease (stale leases pass). */
+export function registrationRetryLeaseFreeFilter(now = new Date()) {
+    const staleBefore = new Date(now.getTime() - REGISTRATION_RETRY_LEASE_TTL_MS);
+    return {
+        $or: [
+            { 'registrationNotifications.retryAttemptId': { $exists: false } },
+            { 'registrationNotifications.retryAttemptId': null },
+            { 'registrationNotifications.retryStartedAt': { $lt: staleBefore } },
+        ],
+    };
+}
 
 /**
  * Create the Company from the registration snapshot and link it, if the user
@@ -170,17 +195,15 @@ export async function approveRegistration(
     // avoids a crash window where a user could sign in with no linked Company.
     const lock = crypto.randomUUID();
     const now = new Date();
-    const staleBefore = new Date(now.getTime() - APPROVAL_LOCK_TTL_MS);
     const claimed = await User.findOneAndUpdate(
         {
             _id: userId,
             role: 'customer',
             isDeleted: { $ne: true },
             registrationStatus: { $in: ['pending', 'rejected'] },
-            $or: [
-                { approvalLock: { $exists: false } },
-                { approvalInProgressAt: { $lt: staleBefore } },
-            ],
+            // Symmetric mutual exclusion with the registration-email retry:
+            // approval may not start while a retry lease is live.
+            $and: [approvalLockFreeFilter(now), registrationRetryLeaseFreeFilter(now)],
         },
         {
             $set: {
@@ -267,7 +290,7 @@ export async function rejectRegistration(
     options: RejectOptions = {},
 ): Promise<RejectOutcome> {
     const reason = options.reason?.trim().slice(0, 1000) || undefined;
-    const staleBefore = new Date(Date.now() - APPROVAL_LOCK_TTL_MS);
+    const now = new Date();
 
     const claimed = await User.findOneAndUpdate(
         {
@@ -275,10 +298,8 @@ export async function rejectRegistration(
             role: 'customer',
             isDeleted: { $ne: true },
             registrationStatus: 'pending',
-            $or: [
-                { approvalLock: { $exists: false } },
-                { approvalInProgressAt: { $lt: staleBefore } },
-            ],
+            // Symmetric mutual exclusion with the registration-email retry.
+            $and: [approvalLockFreeFilter(now), registrationRetryLeaseFreeFilter(now)],
         },
         {
             $set: {
@@ -287,6 +308,9 @@ export async function rejectRegistration(
                 rejectedAt: new Date(),
                 rejectedBy: adminId,
                 ...(reason ? { rejectionReason: reason } : {}),
+                // Persist the sharing DECISION so a later retry repeats it
+                // exactly — never silently adds or omits the reason.
+                rejectionReasonShared: options.shareReason === true,
             },
             $unset: { approvalLock: 1, approvalInProgressAt: 1 },
             // Defense in depth: invalidate any token that may somehow exist.

@@ -29,7 +29,7 @@ import { PaymentModal } from "@/components/payments/PaymentModal";
 import { RejectOrderDialog } from "@/components/orders/RejectOrderDialog";
 import { useAdminI18n } from "@/i18n/I18nProvider";
 import { formatCurrency, formatDateTime, shortId } from "@/lib/format";
-import { getOrder, updateOrder, type OrderUpsertPayload } from "@/lib/ordersApi";
+import { getOrder, updateOrder, retryOrderNotification, type OrderUpsertPayload } from "@/lib/ordersApi";
 import { listCustomers } from "@/lib/customersApi";
 import { listProducts } from "@/lib/inventoryApi";
 import type { Locale } from "@/i18n";
@@ -90,6 +90,24 @@ export default function OrderDetailPage() {
         };
     }, []);
 
+    // Backend refusals arrive as English operational messages; map the known
+    // ones to localized admin copy while KEEPING the actionable detail (the
+    // exact SKU) that the backend includes.
+    const localizeOrderError = useCallback((raw?: string): string => {
+        if (!raw) return t("orders.toasts.statusFailed");
+        if (raw.includes("No verified card payment provider")) return t("orders.errors.cardProviderMissing");
+        if (raw.includes("stock reservation failed") || raw.includes("stock deduction failed")) {
+            const detail = raw.replace(/^Cannot (approve|ship): stock (reservation|deduction) failed\s*/, "");
+            return `${t("orders.errors.insufficientStock")} ${detail}`;
+        }
+        if (raw.startsWith("Cannot approve:")) return t("orders.errors.paymentConfigBlocked");
+        if (raw.includes("being processed by another request") || raw.includes("status changed")) {
+            return t("orders.errors.concurrentChange");
+        }
+        if (raw.includes("replica set")) return t("orders.errors.transactionsUnavailable");
+        return raw;
+    }, [t]);
+
     const handleStatusChange = async (status: OrderStatus) => {
         if (!order || status === order.status) return;
         if (status === "rejected") {
@@ -103,7 +121,7 @@ export default function OrderDetailPage() {
             await fetchOrder();
         } catch (err: unknown) {
             const e = err as { response?: { data?: { error?: string; message?: string } } };
-            toast.error(e.response?.data?.error || e.response?.data?.message || t("orders.toasts.statusFailed"));
+            toast.error(localizeOrderError(e.response?.data?.error || e.response?.data?.message));
         } finally {
             setSavingStatus(false);
         }
@@ -119,9 +137,75 @@ export default function OrderDetailPage() {
             await fetchOrder();
         } catch (err: unknown) {
             const e = err as { response?: { data?: { error?: string; message?: string } } };
-            toast.error(e.response?.data?.error || e.response?.data?.message || t("orders.toasts.statusFailed"));
+            toast.error(localizeOrderError(e.response?.data?.error || e.response?.data?.message));
         } finally {
             setSavingStatus(false);
+        }
+    };
+
+    // Per-channel: walk the timeline newest-first and take the FIRST value
+    // seen for each channel (a retry entry may cover only one channel). The
+    // button is offered when any channel's latest state is not "sent".
+    const notificationRetryAvailable = React.useMemo(() => {
+        const state: { email?: string; sms?: string } = {};
+        const timeline = order?.timeline ?? [];
+        for (let i = timeline.length - 1; i >= 0; i -= 1) {
+            const event = timeline[i];
+            if (event.type !== "customer_order_notification") continue;
+            const meta = event.meta as { status?: string; email?: string; sms?: string } | undefined;
+            if (meta?.status !== order?.status) continue;
+            if (state.email === undefined && meta?.email) state.email = meta.email;
+            if (state.sms === undefined && meta?.sms) state.sms = meta.sms;
+            if (state.email !== undefined && state.sms !== undefined) break;
+        }
+        const values = [state.email, state.sms].filter(Boolean);
+        return values.length > 0 && values.some((v) => v !== "sent");
+    }, [order]);
+
+    const [retrying, setRetrying] = useState(false);
+    const handleRetryNotification = async (confirmUnknown = false) => {
+        if (!order || retrying) return;
+        setRetrying(true);
+        try {
+            const result = await retryOrderNotification(order._id, confirmUnknown ? { confirmUnknown } : {});
+            const summary = result.attempted
+                .map((c) => `${t(`orders.notifications.channel.${c}`)}: ${t(`orders.notifications.result.${result.results[c] ?? "failed"}`)}`)
+                .join(", ");
+            // Honest outcome mapping: green only when EVERYTHING requested
+            // was sent; amber for partial; red when nothing went out.
+            if (result.outcome === "success") {
+                toast.success(`${t("orders.notifications.retrySuccess")} (${summary})`);
+            } else if (result.outcome === "partial") {
+                toast(`${t("orders.notifications.retryPartial")} (${summary})`, { icon: "⚠️" });
+            } else {
+                toast.error(`${t("orders.notifications.retryFailed")} (${summary})`);
+            }
+            await fetchOrder();
+        } catch (err: unknown) {
+            const e = err as { response?: { status?: number; data?: { error?: string; message?: string } } };
+            const code = e.response?.data?.error;
+            if (code === "UNKNOWN_DELIVERY_CONFIRM_REQUIRED") {
+                // Possible duplication — require an explicit admin decision.
+                if (window.confirm(t("orders.notifications.unknownConfirm"))) {
+                    setRetrying(false);
+                    await handleRetryNotification(true);
+                    return;
+                }
+            } else if (e.response?.status === 429) {
+                toast.error(t("orders.notifications.retryInProgress"));
+            } else if (code === "STATE_CHANGED") {
+                toast.error(t("orders.errors.concurrentChange"));
+            } else if (code === "FINALIZATION_CONFLICT") {
+                toast.error(t("orders.notifications.finalizationConflict"));
+            } else if (code === "TRANSACTIONS_UNAVAILABLE") {
+                toast.error(t("orders.notifications.transactionsUnavailable"));
+            } else if (e.response?.status === 409) {
+                toast.error(t("orders.notifications.retryNothing"));
+            } else {
+                toast.error(e.response?.data?.message || t("orders.toasts.statusFailed"));
+            }
+        } finally {
+            setRetrying(false);
         }
     };
 
@@ -210,6 +294,18 @@ export default function OrderDetailPage() {
                         {editable && (
                             <Button size="sm" iconStart={<Pencil size={14} />} onClick={() => setEditOpen(true)}>
                                 {t("common.edit")}
+                            </Button>
+                        )}
+                        {notificationRetryAvailable && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                iconStart={<Activity size={14} />}
+                                onClick={() => handleRetryNotification()}
+                                disabled={retrying}
+                                title={t("orders.notifications.lastNotificationFailed")}
+                            >
+                                {t("orders.notifications.retryNotification")}
                             </Button>
                         )}
                     </>

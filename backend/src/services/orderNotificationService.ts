@@ -68,10 +68,28 @@ export async function notifyAdminOfNewOrder(order: IOrder): Promise<SendSmsResul
     return sendSms(config.adminPhone, message);
 }
 
+export type CustomerNotificationChannel = 'email' | 'sms';
+
 export async function notifyCustomerOfOrderStatus(
     order: IOrder,
     status: CustomerNotifiableStatus,
 ): Promise<{ email: SendEmailResult; sms: SendSmsResult }> {
+    const results = await sendCustomerOrderNotification(order, status, ['email', 'sms']);
+    return {
+        email: results.email ?? { success: false, error: 'Channel not attempted' },
+        sms: results.sms ?? { success: false, error: 'Channel not attempted' },
+    };
+}
+
+/**
+ * Channel-selective variant used by the admin retry action: sends ONLY the
+ * requested channels, so a channel already delivered is never duplicated.
+ */
+export async function sendCustomerOrderNotification(
+    order: IOrder,
+    status: CustomerNotifiableStatus,
+    channels: ReadonlyArray<CustomerNotificationChannel>,
+): Promise<{ email?: SendEmailResult; sms?: SendSmsResult }> {
     let customer = await User.findById(order.createdBy)
         .select('name email phone preferredLocale role isActive')
         .lean();
@@ -86,11 +104,13 @@ export async function notifyCustomerOfOrderStatus(
             .lean();
     }
 
-    if (!customer?.email) {
-        return {
-            email: { success: false, error: 'Customer email missing' },
-            sms: { success: false, error: 'Customer phone missing' },
-        };
+    // Channels are INDEPENDENT: a missing email must not prevent the SMS
+    // (and vice versa). Only a missing customer record fails both.
+    if (!customer) {
+        const results: { email?: SendEmailResult; sms?: SendSmsResult } = {};
+        if (channels.includes('email')) results.email = { success: false, error: 'Customer record missing' };
+        if (channels.includes('sms')) results.sms = { success: false, error: 'Customer record missing' };
+        return results;
     }
 
     const locale = (customer.preferredLocale || 'he') as EmailLocale;
@@ -110,32 +130,41 @@ export async function notifyCustomerOfOrderStatus(
     }
 
     const [email, sms] = await Promise.all([
-        sendOrderStatusEmail({
-            to: customer.email,
-            name: customer.name,
-            locale,
-            orderId: order._id.toString(),
-            status,
-            totalAmount: order.totalAmount,
-            rejectionReason: order.rejectionReason,
-            payment,
-        }),
-        customer.phone
-            ? sendSms(customer.phone, buildOrderStatusNotificationSms({
-                customerName: customer.name,
-                orderId: shortId,
-                statusLabel: HEBREW_STATUS[status],
-                status,
-                totalAmount: order.totalAmount,
-                dashboardUrl,
-                rejectionReason: order.rejectionReason,
-                paymentMethodLabel: order.paymentPreference
-                    ? PAYMENT_METHOD_HEBREW[order.paymentPreference]
-                    : undefined,
-            }))
-            : Promise.resolve({ success: false, error: 'Customer phone missing' }),
+        channels.includes('email')
+            ? (customer.email
+                ? sendOrderStatusEmail({
+                    to: customer.email,
+                    name: customer.name,
+                    locale,
+                    orderId: order._id.toString(),
+                    status,
+                    totalAmount: order.totalAmount,
+                    rejectionReason: order.rejectionReason,
+                    payment,
+                })
+                : Promise.resolve({ success: false, error: 'Customer email missing' } as SendEmailResult))
+            : Promise.resolve(undefined),
+        channels.includes('sms')
+            ? (customer.phone
+                ? sendSms(customer.phone, buildOrderStatusNotificationSms({
+                    customerName: customer.name,
+                    orderId: shortId,
+                    statusLabel: HEBREW_STATUS[status],
+                    status,
+                    totalAmount: order.totalAmount,
+                    dashboardUrl,
+                    rejectionReason: order.rejectionReason,
+                    paymentMethodLabel: order.paymentPreference
+                        ? PAYMENT_METHOD_HEBREW[order.paymentPreference]
+                        : undefined,
+                }))
+                : Promise.resolve({ success: false, error: 'Customer phone missing' } as SendSmsResult))
+            : Promise.resolve(undefined),
     ]);
-    return { email, sms };
+    const results: { email?: SendEmailResult; sms?: SendSmsResult } = {};
+    if (email !== undefined) results.email = email;
+    if (sms !== undefined) results.sms = sms;
+    return results;
 }
 
 export function isCustomerNotifiableStatus(status: string): status is CustomerNotifiableStatus {

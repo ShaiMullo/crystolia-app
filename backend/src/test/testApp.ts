@@ -20,6 +20,7 @@ import crmInventoryRouter from '../routes/crmInventory.js';
 import crmNotificationsRouter from '../routes/crmNotifications.js';
 import crmOrdersRouter from '../routes/crmOrders.js';
 import crmPurchaseOrdersRouter from '../routes/crmPurchaseOrders.js';
+import crmSystemRouter from '../routes/crmSystem.js';
 import settingsRouter from '../routes/settings.js';
 import paymentWebhooksRouter from '../routes/paymentWebhooks.js';
 import { readyHandler } from '../routes/ready.js';
@@ -72,6 +73,7 @@ export function buildTestApp(): Express {
     app.use('/api/v1/notifications', crmNotificationsRouter);
     app.use('/api/v1/orders', crmOrdersRouter);
     app.use('/api/v1/purchase-orders', crmPurchaseOrdersRouter);
+    app.use('/api/v1/system', crmSystemRouter);
     app.get('/api/ready', readyHandler);
     app.use('/api/settings', settingsRouter);
     app.use('/api/v1/settings', settingsRouter);

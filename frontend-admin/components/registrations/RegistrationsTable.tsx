@@ -22,13 +22,14 @@ import type { Tone } from "@/lib/status";
 import {
     registrationCompanyOf,
     registrationMethodOf,
+    currentRegistrationEmail,
     type NotificationStatus,
     type RegistrationRequest,
 } from "@/lib/registrationsApi";
 import { UserAvatar } from "@/components/users/UserAvatar";
 
 const STATUS_TONE: Record<string, Tone> = { pending: "warning", approved: "success", rejected: "danger" };
-const NOTIFICATION_TONE: Record<NotificationStatus, Tone> = { sent: "success", failed: "danger", skipped: "neutral" };
+const NOTIFICATION_TONE: Record<NotificationStatus, Tone> = { sent: "success", failed: "danger", skipped: "neutral", unknown: "warning" };
 
 interface RegistrationsTableProps {
     registrations: RegistrationRequest[];
@@ -39,13 +40,10 @@ interface RegistrationsTableProps {
     onResendEmail: (r: RegistrationRequest) => void;
 }
 
-/** Latest customer-facing email outcome for the request's current status. */
+/** Latest customer-facing email outcome for the request's current status —
+ *  shared helper, deliberately WITHOUT a pending-email fallback. */
 function emailStatusOf(r: RegistrationRequest): NotificationStatus | undefined {
-    const n = r.registrationNotifications;
-    if (!n) return undefined;
-    if (r.registrationStatus === "approved") return n.approvedEmailStatus ?? n.pendingEmailStatus;
-    if (r.registrationStatus === "rejected") return n.rejectedEmailStatus ?? n.pendingEmailStatus;
-    return n.pendingEmailStatus;
+    return currentRegistrationEmail(r).status;
 }
 
 /**
@@ -142,13 +140,15 @@ export function RegistrationsTable({
                                                 aria-label={t("registrations.actions.view")}
                                                 iconStart={<Eye size={14} />}
                                             />
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={() => onResendEmail(r)}
-                                                aria-label={t("registrations.actions.resendEmail")}
-                                                iconStart={<MailPlus size={14} />}
-                                            />
+                                            {emailStatusOf(r) !== "sent" && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() => onResendEmail(r)}
+                                                    aria-label={t("registrations.actions.resendEmail")}
+                                                    iconStart={<MailPlus size={14} />}
+                                                />
+                                            )}
                                             {status !== "approved" && (
                                                 <Button
                                                     size="sm"

@@ -75,3 +75,22 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
     const res = await api.get("/v1/analytics/finance");
     return res.data.data;
 }
+
+/** Per-channel retry of the customer notification for the order's current
+ *  status. Backend semantics: only failed/skipped channels are re-sent;
+ *  `unknown` delivery requires confirmUnknown (possible duplication
+ *  acknowledged). Response reports the per-channel results and an overall
+ *  outcome (success/partial/failed). */
+export interface NotificationRetryResult {
+    attempted: Array<"email" | "sms">;
+    results: Partial<Record<"email" | "sms", "sent" | "failed" | "skipped">>;
+    outcome: "success" | "partial" | "failed";
+}
+
+export async function retryOrderNotification(
+    id: string,
+    options: { confirmUnknown?: boolean } = {},
+): Promise<NotificationRetryResult> {
+    const res = await api.post(`/v1/orders/${id}/notifications/retry`, options);
+    return res.data.data;
+}

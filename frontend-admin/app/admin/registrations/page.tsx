@@ -13,6 +13,7 @@ import {
     approveRegistration,
     rejectRegistration,
     resendRegistrationEmail,
+    currentRegistrationEmail,
     notifyRegistrationsChanged,
     type RegistrationRequest,
     type RegistrationsPagination,
@@ -118,16 +119,27 @@ export default function RegistrationsPage() {
         });
     };
 
-    const resend = (r: RegistrationRequest) => {
-        run({
-            request: () => resendRegistrationEmail(r._id),
-            errorMessage: t("registrations.toasts.resendFailed"),
-            onSuccess: (data) => {
-                if (data.sent) toast.success(t("registrations.toasts.resent"));
-                else toast.error(t("registrations.toasts.emailNotSent"));
-                fetchRegistrations();
-            },
-        });
+    const resend = async (r: RegistrationRequest, confirmUnknown = false) => {
+        try {
+            const data = await resendRegistrationEmail(r._id, confirmUnknown ? { confirmUnknown } : {});
+            if (data.sent) toast.success(t("registrations.toasts.resent"));
+            else toast.error(t("registrations.toasts.emailNotSent"));
+            fetchRegistrations();
+        } catch (err: unknown) {
+            const e = err as { response?: { status?: number; data?: { error?: string } } };
+            const code = e.response?.data?.error;
+            if (code === "UNKNOWN_DELIVERY_CONFIRM_REQUIRED") {
+                if (window.confirm(t("registrations.notification.unknownConfirm"))) {
+                    await resend(r, true);
+                }
+            } else if (e.response?.status === 429) {
+                toast.error(t("registrations.notification.retryInProgress"));
+            } else if (e.response?.status === 409) {
+                toast.error(t("registrations.notification.retryNothing"));
+            } else {
+                toast.error(t("registrations.toasts.resendFailed"));
+            }
+        }
     };
 
     return (
@@ -193,9 +205,11 @@ export default function RegistrationsPage() {
                     description={displayName(viewTarget)}
                     footer={
                         <div className="flex flex-wrap items-center justify-end gap-2">
-                            <Button variant="outline" onClick={() => resend(viewTarget)} disabled={busy}>
-                                {t("registrations.actions.resendEmail")}
-                            </Button>
+                            {currentRegistrationEmail(viewTarget).status !== "sent" && (
+                                <Button variant="outline" onClick={() => resend(viewTarget)} disabled={busy}>
+                                    {t("registrations.actions.resendEmail")}
+                                </Button>
+                            )}
                             {viewTarget.registrationStatus === "pending" && (
                                 <Button variant="danger" onClick={() => setRejectTarget(viewTarget)} disabled={busy}>
                                     {t("registrations.actions.reject")}

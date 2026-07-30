@@ -16,15 +16,19 @@ export interface IRegistrationCompany {
     phone?: string;
 }
 
+export type RegistrationNotificationStatus = 'sent' | 'failed' | 'skipped' | 'unknown';
+
 export interface IRegistrationNotifications {
-    pendingEmailStatus?: 'sent' | 'failed' | 'skipped';
+    pendingEmailStatus?: RegistrationNotificationStatus;
     pendingEmailAt?: Date;
-    approvedEmailStatus?: 'sent' | 'failed' | 'skipped';
+    approvedEmailStatus?: RegistrationNotificationStatus;
     approvedEmailAt?: Date;
-    rejectedEmailStatus?: 'sent' | 'failed' | 'skipped';
+    rejectedEmailStatus?: RegistrationNotificationStatus;
     rejectedEmailAt?: Date;
-    adminSmsStatus?: 'sent' | 'failed' | 'skipped';
+    adminSmsStatus?: RegistrationNotificationStatus;
     adminSmsAt?: Date;
+    retryAttemptId?: string;
+    retryStartedAt?: Date;
 }
 
 export interface IUser extends Document {
@@ -60,6 +64,10 @@ export interface IUser extends Document {
     rejectedAt?: Date;
     rejectedBy?: mongoose.Types.ObjectId;
     rejectionReason?: string;
+    /** Whether the rejection email actually included the stored reason —
+     *  a retry must repeat the ORIGINAL decision, never silently change it.
+     *  Legacy records (undefined) default to NOT sharing. */
+    rejectionReasonShared?: boolean;
     approvalInProgressAt?: Date;
     approvalLock?: string;
     isDeleted: boolean;
@@ -205,14 +213,21 @@ const UserSchema = new Schema<IUser>(
         registrationNotifications: {
             type: new Schema<IRegistrationNotifications>(
                 {
-                    pendingEmailStatus: { type: String, enum: ['sent', 'failed', 'skipped'] },
+                    // 'unknown' = a retry attempt was persisted but its
+                    // provider outcome was never recorded (crash) — blocks
+                    // automatic resending until an admin confirms.
+                    pendingEmailStatus: { type: String, enum: ['sent', 'failed', 'skipped', 'unknown'] },
                     pendingEmailAt: { type: Date },
-                    approvedEmailStatus: { type: String, enum: ['sent', 'failed', 'skipped'] },
+                    approvedEmailStatus: { type: String, enum: ['sent', 'failed', 'skipped', 'unknown'] },
                     approvedEmailAt: { type: Date },
-                    rejectedEmailStatus: { type: String, enum: ['sent', 'failed', 'skipped'] },
+                    rejectedEmailStatus: { type: String, enum: ['sent', 'failed', 'skipped', 'unknown'] },
                     rejectedEmailAt: { type: Date },
-                    adminSmsStatus: { type: String, enum: ['sent', 'failed', 'skipped'] },
+                    adminSmsStatus: { type: String, enum: ['sent', 'failed', 'skipped', 'unknown'] },
                     adminSmsAt: { type: Date },
+                    // Retry lease: attemptId + start time; stale leases
+                    // (crashed process) expire after a TTL.
+                    retryAttemptId: { type: String },
+                    retryStartedAt: { type: Date },
                 },
                 { _id: false }
             ),
@@ -240,6 +255,9 @@ const UserSchema = new Schema<IUser>(
             type: String,
             trim: true,
             maxlength: 1000,
+        },
+        rejectionReasonShared: {
+            type: Boolean,
         },
         // Short-lived internal lock used while materialising the Company and
         // activating a registration. It prevents approve/reject races and is
