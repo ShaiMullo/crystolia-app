@@ -26,7 +26,9 @@ import { getCustomerCatalog } from '../services/catalogService.js';
 const app = buildTestApp();
 
 beforeAll(async () => {
-    await startTestDb();
+    // Replica set: these tests approve/ship stock-tracked orders, which
+    // requires real MongoDB transactions.
+    await startTestDb({ replSet: true });
     await Invoice.init(); // build the partial unique index on Invoice.order
 });
 afterAll(async () => {

@@ -15,7 +15,7 @@ import { protect, authorize } from '../middleware/auth.js';
 import { validate, AppError } from '../utils/validation.js';
 import { logAudit } from '../services/auditService.js';
 import { computeOrderTotals, validateOrderItems, RawOrderItem } from '../services/orderService.js';
-import { changeOrderStatus } from '../services/orderStatusService.js';
+import { changeOrderStatus, unlockedOrderFilter } from '../services/orderStatusService.js';
 import Inventory from '../models/Inventory.js';
 import {
     isCustomerNotifiableStatus,
@@ -213,50 +213,64 @@ router.patch('/:id', async (req: Request, res: Response, next: NextFunction) => 
         const body = req.body || {};
         const now = new Date();
         const actorId = req.user?._id?.toString();
-        const previousStatus = order.status;
-
-        // Items may only be edited while the order is still pending — once
-        // approved, inventory is reserved against the current line set.
-        if (Array.isArray(body.items)) {
-            if (order.status !== 'pending') {
-                throw new AppError('Items can only be edited while the order is pending', 409);
+        // Item edits are a single CONDITIONAL update: they atomically
+        // require status=pending AND no live status-transition lock, so an
+        // edit can never race an in-flight approval and change the lines
+        // after the reservation was computed. Notes alone may change on any
+        // status.
+        let updated: IOrder = order;
+        const wantsItemEdit = Array.isArray(body.items);
+        const wantsNotesEdit = typeof body.notes === 'string';
+        if (wantsItemEdit || wantsNotesEdit) {
+            const set: Record<string, unknown> = {};
+            let timelineEvent: Record<string, unknown> | undefined;
+            if (wantsItemEdit) {
+                const itemsError = validateOrderItems(body.items);
+                if (itemsError) throw new AppError(itemsError, 400);
+                const totals = computeOrderTotals(body.items as RawOrderItem[]);
+                set.items = totals.items.map((i) => ({
+                    productId: i.productId,
+                    productName: i.productName,
+                    quantity: i.quantity,
+                    price: i.price,
+                    taxRate: i.taxRate || undefined,
+                }));
+                set.totalAmount = totals.totalAmount;
+                set.subtotal = totals.subtotal;
+                set.taxTotal = totals.taxTotal;
+                timelineEvent = { type: 'order_items_updated', at: now, actorId };
             }
-            const itemsError = validateOrderItems(body.items);
-            if (itemsError) throw new AppError(itemsError, 400);
-            const totals = computeOrderTotals(body.items as RawOrderItem[]);
-            order.items = totals.items.map((i) => ({
-                productId: i.productId,
-                productName: i.productName,
-                quantity: i.quantity,
-                price: i.price,
-                taxRate: i.taxRate || undefined,
-            })) as typeof order.items;
-            order.totalAmount = totals.totalAmount;
-            order.subtotal = totals.subtotal;
-            order.taxTotal = totals.taxTotal;
-            order.timeline.push({ type: 'order_items_updated', at: now, actorId });
+            if (wantsNotesEdit) {
+                set.notes = (body.notes as string).trim();
+            }
+            const filter = wantsItemEdit
+                ? { _id: order._id, status: 'pending' as const, ...unlockedOrderFilter(now) }
+                : { _id: order._id };
+            const edited = await Order.findOneAndUpdate(
+                filter,
+                { $set: set, ...(timelineEvent ? { $push: { timeline: timelineEvent } } : {}) },
+                { new: true, runValidators: true },
+            );
+            if (!edited) {
+                throw new AppError(
+                    'Items can only be edited while the order is pending and not being processed by another request',
+                    409,
+                );
+            }
+            updated = edited;
         }
-
-        if (typeof body.notes === 'string') {
-            order.notes = body.notes.trim();
-        }
-
-        // Persist item/notes edits BEFORE any status change so the shared
-        // workflow reserves against the final line set.
-        await order.save();
 
         // Status changes run through the SAME shared workflow as
         // routes/orders.ts PATCH (transition rules, concurrency lock,
         // fail-closed reservation, safe shipment, single invoice). A refusal
         // aborts the request but keeps the saved item/notes edits.
-        let updated: IOrder = order;
         let statusChanged = false;
         if (typeof body.status === 'string') {
             if (!STATUSES.includes(body.status as OrderStatus)) throw new AppError('Invalid status', 400);
-            if (body.status !== order.status) {
+            if (body.status !== updated.status) {
                 const result = await changeOrderStatus({
-                    orderId: order._id,
-                    expectedCurrentStatus: previousStatus,
+                    orderId: updated._id,
+                    expectedCurrentStatus: updated.status,
                     targetStatus: body.status as OrderStatus,
                     actorId,
                     rejectionReason: typeof body.rejectionReason === 'string' ? body.rejectionReason : undefined,

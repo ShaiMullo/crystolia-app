@@ -13,6 +13,7 @@ import cookieParser from 'cookie-parser';
 
 import { config, logIntegrationConfigSummary } from './config/index.js';
 import { connectDatabase, disconnectDatabase, isDatabaseConnected } from './db/connection.js';
+import { recheckInvoiceIndexReadiness, invoiceIndexReadiness } from './db/indexReadiness.js';
 import leadsRouter from './routes/leads.js';
 import crmRouter from './routes/crm.js';
 import crmCustomersRouter from './routes/crmCustomers.js';
@@ -134,13 +135,19 @@ app.get('/api/health', (_req: Request, res: Response) => {
     });
 });
 
-// Readiness probe (for Kubernetes)
-app.get('/api/ready', (_req: Request, res: Response) => {
-    if (isDatabaseConnected()) {
-        res.status(200).json({ ready: true });
-    } else {
-        res.status(503).json({ ready: false, reason: 'Database not connected' });
+// Readiness probe (for Kubernetes / operators). Not-ready when the DB is
+// down OR a critical index (unique Invoice.order) could not be built —
+// order approval refuses to run without it, so operators must see it here
+// rather than discover it via failing approvals.
+app.get('/api/ready', async (_req: Request, res: Response) => {
+    if (!isDatabaseConnected()) {
+        return res.status(503).json({ ready: false, reason: 'Database not connected' });
     }
+    const invoiceIndex = await invoiceIndexReadiness();
+    if (!invoiceIndex.ready) {
+        return res.status(503).json({ ready: false, reason: invoiceIndex.reason });
+    }
+    res.status(200).json({ ready: true });
 });
 
 // Liveness probe (for Kubernetes)
@@ -295,6 +302,17 @@ async function startServer(): Promise<void> {
 
         // Connect to MongoDB
         await connectDatabase();
+
+        // Critical-index check: order approval depends on the unique
+        // Invoice.order index. Boot continues either way (read paths must
+        // stay up), but the failure is loud here, /api/ready reports 503,
+        // and approvals refuse to run until the data is fixed.
+        const invoiceIndex = await recheckInvoiceIndexReadiness();
+        if (invoiceIndex.ready) {
+            console.log('🧱 Critical indexes: ready (Invoice.order unique)');
+        } else {
+            console.error(`🚨 Critical index NOT ready: ${invoiceIndex.reason} — order approval is disabled until fixed`);
+        }
 
         // Seed default admin in development
         await seedAdmin();

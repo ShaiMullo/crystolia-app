@@ -6,25 +6,33 @@
 // changeOrderStatus so the rules can never drift:
 //
 //   * explicit transition map (illegal jumps → 409)
-//   * concurrent requests serialized by an atomic lock claim — exactly one
-//     transition, one reservation set, one invoice
-//   * approval FAILS CLOSED: every tracked line must reserve or the order
-//     stays in its previous status (no invoice, no notification)
-//   * shipping is all-or-nothing: a failure leaves the order approved with
-//     its reservation intact
-//   * leaving `approved` (not to shipped) releases the reservation
+//   * for orders with stock-tracked lines, the ENTIRE transition — lock
+//     claim, inventory summary updates, movement-log writes, status/flag
+//     commit and the approval invoice — runs in ONE MongoDB transaction.
+//     If transactions are unavailable (standalone mongod), the request is
+//     refused with 503: we never claim all-or-nothing via best-effort
+//     compensation.
+//   * approval FAILS CLOSED: reservation and invoice must both succeed or
+//     the order stays in its previous status (no notification either —
+//     routes notify only after an ok result).
+//   * a failed release keeps the order approved with inventoryReserved
+//     intact (the transaction aborts).
+//   * untracked-only orders take a safe non-inventory path (transaction
+//     when available; otherwise invoice-first with explicit cleanup).
 
-import mongoose from 'mongoose';
+import mongoose, { ClientSession } from 'mongoose';
 import Order, { type IOrder } from '../models/Order.js';
 import Invoice from '../models/Invoice.js';
+import Product from '../models/Product.js';
 import Settings from '../models/Settings.js';
+import { applyMovement, applyShipLine } from './inventoryService.js';
 import {
-    reserveAllForOrder,
-    releaseForOrder,
-    shipAllForOrder,
-} from './inventoryService.js';
+    runRequiredTransaction,
+    withTransaction,
+    TransactionsUnavailableError,
+} from '../db/withTransaction.js';
+import { invoiceIndexReadiness } from '../db/indexReadiness.js';
 import { paymentConfigError } from '../utils/paymentOptions.js';
-import { notifyAdmins } from './notificationService.js';
 
 export type OrderStatus = IOrder['status'];
 
@@ -58,8 +66,46 @@ function hasActiveReservation(order: IOrder, previousStatus: OrderStatus): boole
     return previousStatus === 'approved';
 }
 
-// A crashed process must not leave an order permanently locked.
+// A crashed process on the NON-transactional path must not leave an order
+// permanently locked (the transactional path aborts its lock atomically).
 const LOCK_TTL_MS = 2 * 60 * 1000;
+
+/**
+ * Query fragment matching orders with NO live status-transition lock.
+ * Exported so other order mutations (e.g. CRM item edits) can atomically
+ * require "not currently transitioning" in their own update filters.
+ */
+export function unlockedOrderFilter(now = new Date()) {
+    const staleBefore = new Date(now.getTime() - LOCK_TTL_MS);
+    return {
+        $or: [
+            { statusLockAt: { $exists: false } },
+            { statusLockAt: null },
+            { statusLockAt: { $lt: staleBefore } },
+        ],
+    };
+}
+
+class TransitionConflictError extends Error {
+    constructor() {
+        super('Order status changed or is being processed by another request — reload and retry');
+        this.name = 'TransitionConflictError';
+    }
+}
+
+class StockOperationError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'StockOperationError';
+    }
+}
+
+class InvoiceCreationError extends Error {
+    constructor(message: string) {
+        super(`Invoice creation failed — approval aborted: ${message}`);
+        this.name = 'InvoiceCreationError';
+    }
+}
 
 export type StatusChangeResult =
     | { ok: true; order: IOrder }
@@ -74,123 +120,146 @@ export interface StatusChangeInput {
     rejectionReason?: string;
 }
 
+// Timestamp + random suffix: collision-resistant enough to never abort an
+// approval transaction over an invoiceNumber duplicate.
+function generateInvoiceNumber(): string {
+    const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+    return `INV-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}${rand}`;
+}
+
+/** How many of the order's product lines are stock-tracked. */
+async function countTrackedLines(order: IOrder): Promise<number> {
+    const productIds = (order.items || [])
+        .map((item) => item.productId)
+        .filter((id): id is mongoose.Types.ObjectId => Boolean(id));
+    if (productIds.length === 0) return 0;
+    return Product.countDocuments({
+        _id: { $in: productIds },
+        stockTrackingEnabled: true,
+        isDeleted: { $ne: true },
+    });
+}
+
 /**
- * Perform one status transition end-to-end. Returns the updated order or a
- * typed refusal ({httpStatus, error}) — it never leaves partial state:
- * a failed reservation/shipment keeps the previous status, and the lock is
- * always released.
+ * The transition body. With a session every write below is atomic; without
+ * one (untracked-only orders on a standalone deployment) the ordering is
+ * chosen so a mid-sequence crash is safe: invoice before status commit,
+ * explicit invoice cleanup if the commit fails, lock released on error.
  */
-export async function changeOrderStatus(input: StatusChangeInput): Promise<StatusChangeResult> {
+async function performTransition(
+    input: StatusChangeInput,
+    session: ClientSession | undefined,
+): Promise<IOrder> {
     const { expectedCurrentStatus: from, targetStatus: to, actorId } = input;
-
-    if (from === to) {
-        const unchanged = await Order.findById(input.orderId);
-        if (!unchanged) return { ok: false, httpStatus: 404, error: 'Order not found' };
-        return { ok: true, order: unchanged };
-    }
-
-    const invalid = transitionError(from, to);
-    if (invalid) return { ok: false, httpStatus: 409, error: invalid };
-
-    if (to === 'rejected' && !String(input.rejectionReason || '').trim()) {
-        return { ok: false, httpStatus: 400, error: 'Rejection reason is required' };
-    }
-
-    // An approval sends the customer their selected payment instructions —
-    // refuse to approve while that method's configuration is unusable.
-    if (to === 'approved') {
-        const orderForGuard = await Order.findById(input.orderId).select('paymentPreference');
-        if (!orderForGuard) return { ok: false, httpStatus: 404, error: 'Order not found' };
-        if (orderForGuard.paymentPreference) {
-            const settings = await Settings.findOne({ key: 'business' }).select('paymentOptions').lean();
-            const configError = paymentConfigError(orderForGuard.paymentPreference, settings?.paymentOptions);
-            if (configError) return { ok: false, httpStatus: 409, error: `Cannot approve: ${configError}` };
-        }
-    }
-
-    // ━━━ Atomic claim: exactly ONE concurrent request may process this
-    // transition. The filter re-checks the status, so a request racing a
-    // completed transition loses here, not later. ━━━
     const now = new Date();
-    const staleBefore = new Date(now.getTime() - LOCK_TTL_MS);
+
+    // Atomic claim: exactly ONE concurrent request may process this
+    // transition. The filter re-checks the status, so a request racing a
+    // completed transition loses here, not later.
     const order = await Order.findOneAndUpdate(
         {
             _id: input.orderId,
             status: from,
-            $or: [
-                { statusLockAt: { $exists: false } },
-                { statusLockAt: null },
-                { statusLockAt: { $lt: staleBefore } },
-            ],
+            ...unlockedOrderFilter(now),
         },
         { $set: { statusLockAt: now } },
-        { new: true },
+        { new: true, session: session ?? null },
     );
-    if (!order) {
-        return {
-            ok: false,
-            httpStatus: 409,
-            error: 'Order status changed or is being processed by another request — reload and retry',
-        };
-    }
-
-    const unlock = () =>
-        Order.updateOne({ _id: order._id }, { $unset: { statusLockAt: 1 } }).catch(() => undefined);
+    if (!order) throw new TransitionConflictError();
 
     try {
-        const items = (order.items || []).map((item) => ({
-            productId: item.productId?.toString(),
-            quantity: item.quantity,
-        }));
+        const lines = (order.items || [])
+            .map((item) => ({ productId: item.productId?.toString(), quantity: item.quantity }))
+            .filter((line): line is { productId: string; quantity: number } => Boolean(line.productId));
         const reserved = hasActiveReservation(order, from);
         let nextReservedFlag = reserved;
 
-        // ━━━ Inventory effects BEFORE the status commit — fail closed. ━━━
-        if (to === 'approved') {
-            if (!reserved) {
-                const result = await reserveAllForOrder(order._id, items, actorId);
-                if (!result.ok) {
-                    await unlock();
-                    return {
-                        ok: false,
-                        httpStatus: 409,
-                        error: `Cannot approve: stock reservation failed — ${result.error}`,
-                    };
+        // ━━━ Inventory effects — inside the same transaction as the commit. ━━━
+        if (to === 'approved' && !reserved) {
+            for (const line of lines) {
+                try {
+                    // eslint-disable-next-line no-await-in-loop
+                    await applyMovement({
+                        productId: line.productId,
+                        type: 'reserved',
+                        quantity: line.quantity,
+                        relatedOrderId: order._id,
+                        actorId,
+                        reason: 'order_approved',
+                        session,
+                    });
+                } catch (err) {
+                    throw new StockOperationError(
+                        `Cannot approve: stock reservation failed — ${(err as Error).message}`,
+                    );
                 }
-                nextReservedFlag = true;
             }
+            nextReservedFlag = true;
         } else if (to === 'shipped') {
-            const result = await shipAllForOrder(order._id, items, actorId, reserved);
-            if (!result.ok) {
-                await unlock();
-                return {
-                    ok: false,
-                    httpStatus: 409,
-                    error: `Cannot ship: stock deduction failed — ${result.error}`,
-                };
+            for (const line of lines) {
+                try {
+                    // eslint-disable-next-line no-await-in-loop
+                    await applyShipLine(line, {
+                        orderId: order._id,
+                        actorId,
+                        consumeReservation: reserved,
+                        session,
+                    });
+                } catch (err) {
+                    throw new StockOperationError(
+                        `Cannot ship: stock deduction failed — ${(err as Error).message}`,
+                    );
+                }
             }
             nextReservedFlag = false;
-        } else if (from === 'approved' && (to === 'cancelled' || to === 'rejected' || to === 'pending')) {
-            if (reserved) {
-                // Releasing must not block a cancellation/reopen; failures are
-                // surfaced on the timeline + an admin notification below.
-                const failures = await releaseForOrder(order._id, items, actorId);
-                nextReservedFlag = false;
-                if (failures.length > 0) {
-                    order.timeline.push({
-                        type: 'inventory_movement_failed',
-                        at: new Date(),
+        } else if (from === 'approved' && (to === 'cancelled' || to === 'rejected' || to === 'pending') && reserved) {
+            for (const line of lines) {
+                try {
+                    // eslint-disable-next-line no-await-in-loop
+                    await applyMovement({
+                        productId: line.productId,
+                        type: 'released',
+                        quantity: line.quantity,
+                        relatedOrderId: order._id,
                         actorId,
-                        meta: { status: to, failures },
+                        reason: 'order_cancelled',
+                        session,
                     });
-                    await notifyAdmins({
-                        type: 'inventory_reservation_failed',
-                        entityId: `${order._id.toString()}:release:${to}`,
-                        title: `Stock release failed for order ${order._id.toString().slice(-8)}`,
-                        body: failures.map((f) => `${f.quantity}× product ${f.productId}: ${f.error}`).join('; ').slice(0, 500),
-                        link: `/admin/orders/${order._id.toString()}`,
-                        icon: '⚠️',
-                    }).catch(() => undefined);
+                } catch (err) {
+                    // The transaction aborts: the order REMAINS approved with
+                    // its reservation and inventoryReserved=true intact.
+                    throw new StockOperationError(
+                        `Cannot change status to '${to}': stock release failed — ${(err as Error).message}`,
+                    );
+                }
+            }
+            nextReservedFlag = false;
+        }
+
+        // ━━━ Approval invoice — BEFORE the status commit, so a failed
+        // invoice can never leave an approved order without one. ━━━
+        let createdInvoiceId: mongoose.Types.ObjectId | null = null;
+        if (to === 'approved') {
+            const existing = await Invoice.findOne({ order: order._id }).select('_id').session(session ?? null);
+            if (!existing) {
+                try {
+                    const [invoice] = await Invoice.create(
+                        [{
+                            company: order.company,
+                            order: order._id,
+                            invoiceNumber: generateInvoiceNumber(),
+                            totalAmount: order.totalAmount,
+                            status: 'draft',
+                        }],
+                        { session },
+                    );
+                    createdInvoiceId = invoice._id as mongoose.Types.ObjectId;
+                } catch (err) {
+                    const dup = err as { code?: number; keyPattern?: Record<string, unknown> };
+                    // Duplicate on order → someone else committed one already.
+                    if (!(dup.code === 11000 && dup.keyPattern && 'order' in dup.keyPattern)) {
+                        throw new InvoiceCreationError((err as Error).message);
+                    }
                 }
             }
         }
@@ -210,51 +279,112 @@ export async function changeOrderStatus(input: StatusChangeInput): Promise<Statu
             meta: { from, to },
         });
         order.statusLockAt = undefined;
-        await order.save();
-
-        // ━━━ Auto-invoice on approval — unique per order at the DB level. ━━━
-        if (to === 'approved') {
-            await ensureOrderInvoice(order);
+        try {
+            await order.save({ session });
+        } catch (err) {
+            // Sessionless only: don't leave an invoice for a never-approved order.
+            if (!session && createdInvoiceId) {
+                await Invoice.deleteOne({ _id: createdInvoiceId }).catch((cleanupErr: unknown) => {
+                    console.error(
+                        `🚨 CRITICAL: could not remove invoice ${createdInvoiceId} after a failed `
+                        + `approval commit for order ${order._id}: ${(cleanupErr as Error).message}`,
+                    );
+                });
+            }
+            throw err;
         }
 
-        return { ok: true, order };
+        return order;
     } catch (err) {
-        await unlock();
+        // Sessionless only: a transaction abort clears the lock by itself.
+        if (!session) {
+            await Order.updateOne({ _id: input.orderId }, { $unset: { statusLockAt: 1 } }).catch(() => undefined);
+        }
         throw err;
     }
 }
 
+function refusalFrom(err: unknown): StatusChangeResult | null {
+    if (err instanceof TransitionConflictError) return { ok: false, httpStatus: 409, error: err.message };
+    if (err instanceof StockOperationError) return { ok: false, httpStatus: 409, error: err.message };
+    if (err instanceof InvoiceCreationError) return { ok: false, httpStatus: 500, error: err.message };
+    if (err instanceof TransactionsUnavailableError) {
+        return {
+            ok: false,
+            httpStatus: 503,
+            error: 'Order processing for stock-tracked products requires MongoDB transaction support '
+                + '(replica set). The current database is standalone — see docs/deployment/mongo.md.',
+        };
+    }
+    return null;
+}
+
 /**
- * Create the order's draft invoice exactly once. The partial unique index
- * on Invoice.order makes concurrent creators collide; the loser loads the
- * winner's document. Never throws — a failed invoice must not undo an
- * otherwise-committed approval (it is retried on the next approval or
- * created manually).
+ * Perform one status transition end-to-end. Returns the updated order or a
+ * typed refusal ({httpStatus, error}) — it never leaves partial state.
  */
-async function ensureOrderInvoice(order: IOrder): Promise<void> {
-    try {
-        const existing = await Invoice.findOne({ order: order._id }).select('_id');
-        if (existing) return;
-        for (let attempt = 0; attempt < 2; attempt += 1) {
-            const invoiceNumber = `INV-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}${attempt ? `-${attempt}` : ''}`;
-            try {
-                await Invoice.create({
-                    company: order.company,
-                    order: order._id,
-                    invoiceNumber,
-                    totalAmount: order.totalAmount,
-                    status: 'draft',
-                });
-                return;
-            } catch (err) {
-                const dup = (err as { code?: number; keyPattern?: Record<string, unknown> });
-                if (dup.code !== 11000) throw err;
-                // Duplicate on order → a concurrent request already created it.
-                if (dup.keyPattern && 'order' in dup.keyPattern) return;
-                // Duplicate invoiceNumber → retry once with a distinct suffix.
-            }
+export async function changeOrderStatus(input: StatusChangeInput): Promise<StatusChangeResult> {
+    const { expectedCurrentStatus: from, targetStatus: to } = input;
+
+    if (from === to) {
+        const unchanged = await Order.findById(input.orderId);
+        if (!unchanged) return { ok: false, httpStatus: 404, error: 'Order not found' };
+        return { ok: true, order: unchanged };
+    }
+
+    const invalid = transitionError(from, to);
+    if (invalid) return { ok: false, httpStatus: 409, error: invalid };
+
+    if (to === 'rejected' && !String(input.rejectionReason || '').trim()) {
+        return { ok: false, httpStatus: 400, error: 'Rejection reason is required' };
+    }
+
+    const orderPre = await Order.findById(input.orderId);
+    if (!orderPre) return { ok: false, httpStatus: 404, error: 'Order not found' };
+
+    if (to === 'approved') {
+        // An approval sends the customer their selected payment
+        // instructions — refuse while that method's config is unusable.
+        if (orderPre.paymentPreference) {
+            const settings = await Settings.findOne({ key: 'business' }).select('paymentOptions').lean();
+            const configError = paymentConfigError(orderPre.paymentPreference, settings?.paymentOptions);
+            if (configError) return { ok: false, httpStatus: 409, error: `Cannot approve: ${configError}` };
         }
+        // "One invoice per order" is only true while the unique index
+        // exists — refuse to approve rather than silently continue.
+        const indexState = await invoiceIndexReadiness();
+        if (!indexState.ready) {
+            return {
+                ok: false,
+                httpStatus: 503,
+                error: `Order approval is temporarily unavailable: ${indexState.reason}. `
+                    + 'Fix the invoice data, then restart or re-run the readiness check.',
+            };
+        }
+    }
+
+    const trackedLines = await countTrackedLines(orderPre);
+    const reservedPre = hasActiveReservation(orderPre, from);
+    const involvesInventory = trackedLines > 0 && (
+        (to === 'approved' && !reservedPre)
+        || to === 'shipped'
+        || (from === 'approved' && reservedPre && (to === 'cancelled' || to === 'rejected' || to === 'pending'))
+    );
+
+    try {
+        if (involvesInventory) {
+            // Stock-tracked lines: one REQUIRED transaction or an explicit 503.
+            const order = await runRequiredTransaction((session) => performTransition(input, session));
+            return { ok: true, order };
+        }
+        // No tracked stock involved: prefer a transaction, but the
+        // sessionless ordering inside performTransition is safe on its own
+        // (movement-log-only writes, invoice-first, explicit cleanup).
+        const { result } = await withTransaction((session) => performTransition(input, session));
+        return { ok: true, order: result };
     } catch (err) {
-        console.error('❌ Auto-invoice creation failed:', (err as Error).message);
+        const refusal = refusalFrom(err);
+        if (refusal) return refusal;
+        throw err;
     }
 }

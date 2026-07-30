@@ -27,7 +27,9 @@ import { transitionError } from '../services/orderStatusService.js';
 const app = buildTestApp();
 
 beforeAll(async () => {
-    await startTestDb();
+    // Replica set: these tests approve/ship stock-tracked orders, which
+    // requires real MongoDB transactions.
+    await startTestDb({ replSet: true });
 });
 afterAll(async () => {
     await stopTestDb();

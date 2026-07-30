@@ -6,7 +6,7 @@ import User from '../models/User.js';
 
 const app = buildTestApp();
 
-beforeAll(startTestDb);
+beforeAll(() => startTestDb());
 afterAll(stopTestDb);
 beforeEach(clearDb);
 
