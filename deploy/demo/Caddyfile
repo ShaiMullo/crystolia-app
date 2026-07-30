@@ -19,10 +19,14 @@
 (common) {
 	encode zstd gzip
 	header {
-		# Conservative security headers — safe for an internal demo.
+		# Conservative security headers.
 		-Server
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
+		# All three hosts are TLS-only behind Caddy. No includeSubDomains:
+		# other crystolia.com subdomains (e.g. CDN-served) are managed
+		# elsewhere and must not be force-pinned from here.
+		Strict-Transport-Security "max-age=31536000"
 	}
 }
 

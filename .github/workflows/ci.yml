@@ -118,6 +118,8 @@ jobs:
           cache-dependency-path: frontend-client/package-lock.json
       - name: Install (deterministic)
         run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
       - name: Lint
         run: npm run lint
       - name: Build

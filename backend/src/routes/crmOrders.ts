@@ -15,7 +15,8 @@ import { protect, authorize } from '../middleware/auth.js';
 import { validate, AppError } from '../utils/validation.js';
 import { logAudit } from '../services/auditService.js';
 import { computeOrderTotals, validateOrderItems, RawOrderItem } from '../services/orderService.js';
-import { reserveForOrder, releaseForOrder, shipForOrder } from '../services/inventoryService.js';
+import { reserveForOrder } from '../services/inventoryService.js';
+import { transitionError, applyInventorySideEffects } from '../services/orderStatusService.js';
 import Inventory from '../models/Inventory.js';
 import Settings from '../models/Settings.js';
 import { paymentConfigError } from '../utils/paymentOptions.js';
@@ -178,6 +179,8 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
                 order.items.map((i) => ({ productId: i.productId?.toString(), quantity: i.quantity })),
                 actorId,
             );
+            order.inventoryReserved = true;
+            await order.save();
         }
 
         res.status(201).json({ success: true, data: order.toObject() });
@@ -228,6 +231,9 @@ router.patch('/:id', async (req: Request, res: Response, next: NextFunction) => 
         if (typeof body.status === 'string') {
             if (!STATUSES.includes(body.status as OrderStatus)) throw new AppError('Invalid status', 400);
             if (body.status !== order.status) {
+                // Explicit state machine — shared with routes/orders.ts PATCH.
+                const invalidTransition = transitionError(order.status, body.status as OrderStatus);
+                if (invalidTransition) throw new AppError(invalidTransition, 409);
                 if (body.status === 'rejected') {
                     const reason = typeof body.rejectionReason === 'string' ? body.rejectionReason.trim() : '';
                     if (!reason) throw new AppError('Rejection reason is required', 400);
@@ -254,19 +260,12 @@ router.patch('/:id', async (req: Request, res: Response, next: NextFunction) => 
             }
         }
 
-        await order.save();
-
-        // Inventory side-effects mirror routes/orders.ts PATCH.
+        // Inventory side-effects — the SAME shared service as routes/orders.ts
+        // PATCH, so the two admin surfaces can never drift.
         if (statusChanged) {
-            const orderItems = order.items.map((i) => ({ productId: i.productId?.toString(), quantity: i.quantity }));
-            if (order.status === 'approved' && previousStatus !== 'approved') {
-                await reserveForOrder(order._id, orderItems, actorId);
-            } else if ((order.status === 'cancelled' || order.status === 'rejected') && previousStatus === 'approved') {
-                await releaseForOrder(order._id, orderItems, actorId);
-            } else if (order.status === 'shipped' && previousStatus !== 'shipped' && previousStatus !== 'completed') {
-                await shipForOrder(order._id, orderItems, actorId);
-            }
+            await applyInventorySideEffects(order, previousStatus, actorId);
         }
+        await order.save();
 
         await logAudit({
             action: 'UPDATE',

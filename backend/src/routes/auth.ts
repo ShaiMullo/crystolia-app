@@ -810,6 +810,16 @@ router.post('/login', authLimiter, async (req: Request, res: Response, next: Nex
         const user = await User.findOne({ email }).select('+password');
 
         if (!user || !(await user.comparePassword(password))) {
+            // Persistent trail for brute-force detection. Never logs the
+            // password; the email is what the attacker already typed.
+            await logAudit({
+                action: 'LOGIN_FAILED',
+                entity: 'User',
+                entityId: user ? user._id.toString() : 'unknown',
+                req,
+                severity: 'warning',
+                details: { email: typeof email === 'string' ? email.slice(0, 254) : 'invalid' },
+            });
             return next(new AppError('Incorrect email or password', 401));
         }
 

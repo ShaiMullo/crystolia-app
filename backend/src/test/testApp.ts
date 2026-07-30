@@ -18,6 +18,9 @@ import meRouter from '../routes/me.js';
 import ordersRouter from '../routes/orders.js';
 import crmInventoryRouter from '../routes/crmInventory.js';
 import crmNotificationsRouter from '../routes/crmNotifications.js';
+import crmOrdersRouter from '../routes/crmOrders.js';
+import settingsRouter from '../routes/settings.js';
+import paymentWebhooksRouter from '../routes/paymentWebhooks.js';
 import { errorHandler } from '../middleware/errorHandler.js';
 import { config } from '../config/index.js';
 import User from '../models/User.js';
@@ -56,6 +59,10 @@ export function buildTestApp(): Express {
     app.use('/api/orders', ordersRouter);
     app.use('/api/v1/inventory', crmInventoryRouter);
     app.use('/api/v1/notifications', crmNotificationsRouter);
+    app.use('/api/v1/orders', crmOrdersRouter);
+    app.use('/api/settings', settingsRouter);
+    app.use('/api/v1/settings', settingsRouter);
+    app.use('/api/payments/webhooks', paymentWebhooksRouter);
     app.use(errorHandler);
     return app;
 }

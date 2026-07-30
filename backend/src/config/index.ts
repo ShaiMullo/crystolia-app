@@ -83,15 +83,6 @@ function getEnvOrDefault(key: string, defaultValue: string): string {
     return process.env[key] || defaultValue;
 }
 
-function getEnvOrThrow(key: string): string {
-    const value = process.env[key];
-    if (!value) {
-        console.warn(`⚠️ Warning: ${key} is not set`);
-        return '';
-    }
-    return value;
-}
-
 export const config: Config = {
     // Server
     port: parseInt(getEnvOrDefault('PORT', '4000'), 10),
@@ -185,6 +176,34 @@ export const config: Config = {
     cookieDomain: process.env.COOKIE_DOMAIN, // Undefined by default (host only)
     secureCookie: process.env.NODE_ENV === 'production', // True in prod, false in dev
 };
+
+// ━━━ Production fail-fast ━━━
+// A production process must never silently boot against the localhost
+// default database. Missing integration credentials stay non-fatal (the
+// services degrade gracefully), but the primary datastore does not.
+if (config.nodeEnv === 'production' && !process.env.MONGO_URI) {
+    throw new Error('MONGO_URI must be set in production — refusing to start against the localhost default');
+}
+
+/**
+ * One explicit startup line per unconfigured optional integration, so an
+ * operator can see at a glance what is off — replaces scattered warnings.
+ */
+export function logIntegrationConfigSummary(): void {
+    const off: string[] = [];
+    if (!config.email.fromAddress) off.push('email (EMAIL_FROM_ADDRESS)');
+    if (!config.sms.accountSid || !config.sms.authToken || !(config.sms.messagingServiceSid || config.sms.fromNumber)) {
+        off.push('sms (TWILIO_*)');
+    }
+    if (!config.whatsapp.instanceId || !config.whatsapp.token) off.push('whatsapp (ULTRAMSG_*)');
+    if (!config.google.clientId || !config.google.clientSecret) off.push('google-oauth (GOOGLE_CLIENT_*)');
+    if (!config.greenInvoice.apiId || !config.greenInvoice.secret) off.push('green-invoice (GREEN_INVOICE_*)');
+    if (off.length === 0) {
+        console.log('🔌 Integrations: all configured');
+    } else {
+        console.warn(`🔌 Integrations NOT configured (degraded, non-fatal): ${off.join(', ')}`);
+    }
+}
 
 export function isDevelopment(): boolean {
     return config.nodeEnv === 'development';

@@ -42,9 +42,12 @@ services:
       - caddy_data:/data       # persists issued certificates — DO NOT lose this
       - caddy_config:/config
     depends_on:
-      - backend
-      - frontend-admin
-      - frontend-client
+      backend:
+        condition: service_healthy
+      frontend-admin:
+        condition: service_started
+      frontend-client:
+        condition: service_started
     networks:
       - crystolia
     mem_limit: 96m
@@ -68,6 +71,14 @@ services:
       PORT: "4000"
     expose:
       - "4000"
+    # Compose-level healthcheck (mirrors the image HEALTHCHECK) so Caddy's
+    # depends_on can wait for a ready backend instead of racing its boot.
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4000/api/live"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
     networks:
       - crystolia
     mem_limit: 420m
@@ -118,6 +129,10 @@ services:
     environment:
       NODE_ENV: production
       BACKEND_URL: http://backend:4000
+      # Set to "true" (host env or frontend-client/.env.demo) to turn the
+      # demo payment pages into 404s once production Settings no longer
+      # reference them — see docs/PRODUCTION_READINESS.md.
+      DEMO_PAYMENT_PAGES_DISABLED: ${DEMO_PAYMENT_PAGES_DISABLED:-false}
     expose:
       - "3000"
     healthcheck:

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import {
     ArrowLeft,
     ArrowRight,
@@ -6,6 +8,19 @@ import {
     ExternalLink,
     ShieldCheck,
 } from "lucide-react";
+
+// Demo-only surface: never indexed, and removable per environment. The page
+// stays reachable for backward compatibility until the production payment
+// settings stop pointing at it, after which the operator sets
+// DEMO_PAYMENT_PAGES_DISABLED=true and this route 404s.
+export const dynamic = "force-dynamic";
+export const metadata: Metadata = {
+    robots: { index: false, follow: false },
+};
+
+function demoPagesDisabled(): boolean {
+    return process.env.DEMO_PAYMENT_PAGES_DISABLED === "true";
+}
 
 interface PageProps {
     params: Promise<{ locale: string }>;
@@ -45,6 +60,7 @@ const COPY = {
 } as const;
 
 export default async function PaymentDemoPage({ params }: PageProps) {
+    if (demoPagesDisabled()) notFound();
     const { locale: rawLocale } = await params;
     const locale = rawLocale === "en" || rawLocale === "ru" ? rawLocale : "he";
     const t = COPY[locale];

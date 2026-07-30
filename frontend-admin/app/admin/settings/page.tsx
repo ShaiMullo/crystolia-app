@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Plus, Save, Trash2, AlertCircle } from "lucide-react";
 import { toast } from "react-hot-toast";
 import api from "@/app/lib/api";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { useAuth } from "@/app/context/AuthContext";
 import { useAdminI18n } from "@/i18n/I18nProvider";
 import {
@@ -102,10 +103,27 @@ export default function SettingsPage() {
     const handleAddBox = () => setBoxPrices((prev) => [...prev, { ...EMPTY_BOX_PRICE }]);
     const handleRemoveBox = (index: number) => setBoxPrices((prev) => prev.filter((_, i) => i !== index));
 
+    // Mirrors backend routes/settings.ts + utils/paymentOptions.ts: a card
+    // method without a real HTTPS provider URL is not usable, and the demo
+    // payment page is never accepted as a provider.
+    const cardUrl = (paymentOptions.creditCard.paymentUrl ?? "").trim();
+    const cardUrlIsDemo = /payment-demo/.test(cardUrl);
+    const cardUrlUsable = cardUrl.startsWith("https://") && !cardUrlIsDemo;
+
     const handleSave = async () => {
         if (minimumOrderAmount < 0) {
             toast.error(t("settings.section1.minNegative"));
             return;
+        }
+        if (paymentOptions.creditCard.enabled) {
+            if (cardUrlIsDemo) {
+                toast.error(t("settings.payments.cardUrlDemo"));
+                return;
+            }
+            if (!cardUrl.startsWith("https://")) {
+                toast.error(t("settings.payments.cardUrlRequired"));
+                return;
+            }
         }
         setSaving(true);
         try {
@@ -113,7 +131,8 @@ export default function SettingsPage() {
             toast.success(t("settings.toasts.saved"));
         } catch (err) {
             console.error(err);
-            toast.error(t("settings.toasts.saveFailed"));
+            // Surface the backend's validation reason instead of a generic toast.
+            toast.error(getApiErrorMessage(err, t("settings.toasts.saveFailed")));
         } finally {
             setSaving(false);
         }
@@ -305,18 +324,33 @@ export default function SettingsPage() {
                                 {t("settings.payments.cardEnabled")}
                             </label>
                             {paymentOptions.creditCard.enabled && (
-                                <Field label={t("settings.payments.paymentUrl")} hint={t("settings.payments.paymentUrlHint")}>
-                                    <Input
-                                        type="url"
-                                        dir="ltr"
-                                        value={paymentOptions.creditCard.paymentUrl ?? ""}
-                                        placeholder="https://"
-                                        onChange={(e) => setPaymentOptions((prev) => ({
-                                            ...prev,
-                                            creditCard: { ...prev.creditCard, paymentUrl: e.target.value },
-                                        }))}
-                                    />
-                                </Field>
+                                <>
+                                    <Field label={t("settings.payments.paymentUrl")} hint={t("settings.payments.paymentUrlHint")}>
+                                        <Input
+                                            type="url"
+                                            dir="ltr"
+                                            value={paymentOptions.creditCard.paymentUrl ?? ""}
+                                            placeholder="https://"
+                                            onChange={(e) => setPaymentOptions((prev) => ({
+                                                ...prev,
+                                                creditCard: { ...prev.creditCard, paymentUrl: e.target.value },
+                                            }))}
+                                        />
+                                    </Field>
+                                    {cardUrlIsDemo ? (
+                                        <p className="text-sm text-red-600 dark:text-red-400">
+                                            {t("settings.payments.cardUrlDemo")}
+                                        </p>
+                                    ) : cardUrlUsable ? (
+                                        <p className="text-sm text-amber-600 dark:text-amber-400">
+                                            {t("settings.payments.cardStatusExternalLink")}
+                                        </p>
+                                    ) : (
+                                        <p className="text-sm text-red-600 dark:text-red-400">
+                                            {t("settings.payments.cardStatusNotConfigured")}
+                                        </p>
+                                    )}
+                                </>
                             )}
                         </div>
                     </Card>

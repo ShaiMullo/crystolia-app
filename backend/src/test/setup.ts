@@ -5,6 +5,7 @@ process.env.NODE_ENV = 'test';
 // The suite fires many auth requests from one IP — relax the auth limiter
 // (its production default stays 5 per 15 minutes).
 process.env.AUTH_RATE_LIMIT_MAX = '10000';
+process.env.ORDER_RATE_LIMIT_MAX = '10000';
 // Providers stay unconfigured by default: emailService/smsService then return
 // { success: false, error: 'Configuration missing' } without network calls.
 delete process.env.SENDGRID_API_KEY;

@@ -15,6 +15,7 @@ export type NotificationType =
     | 'order_pending_approval'
     | 'registration_pending'
     | 'automation_triggered'
+    | 'inventory_reservation_failed'
     | 'generic';
 
 export type NotificationChannel = 'in_app' | 'email' | 'whatsapp';
@@ -52,6 +53,7 @@ const NotificationSchema = new Schema<INotification>(
                 'order_pending_approval',
                 'registration_pending',
                 'automation_triggered',
+                'inventory_reservation_failed',
                 'generic',
             ],
             required: true,

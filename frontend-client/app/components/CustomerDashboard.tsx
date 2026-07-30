@@ -81,6 +81,22 @@ interface BusinessSettings {
     };
 }
 
+// Mirrors backend utils/paymentOptions.ts: the card method is offered only
+// when its URL is a usable real-provider link — enabled with a missing,
+// non-HTTPS or demo-page URL means the customer could never actually pay.
+function isUsableCardPaymentUrl(url: string | undefined): boolean {
+    return !!url && url.startsWith("https://") && !/payment-demo/.test(url);
+}
+
+function availablePaymentMethods(settings: BusinessSettings | null): PaymentPreference[] {
+    return [
+        ...(settings?.paymentOptions?.bankTransfer.enabled ? ["bank_transfer" as const] : []),
+        ...(settings?.paymentOptions?.creditCard.enabled
+            && isUsableCardPaymentUrl(settings.paymentOptions.creditCard.paymentUrl)
+            ? ["credit_card" as const] : []),
+    ];
+}
+
 
 
 export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
@@ -108,6 +124,10 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
     const [settings, setSettings] = useState<BusinessSettings | null>(null);
     const [catalog, setCatalog] = useState<CatalogItem[]>([]);
     const [paymentMethod, setPaymentMethod] = useState<PaymentPreference | "">("");
+    // Idempotency key for the CURRENT checkout attempt: minted when the
+    // confirmation modal opens, so a double-click or network retry of the
+    // same confirmation can never create two orders (backend dedupes on it).
+    const [clientRequestId, setClientRequestId] = useState<string>("");
     const [paymentModalOpen, setPaymentModalOpen] = useState(false);
     const [submittingOrder, setSubmittingOrder] = useState(false);
     const isRTL = locale === "he";
@@ -271,10 +291,7 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
             return;
         }
 
-        const enabledMethods: PaymentPreference[] = [
-            ...(settings?.paymentOptions?.bankTransfer.enabled ? ["bank_transfer" as const] : []),
-            ...(settings?.paymentOptions?.creditCard.enabled ? ["credit_card" as const] : []),
-        ];
+        const enabledMethods = availablePaymentMethods(settings);
         if (enabledMethods.length === 0) {
             toast.error(t.paymentMethodsDisabled);
             return;
@@ -292,15 +309,13 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
         }
 
         setPaymentMethod(enabledMethods.length === 1 ? enabledMethods[0] : "");
+        setClientRequestId(crypto.randomUUID());
         setPaymentModalOpen(true);
     };
 
     const handleConfirmOrder = async () => {
         const items = selectedOrderItems();
-        const enabledMethods: PaymentPreference[] = [
-            ...(settings?.paymentOptions?.bankTransfer.enabled ? ["bank_transfer" as const] : []),
-            ...(settings?.paymentOptions?.creditCard.enabled ? ["credit_card" as const] : []),
-        ];
+        const enabledMethods = availablePaymentMethods(settings);
         if (!paymentMethod || !enabledMethods.includes(paymentMethod)) {
             toast.error(t.selectPaymentMethod);
             return;
@@ -308,13 +323,18 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
 
         setSubmittingOrder(true);
         try {
-            await api.post('/v1/me/orders', { items, paymentPreference: paymentMethod });
+            await api.post('/v1/me/orders', {
+                items,
+                paymentPreference: paymentMethod,
+                ...(clientRequestId ? { clientRequestId } : {}),
+            });
             toast.success(t.orderSubmitted);
 
             // Reset form
             setOrderQuantities(prev => Object.fromEntries(Object.keys(prev).map(k => [k, 0])));
             setPaymentModalOpen(false);
             setPaymentMethod("");
+            setClientRequestId("");
             setActiveTab("orders");
 
             // Refresh orders
@@ -343,12 +363,10 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
     const orderTotal = catalog.reduce((sum, item) => sum + item.price * (orderQuantities[item.sku] || 0), 0);
     const minAmount = settings?.minimumOrderAmount ?? 0;
 
-    // Only admin-enabled payment methods are offered; the backend enforces the
-    // same rule, so this is presentation + early feedback, not the gate.
-    const enabledPaymentMethods: PaymentPreference[] = [
-        ...(settings?.paymentOptions?.bankTransfer.enabled ? ["bank_transfer" as const] : []),
-        ...(settings?.paymentOptions?.creditCard.enabled ? ["credit_card" as const] : []),
-    ];
+    // Only admin-enabled, actually-usable payment methods are offered; the
+    // backend enforces the same rule, so this is presentation + early
+    // feedback, not the gate.
+    const enabledPaymentMethods = availablePaymentMethods(settings);
     const paymentMethodLabels: Record<PaymentPreference, string> = {
         bank_transfer: t.bankTransfer,
         credit_card: t.creditCardMethod,
@@ -1194,7 +1212,8 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                             </dl>
                                         </div>
                                     )}
-                                    {settings.paymentOptions.creditCard.enabled && settings.paymentOptions.creditCard.paymentUrl
+                                    {settings.paymentOptions.creditCard.enabled
+                                        && isUsableCardPaymentUrl(settings.paymentOptions.creditCard.paymentUrl)
                                         && (!selectedOrder.paymentPreference || selectedOrder.paymentPreference === "credit_card") && (
                                         <a
                                             href={settings.paymentOptions.creditCard.paymentUrl}
@@ -1212,7 +1231,8 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                         <p className="mt-2 text-sm text-gray-500">{t.paymentUnavailable}</p>
                                     )}
                                     {selectedOrder.paymentPreference === "credit_card"
-                                        && !(settings.paymentOptions.creditCard.enabled && settings.paymentOptions.creditCard.paymentUrl) && (
+                                        && !(settings.paymentOptions.creditCard.enabled
+                                            && isUsableCardPaymentUrl(settings.paymentOptions.creditCard.paymentUrl)) && (
                                         <p className="mt-2 text-sm text-gray-500">{t.paymentUnavailable}</p>
                                     )}
                                 </div>

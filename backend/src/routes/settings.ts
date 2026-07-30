@@ -7,6 +7,8 @@ import Settings from '../models/Settings.js';
 import { protect, authorize } from '../middleware/auth.js';
 import { AppError } from '../utils/validation.js';
 import { logAudit } from '../services/auditService.js';
+import { isDemoPaymentUrl } from '../utils/paymentOptions.js';
+import { getPaymentMethodsStatus } from '../services/payments/paymentStatusService.js';
 
 const router = Router();
 
@@ -85,6 +87,13 @@ router.put('/', protect, authorize('admin'), async (req: Request, res: Response,
                 if (parsed.protocol !== 'https:') {
                     throw new AppError('Credit-card payment URL must use HTTPS', 400);
                 }
+                if (isDemoPaymentUrl(card.paymentUrl)) {
+                    throw new AppError(
+                        'The demo payment page cannot be saved as the credit-card provider URL. '
+                        + 'Enter a real provider URL, or disable the credit-card method.',
+                        400,
+                    );
+                }
             }
             update.paymentOptions = {
                 bankTransfer: {
@@ -123,6 +132,19 @@ router.put('/', protect, authorize('admin'), async (req: Request, res: Response,
         });
 
         res.json({ success: true, data: settings });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// GET /api/settings/payment-status - Provider/configuration health
+// 🔒 Protected: Admin Only
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+router.get('/payment-status', protect, authorize('admin'), async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const settings = await Settings.findOne({ key: 'business' }).select('paymentOptions').lean();
+        res.json({ success: true, data: getPaymentMethodsStatus(settings?.paymentOptions) });
     } catch (error) {
         next(error);
     }
