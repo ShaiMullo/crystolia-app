@@ -109,6 +109,16 @@ const InvoiceSchema = new Schema<IInvoice>(
 );
 
 // Additive ERP-sync metadata (optional fields; no index — see syncableFields.ts)
+// One auto-invoice per order, enforced at the database level so concurrent
+// approvals cannot create duplicates. Partial: manual invoices without an
+// order are unlimited. If legacy production data already contains
+// duplicates, the index build fails harmlessly (Mongoose logs it) and the
+// application-level duplicate handling remains the guard.
+InvoiceSchema.index(
+    { order: 1 },
+    { unique: true, partialFilterExpression: { order: { $type: 'objectId' } } },
+);
+
 withSyncableFields(InvoiceSchema);
 
 export const Invoice = mongoose.model<IInvoice>('Invoice', InvoiceSchema);

@@ -82,18 +82,23 @@ describe('isDemoPaymentUrl / method derivation', () => {
         expect(isDemoPaymentUrl(undefined)).toBe(false);
     });
 
-    it('offers the card method only with a usable real HTTPS URL', () => {
+    it('never offers the card method — a static link is not a verified provider', () => {
         const card = (paymentUrl: string) => ({ bankTransfer: BANK, creditCard: { enabled: true, paymentUrl } });
-        expect(enabledPaymentMethods(card(REAL_URL))).toEqual(['bank_transfer', 'credit_card']);
+        // Even a syntactically perfect HTTPS link is NOT a payment method:
+        // there is no verified provider integration, so no confirmation.
+        expect(enabledPaymentMethods(card(REAL_URL))).toEqual(['bank_transfer']);
+        expect(isCardPaymentConfigured(card(REAL_URL))).toBe(false);
         expect(enabledPaymentMethods(card(DEMO_URL))).toEqual(['bank_transfer']);
         expect(enabledPaymentMethods(card(''))).toEqual(['bank_transfer']);
         expect(enabledPaymentMethods(card('http://pay.example.com'))).toEqual(['bank_transfer']);
     });
 
-    it('paymentConfigError names the demo URL explicitly', () => {
-        const err = paymentConfigError('credit_card', { bankTransfer: BANK, creditCard: { enabled: true, paymentUrl: DEMO_URL } });
-        expect(err).toMatch(/demo payment page/);
-        expect(paymentConfigError('credit_card', { bankTransfer: BANK, creditCard: { enabled: true, paymentUrl: REAL_URL } })).toBeNull();
+    it('paymentConfigError blocks card approval: demo URL named explicitly, real URL blocked on missing provider', () => {
+        const demoErr = paymentConfigError('credit_card', { bankTransfer: BANK, creditCard: { enabled: true, paymentUrl: DEMO_URL } });
+        expect(demoErr).toMatch(/demo payment page/);
+        const noProviderErr = paymentConfigError('credit_card', { bankTransfer: BANK, creditCard: { enabled: true, paymentUrl: REAL_URL } });
+        expect(noProviderErr).toMatch(/No verified card payment provider/);
+        expect(paymentConfigError('bank_transfer', { bankTransfer: BANK, creditCard: { enabled: false, paymentUrl: '' } })).toBeNull();
     });
 });
 
@@ -190,9 +195,27 @@ describe('admin payment-status endpoint', () => {
         expect(card.enabled).toBe(true);
         expect(card.configured).toBe(false);
         expect(card.provider).toBe('none');
+        expect(card.staticLinkUsable).toBe(false);
         expect(card.issues.join(' ')).toMatch(/demo payment page/i);
         const bank = res.body.data.methods.find((m: { method: string }) => m.method === 'bank_transfer');
         expect(bank.configured).toBe(true);
+    });
+
+    it('never reports a static HTTPS link as a configured provider', async () => {
+        await Settings.create({
+            key: 'business',
+            minimumOrderAmount: 0,
+            currency: 'ILS',
+            boxPrices: [],
+            paymentOptions: { bankTransfer: BANK, creditCard: { enabled: true, paymentUrl: REAL_URL } },
+        });
+        const admin = await createAdmin();
+        const res = await request(app).get('/api/v1/settings/payment-status').set('Cookie', authCookieFor(admin));
+        const card = res.body.data.methods.find((m: { method: string }) => m.method === 'credit_card');
+        expect(card.configured).toBe(false);          // not end-to-end usable
+        expect(card.provider).toBe('none');           // no verified integration
+        expect(card.staticLinkUsable).toBe(true);     // transparency only
+        expect(card.issues.join(' ')).toMatch(/No verified card provider/i);
     });
 
     it('is admin-only', async () => {

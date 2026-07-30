@@ -127,7 +127,10 @@ describe('GET /api/v1/me/catalog', () => {
         const noRows = await Product.create({ name: 'ללא שורות', sku: 'STOCK-3', price: 20, stockTrackingEnabled: true });
         expect(noRows.stockTrackingEnabled).toBe(true);
 
-        // Two locations for STOCK-1: (10-3) + (5-0) = 12
+        // Availability is MAIN-location only — the same location the order
+        // reservation flow uses. The 'north' stock must NOT be shown to the
+        // customer, because approving their order could never reserve it:
+        // main contributes 10-3 = 7.
         await Inventory.create({ product: tracked._id, location: 'main', quantity: 10, reservedQuantity: 3 });
         await Inventory.create({ product: tracked._id, location: 'north', quantity: 5, reservedQuantity: 0 });
         // Over-reserved location clamps to 0 rather than going negative.
@@ -135,7 +138,7 @@ describe('GET /api/v1/me/catalog', () => {
 
         const res = await request(app).get('/api/v1/me/catalog').set('Cookie', cookie);
         expect(res.status).toBe(200);
-        expect(itemBySku(res.body.data, 'STOCK-1')?.available).toBe(12);
+        expect(itemBySku(res.body.data, 'STOCK-1')?.available).toBe(7);
         expect(itemBySku(res.body.data, 'STOCK-2')?.available).toBe(0);
         // Tracked product with no inventory rows yet → 0 available, still visible.
         expect(itemBySku(res.body.data, 'STOCK-3')?.available).toBe(0);

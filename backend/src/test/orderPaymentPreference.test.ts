@@ -67,7 +67,7 @@ function orderBody(paymentPreference?: unknown) {
 }
 
 describe('payment preference at order placement', () => {
-    it('stores a valid bank-transfer or credit-card preference', async () => {
+    it('stores a bank-transfer preference; credit card is not offerable without a verified provider', async () => {
         await Settings.create({ key: 'business', minimumOrderAmount: 0, currency: 'ILS', boxPrices: [], paymentOptions: BOTH_METHODS });
         const cookie = await approvedCustomer();
 
@@ -75,9 +75,10 @@ describe('payment preference at order placement', () => {
         expect(bank.status).toBe(201);
         expect(bank.body.data.paymentPreference).toBe('bank_transfer');
 
+        // Card is admin-"enabled" with a valid HTTPS link, but no verified
+        // provider integration exists — so it is not a selectable method.
         const card = await request(app).post('/api/v1/me/orders').set('Cookie', cookie).send(orderBody('credit_card'));
-        expect(card.status).toBe(201);
-        expect(card.body.data.paymentPreference).toBe('credit_card');
+        expect(card.status).toBe(400);
 
         const stored = await Order.findById(bank.body.data._id).lean();
         expect(stored?.paymentPreference).toBe('bank_transfer');
@@ -141,50 +142,61 @@ describe('payment preference at order placement', () => {
     });
 });
 
-describe('payment configuration guard at approval', () => {
-    it('refuses to approve while the selected method is disabled, then approves once fixed', async () => {
-        await Settings.create({ key: 'business', minimumOrderAmount: 0, currency: 'ILS', boxPrices: [], paymentOptions: BOTH_METHODS });
-        const cookie = await approvedCustomer();
-        const placed = await request(app).post('/api/v1/me/orders').set('Cookie', cookie).send(orderBody('credit_card'));
-        expect(placed.status).toBe(201);
-        const orderId = placed.body.data._id;
-
-        // The admin disables credit card after the order was placed.
-        await Settings.updateOne({ key: 'business' }, { $set: { 'paymentOptions.creditCard.enabled': false } });
-
-        const admin = await createAdmin();
-        const adminCookie = authCookieFor(admin);
-        const blocked = await request(app)
-            .patch(`/api/orders/${orderId}`)
-            .set('Cookie', adminCookie)
-            .send({ status: 'approved' });
-        expect(blocked.status).toBe(409);
-        expect(blocked.body.message || blocked.body.error).toContain('Cannot approve');
-        expect((await Order.findById(orderId).lean())?.status).toBe('pending');
-
-        // Fixing the configuration unblocks the approval.
-        await Settings.updateOne({ key: 'business' }, { $set: { 'paymentOptions.creditCard.enabled': true } });
-        const approved = await request(app)
-            .patch(`/api/orders/${orderId}`)
-            .set('Cookie', adminCookie)
-            .send({ status: 'approved' });
-        expect(approved.status).toBe(200);
-        expect((await Order.findById(orderId).lean())?.status).toBe('approved');
+// Legacy credit-card orders (placed before the verified-provider gate)
+// exist in the DB; they are created directly here to test approval guards.
+async function legacyCardOrder() {
+    const customer = await User.findOne({ email: `payment-${counter}@example.com` });
+    return Order.create({
+        company: customer!.company,
+        createdBy: customer!._id,
+        items: [{ productName: 'שמן חמניות 5L', quantity: 1, price: 100 }],
+        totalAmount: 100,
+        status: 'pending',
+        paymentPreference: 'credit_card',
     });
+}
 
-    it('also refuses when the credit-card URL is not HTTPS', async () => {
+describe('payment configuration guard at approval', () => {
+    it('refuses to approve a credit-card order while no verified provider is integrated', async () => {
         await Settings.create({ key: 'business', minimumOrderAmount: 0, currency: 'ILS', boxPrices: [], paymentOptions: BOTH_METHODS });
-        const cookie = await approvedCustomer();
-        const placed = await request(app).post('/api/v1/me/orders').set('Cookie', cookie).send(orderBody('credit_card'));
-        // Simulate a broken stored configuration (bypasses the settings API).
-        await Settings.updateOne({ key: 'business' }, { $set: { 'paymentOptions.creditCard.paymentUrl': 'http://insecure.example.com' } });
+        await approvedCustomer();
+        const order = await legacyCardOrder();
 
         const admin = await createAdmin();
         const blocked = await request(app)
-            .patch(`/api/orders/${placed.body.data._id}`)
+            .patch(`/api/orders/${order._id}`)
             .set('Cookie', authCookieFor(admin))
             .send({ status: 'approved' });
         expect(blocked.status).toBe(409);
+        expect(blocked.body.message || blocked.body.error).toContain('Cannot approve');
+        expect(blocked.body.message || blocked.body.error).toMatch(/No verified card payment provider/);
+        expect((await Order.findById(order._id).lean())?.status).toBe('pending');
+    });
+
+    it('also refuses when the credit-card method is disabled or its URL is not HTTPS', async () => {
+        await Settings.create({ key: 'business', minimumOrderAmount: 0, currency: 'ILS', boxPrices: [], paymentOptions: BOTH_METHODS });
+        await approvedCustomer();
+        const order = await legacyCardOrder();
+        const admin = await createAdmin();
+
+        await Settings.updateOne({ key: 'business' }, { $set: { 'paymentOptions.creditCard.enabled': false } });
+        const disabled = await request(app)
+            .patch(`/api/orders/${order._id}`)
+            .set('Cookie', authCookieFor(admin))
+            .send({ status: 'approved' });
+        expect(disabled.status).toBe(409);
+
+        await Settings.updateOne({ key: 'business' }, {
+            $set: {
+                'paymentOptions.creditCard.enabled': true,
+                'paymentOptions.creditCard.paymentUrl': 'http://insecure.example.com',
+            },
+        });
+        const insecure = await request(app)
+            .patch(`/api/orders/${order._id}`)
+            .set('Cookie', authCookieFor(admin))
+            .send({ status: 'approved' });
+        expect(insecure.status).toBe(409);
     });
 
     it('refuses bank-transfer approval when any required bank detail is missing', async () => {

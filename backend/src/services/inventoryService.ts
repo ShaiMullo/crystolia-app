@@ -8,6 +8,7 @@ import mongoose, { ClientSession } from 'mongoose';
 import Inventory from '../models/Inventory.js';
 import InventoryMovement, { MovementType } from '../models/InventoryMovement.js';
 import Product from '../models/Product.js';
+import { withTransaction } from '../db/withTransaction.js';
 
 export interface MovementInput {
     productId: string | mongoose.Types.ObjectId;
@@ -171,23 +172,83 @@ async function movementForItem(
     }
 }
 
-export async function reserveForOrder(
+export type AllOrNothingResult =
+    | { ok: true; transactional: boolean }
+    | { ok: false; error: string; failedProductId?: string };
+
+/**
+ * Reserve stock for EVERY line of an order, or nothing at all.
+ *
+ * On a replica set the lines run inside one Mongo transaction, so a failure
+ * aborts every write. On a standalone mongod (transactions unsupported)
+ * the lines run sequentially and a failure triggers explicit compensation:
+ * each already-reserved line is released, with a paired
+ * `reservation_compensation` movement record so the Inventory summary and
+ * the InventoryMovement log never diverge.
+ *
+ * Lines without a productId (legacy boxPrices SKUs) and products with
+ * stockTrackingEnabled=false never block — applyMovement handles them.
+ */
+export async function reserveAllForOrder(
     orderId: string | mongoose.Types.ObjectId,
     items: Array<{ productId?: string; quantity: number }>,
     actorId?: string,
-): Promise<OrderMovementFailure[]> {
-    const failures: OrderMovementFailure[] = [];
-    for (const item of items) {
-        // eslint-disable-next-line no-await-in-loop
-        const failure = await movementForItem(item, {
-            type: 'reserved',
-            relatedOrderId: orderId,
-            actorId,
-            reason: 'order_approved',
+): Promise<AllOrNothingResult> {
+    const lines = items.filter((i) => i.productId);
+    if (lines.length === 0) return { ok: true, transactional: false };
+
+    try {
+        const { result, transactional } = await withTransaction(async (session) => {
+            const done: typeof lines = [];
+            try {
+                for (const line of lines) {
+                    // eslint-disable-next-line no-await-in-loop
+                    await applyMovement({
+                        productId: line.productId!,
+                        type: 'reserved',
+                        quantity: line.quantity,
+                        relatedOrderId: orderId,
+                        actorId,
+                        reason: 'order_approved',
+                        session,
+                    });
+                    done.push(line);
+                }
+                return { ok: true as const };
+            } catch (err) {
+                // Inside a transaction the abort undoes everything.
+                if (session) throw err;
+                // Standalone fallback: compensate the lines that DID reserve.
+                for (const line of done) {
+                    // eslint-disable-next-line no-await-in-loop
+                    await applyMovement({
+                        productId: line.productId!,
+                        type: 'released',
+                        quantity: line.quantity,
+                        relatedOrderId: orderId,
+                        actorId,
+                        reason: 'reservation_compensation',
+                    }).catch((compErr: unknown) => {
+                        console.error(
+                            `❌ reservation compensation failed for product ${line.productId}:`,
+                            (compErr as Error).message,
+                        );
+                    });
+                }
+                return {
+                    ok: false as const,
+                    error: (err as Error).message,
+                    failedProductId: undefined,
+                };
+            }
         });
-        if (failure) failures.push(failure);
+        if (!result.ok) return result;
+        return { ok: true, transactional };
+    } catch (err) {
+        // Transactional path aborted on a business error (e.g. insufficient
+        // stock) — nothing was written.
+        return { ok: false, error: (err as Error).message };
     }
-    return failures;
 }
 
 export async function releaseForOrder(
@@ -209,29 +270,155 @@ export async function releaseForOrder(
     return failures;
 }
 
-export async function shipForOrder(
+interface ShipLineContext {
+    orderId: string | mongoose.Types.ObjectId;
+    actorId?: string;
+    /** True when the order holds an active reservation to consume. */
+    consumeReservation: boolean;
+    session?: ClientSession;
+}
+
+/**
+ * Ship one line ATOMICALLY: consuming the reservation and deducting
+ * on-hand happens in a single conditional update — never the old
+ * "release, then separately deduct" pair, which could fail in between and
+ * leak the reservation.
+ */
+async function applyShipLine(line: { productId: string; quantity: number }, ctx: ShipLineContext) {
+    const productId = new mongoose.Types.ObjectId(line.productId);
+    const location = 'main';
+    const now = new Date();
+    const opts = { new: true, session: ctx.session ?? null };
+
+    const product = await Product.findById(productId)
+        .select('stockTrackingEnabled isDeleted')
+        .session(ctx.session ?? null);
+    if (!product || product.isDeleted) throw new Error('Product not found');
+
+    if (product.stockTrackingEnabled) {
+        let updated = null;
+        if (ctx.consumeReservation) {
+            updated = await Inventory.findOneAndUpdate(
+                {
+                    product: productId,
+                    location,
+                    reservedQuantity: { $gte: line.quantity },
+                    quantity: { $gte: line.quantity },
+                },
+                {
+                    $inc: { quantity: -line.quantity, reservedQuantity: -line.quantity },
+                    $set: { lastMovementAt: now },
+                },
+                opts,
+            );
+            if (!updated) throw new Error('Insufficient reserved stock to ship');
+        } else {
+            updated = await Inventory.findOneAndUpdate(
+                {
+                    product: productId,
+                    location,
+                    $expr: { $gte: [{ $subtract: ['$quantity', '$reservedQuantity'] }, line.quantity] },
+                },
+                { $inc: { quantity: -line.quantity }, $set: { lastMovementAt: now } },
+                opts,
+            );
+            if (!updated) throw new Error('Insufficient available stock');
+        }
+    }
+
+    // Movement log mirrors the summary change (released+out when a
+    // reservation was consumed, out otherwise).
+    const movements = ctx.consumeReservation
+        ? [
+            { type: 'released', reason: 'order_shipped_release' },
+            { type: 'out', reason: 'order_shipped' },
+        ]
+        : [{ type: 'out', reason: 'order_shipped' }];
+    await InventoryMovement.create(
+        movements.map((m) => ({
+            product: productId,
+            location,
+            type: m.type,
+            quantity: line.quantity,
+            reason: m.reason,
+            relatedOrder: ctx.orderId,
+            createdBy: ctx.actorId,
+        })),
+        { session: ctx.session, ordered: true },
+    );
+}
+
+/** Standalone-fallback inverse of applyShipLine (best-effort emergency path). */
+async function compensateShipLine(line: { productId: string; quantity: number }, ctx: ShipLineContext) {
+    const productId = new mongoose.Types.ObjectId(line.productId);
+    const location = 'main';
+    const inc: Record<string, number> = { quantity: line.quantity };
+    if (ctx.consumeReservation) inc.reservedQuantity = line.quantity;
+    await Inventory.updateOne(
+        { product: productId, location },
+        { $inc: inc, $set: { lastMovementAt: new Date() } },
+    );
+    const movements = ctx.consumeReservation
+        ? [
+            { type: 'in', reason: 'ship_compensation' },
+            { type: 'reserved', reason: 'ship_compensation' },
+        ]
+        : [{ type: 'in', reason: 'ship_compensation' }];
+    await InventoryMovement.create(
+        movements.map((m) => ({
+            product: productId,
+            location,
+            type: m.type,
+            quantity: line.quantity,
+            reason: m.reason,
+            relatedOrder: ctx.orderId,
+            createdBy: ctx.actorId,
+        })),
+    );
+}
+
+/**
+ * Ship EVERY line of an order, or nothing at all — same
+ * transaction/compensation strategy as reserveAllForOrder. On failure the
+ * order's reservation is left intact, so the order can stay `approved`.
+ */
+export async function shipAllForOrder(
     orderId: string | mongoose.Types.ObjectId,
     items: Array<{ productId?: string; quantity: number }>,
-    actorId?: string,
-): Promise<OrderMovementFailure[]> {
-    const failures: OrderMovementFailure[] = [];
-    for (const item of items) {
-        // Release the reservation first, then deduct on-hand.
-        // eslint-disable-next-line no-await-in-loop
-        await movementForItem(item, {
-            type: 'released',
-            relatedOrderId: orderId,
-            actorId,
-            reason: 'order_shipped_release',
+    actorId: string | undefined,
+    consumeReservation: boolean,
+): Promise<AllOrNothingResult> {
+    const lines = items.filter((i): i is { productId: string; quantity: number } => Boolean(i.productId));
+    if (lines.length === 0) return { ok: true, transactional: false };
+
+    try {
+        const { result, transactional } = await withTransaction(async (session) => {
+            const ctx: ShipLineContext = { orderId, actorId, consumeReservation, session };
+            const done: typeof lines = [];
+            try {
+                for (const line of lines) {
+                    // eslint-disable-next-line no-await-in-loop
+                    await applyShipLine(line, ctx);
+                    done.push(line);
+                }
+                return { ok: true as const };
+            } catch (err) {
+                if (session) throw err;
+                for (const line of done) {
+                    // eslint-disable-next-line no-await-in-loop
+                    await compensateShipLine(line, { ...ctx, session: undefined }).catch((compErr: unknown) => {
+                        console.error(
+                            `❌ ship compensation failed for product ${line.productId}:`,
+                            (compErr as Error).message,
+                        );
+                    });
+                }
+                return { ok: false as const, error: (err as Error).message };
+            }
         });
-        // eslint-disable-next-line no-await-in-loop
-        const failure = await movementForItem(item, {
-            type: 'out',
-            relatedOrderId: orderId,
-            actorId,
-            reason: 'order_shipped',
-        });
-        if (failure) failures.push(failure);
+        if (!result.ok) return result;
+        return { ok: true, transactional };
+    } catch (err) {
+        return { ok: false, error: (err as Error).message };
     }
-    return failures;
 }

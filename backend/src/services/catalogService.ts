@@ -48,14 +48,19 @@ const ACTIVE_PRODUCT_FILTER = { isActive: true, isDeleted: { $ne: true } } as co
 const CUSTOMER_PRODUCT_FIELDS = '_id sku name description price currency unit taxRate stockTrackingEnabled';
 
 /**
- * Available stock per product id, aggregated over all inventory locations.
- * Each location contributes max(0, quantity - reservedQuantity) so an
- * over-reserved location can never eat into another location's availability.
+ * Available stock per product id — MAIN location only, matching the
+ * location order reservation/shipping actually uses (inventoryService
+ * defaults to 'main'). Aggregating other locations here would show the
+ * customer stock the order flow cannot reserve.
+ *
+ * Future multi-location allocation: when orders learn to reserve from
+ * other locations, widen this to the same allocation policy — the display
+ * and the reservation must always read the same stock.
  */
 async function availableByProductId(productIds: unknown[]): Promise<Map<string, number>> {
     if (productIds.length === 0) return new Map();
     const rows = await Inventory.aggregate<{ _id: unknown; available: number }>([
-        { $match: { product: { $in: productIds } } },
+        { $match: { product: { $in: productIds }, location: 'main' } },
         {
             $group: {
                 _id: '$product',

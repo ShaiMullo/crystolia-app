@@ -81,20 +81,18 @@ interface BusinessSettings {
     };
 }
 
-// Mirrors backend utils/paymentOptions.ts: the card method is offered only
-// when its URL is a usable real-provider link — enabled with a missing,
-// non-HTTPS or demo-page URL means the customer could never actually pay.
+// Mirrors backend utils/paymentOptions.ts. Used only for rendering payment
+// details of previously-approved card orders — never for offering the
+// method at checkout.
 function isUsableCardPaymentUrl(url: string | undefined): boolean {
     return !!url && url.startsWith("https://") && !/payment-demo/.test(url);
 }
 
+// Mirrors backend enabledPaymentMethods: credit card is NOT offered until a
+// verified provider integration exists (a static admin link gives no payment
+// confirmation). The backend enforces the same rule — this is presentation.
 function availablePaymentMethods(settings: BusinessSettings | null): PaymentPreference[] {
-    return [
-        ...(settings?.paymentOptions?.bankTransfer.enabled ? ["bank_transfer" as const] : []),
-        ...(settings?.paymentOptions?.creditCard.enabled
-            && isUsableCardPaymentUrl(settings.paymentOptions.creditCard.paymentUrl)
-            ? ["credit_card" as const] : []),
-    ];
+    return settings?.paymentOptions?.bankTransfer.enabled ? ["bank_transfer"] : [];
 }
 
 
