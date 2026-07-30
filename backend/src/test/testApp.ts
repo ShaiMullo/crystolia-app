@@ -9,7 +9,7 @@
 import express, { Express } from 'express';
 import cookieParser from 'cookie-parser';
 import mongoose from 'mongoose';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoMemoryServer, MongoMemoryReplSet } from 'mongodb-memory-server';
 import jwt from 'jsonwebtoken';
 
 import authRouter from '../routes/auth.js';
@@ -19,17 +19,28 @@ import ordersRouter from '../routes/orders.js';
 import crmInventoryRouter from '../routes/crmInventory.js';
 import crmNotificationsRouter from '../routes/crmNotifications.js';
 import crmOrdersRouter from '../routes/crmOrders.js';
+import crmPurchaseOrdersRouter from '../routes/crmPurchaseOrders.js';
 import settingsRouter from '../routes/settings.js';
 import paymentWebhooksRouter from '../routes/paymentWebhooks.js';
+import { readyHandler } from '../routes/ready.js';
 import { errorHandler } from '../middleware/errorHandler.js';
 import { config } from '../config/index.js';
 import User from '../models/User.js';
 import Company from '../models/Company.js';
 
-let mongod: MongoMemoryServer | null = null;
+let mongod: MongoMemoryServer | MongoMemoryReplSet | null = null;
 
-export async function startTestDb(): Promise<void> {
-    mongod = await MongoMemoryServer.create();
+/**
+ * Start the in-memory database. `replSet: true` boots a single-node
+ * replica set so MongoDB TRANSACTIONS work — required by any test that
+ * approves/ships orders containing stock-tracked products (the order
+ * workflow refuses those with 503 on a standalone mongod). Standalone
+ * stays the default: it is faster and also exercises the 503 behavior.
+ */
+export async function startTestDb(options: { replSet?: boolean } = {}): Promise<void> {
+    mongod = options.replSet
+        ? await MongoMemoryReplSet.create({ replSet: { count: 1 } })
+        : await MongoMemoryServer.create();
     await mongoose.connect(mongod.getUri());
     await Promise.all([User.init(), Company.init()]);
 }
@@ -60,6 +71,8 @@ export function buildTestApp(): Express {
     app.use('/api/v1/inventory', crmInventoryRouter);
     app.use('/api/v1/notifications', crmNotificationsRouter);
     app.use('/api/v1/orders', crmOrdersRouter);
+    app.use('/api/v1/purchase-orders', crmPurchaseOrdersRouter);
+    app.get('/api/ready', readyHandler);
     app.use('/api/settings', settingsRouter);
     app.use('/api/v1/settings', settingsRouter);
     app.use('/api/payments/webhooks', paymentWebhooksRouter);

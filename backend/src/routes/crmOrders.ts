@@ -7,7 +7,7 @@
 // here delegate to that same logic via shared inventory helpers.
 
 import { Router, Request, Response, NextFunction } from 'express';
-import Order from '../models/Order.js';
+import Order, { type IOrder } from '../models/Order.js';
 import Invoice from '../models/Invoice.js';
 import Customer from '../models/Customer.js';
 import Company from '../models/Company.js';
@@ -15,11 +15,8 @@ import { protect, authorize } from '../middleware/auth.js';
 import { validate, AppError } from '../utils/validation.js';
 import { logAudit } from '../services/auditService.js';
 import { computeOrderTotals, validateOrderItems, RawOrderItem } from '../services/orderService.js';
-import { reserveForOrder } from '../services/inventoryService.js';
-import { transitionError, applyInventorySideEffects } from '../services/orderStatusService.js';
+import { changeOrderStatus, unlockedOrderFilter } from '../services/orderStatusService.js';
 import Inventory from '../models/Inventory.js';
-import Settings from '../models/Settings.js';
-import { paymentConfigError } from '../utils/paymentOptions.js';
 import {
     isCustomerNotifiableStatus,
     notifyCustomerOfOrderStatus,
@@ -142,11 +139,20 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
         const companyId = await resolveCompanyId(body);
         if (!companyId) throw new AppError('A valid customer or company is required', 400);
 
+        // Creation supports pending (default) or approved. Approved does NOT
+        // bypass the shared workflow: the order is created pending and then
+        // run through the same fail-closed approval as every other order. A
+        // reservation failure leaves it pending and reports approvalError.
+        const requestedStatus = typeof body.status === 'string' ? body.status : 'pending';
+        if (requestedStatus !== 'pending' && requestedStatus !== 'approved') {
+            throw new AppError("New orders may only be created as 'pending' or 'approved'", 400);
+        }
+
         const totals = computeOrderTotals(body.items as RawOrderItem[]);
         const now = new Date();
         const actorId = req.user?._id?.toString();
 
-        const order = await Order.create({
+        let order: IOrder = await Order.create({
             company: companyId,
             createdBy: req.user?._id,
             items: totals.items.map((i) => ({
@@ -159,7 +165,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
             totalAmount: totals.totalAmount,
             subtotal: totals.subtotal,
             taxTotal: totals.taxTotal,
-            status: STATUSES.includes(body.status) ? body.status : 'pending',
+            status: 'pending',
             notes: typeof body.notes === 'string' ? body.notes.trim() : undefined,
             timeline: [{ type: 'order_created', at: now, actorId }],
         });
@@ -172,18 +178,26 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
             details: { totalAmount: totals.totalAmount, itemCount: totals.items.length, source: 'admin' },
         });
 
-        // If created directly as approved, reserve inventory.
-        if (order.status === 'approved') {
-            await reserveForOrder(
-                order._id,
-                order.items.map((i) => ({ productId: i.productId?.toString(), quantity: i.quantity })),
+        let approvalError: string | undefined;
+        if (requestedStatus === 'approved') {
+            const result = await changeOrderStatus({
+                orderId: order._id,
+                expectedCurrentStatus: 'pending',
+                targetStatus: 'approved',
                 actorId,
-            );
-            order.inventoryReserved = true;
-            await order.save();
+            });
+            if (result.ok) {
+                order = result.order;
+            } else {
+                approvalError = result.error;
+            }
         }
 
-        res.status(201).json({ success: true, data: order.toObject() });
+        res.status(201).json({
+            success: true,
+            data: order.toObject(),
+            ...(approvalError ? { approvalError } : {}),
+        });
     } catch (err) {
         next(err);
     }
@@ -199,104 +213,84 @@ router.patch('/:id', async (req: Request, res: Response, next: NextFunction) => 
         const body = req.body || {};
         const now = new Date();
         const actorId = req.user?._id?.toString();
-        const previousStatus = order.status;
-
-        // Items may only be edited while the order is still pending — once
-        // approved, inventory is reserved against the current line set.
-        if (Array.isArray(body.items)) {
-            if (order.status !== 'pending') {
-                throw new AppError('Items can only be edited while the order is pending', 409);
+        // Item edits are a single CONDITIONAL update: they atomically
+        // require status=pending AND no live status-transition lock, so an
+        // edit can never race an in-flight approval and change the lines
+        // after the reservation was computed. Notes alone may change on any
+        // status.
+        let updated: IOrder = order;
+        const wantsItemEdit = Array.isArray(body.items);
+        const wantsNotesEdit = typeof body.notes === 'string';
+        if (wantsItemEdit || wantsNotesEdit) {
+            const set: Record<string, unknown> = {};
+            let timelineEvent: Record<string, unknown> | undefined;
+            if (wantsItemEdit) {
+                const itemsError = validateOrderItems(body.items);
+                if (itemsError) throw new AppError(itemsError, 400);
+                const totals = computeOrderTotals(body.items as RawOrderItem[]);
+                set.items = totals.items.map((i) => ({
+                    productId: i.productId,
+                    productName: i.productName,
+                    quantity: i.quantity,
+                    price: i.price,
+                    taxRate: i.taxRate || undefined,
+                }));
+                set.totalAmount = totals.totalAmount;
+                set.subtotal = totals.subtotal;
+                set.taxTotal = totals.taxTotal;
+                timelineEvent = { type: 'order_items_updated', at: now, actorId };
             }
-            const itemsError = validateOrderItems(body.items);
-            if (itemsError) throw new AppError(itemsError, 400);
-            const totals = computeOrderTotals(body.items as RawOrderItem[]);
-            order.items = totals.items.map((i) => ({
-                productId: i.productId,
-                productName: i.productName,
-                quantity: i.quantity,
-                price: i.price,
-                taxRate: i.taxRate || undefined,
-            })) as typeof order.items;
-            order.totalAmount = totals.totalAmount;
-            order.subtotal = totals.subtotal;
-            order.taxTotal = totals.taxTotal;
-            order.timeline.push({ type: 'order_items_updated', at: now, actorId });
+            if (wantsNotesEdit) {
+                set.notes = (body.notes as string).trim();
+            }
+            const filter = wantsItemEdit
+                ? { _id: order._id, status: 'pending' as const, ...unlockedOrderFilter(now) }
+                : { _id: order._id };
+            const edited = await Order.findOneAndUpdate(
+                filter,
+                { $set: set, ...(timelineEvent ? { $push: { timeline: timelineEvent } } : {}) },
+                { new: true, runValidators: true },
+            );
+            if (!edited) {
+                throw new AppError(
+                    'Items can only be edited while the order is pending and not being processed by another request',
+                    409,
+                );
+            }
+            updated = edited;
         }
 
-        if (typeof body.notes === 'string') {
-            order.notes = body.notes.trim();
-        }
-
+        // Status changes run through the SAME shared workflow as
+        // routes/orders.ts PATCH (transition rules, concurrency lock,
+        // fail-closed reservation, safe shipment, single invoice). A refusal
+        // aborts the request but keeps the saved item/notes edits.
         let statusChanged = false;
         if (typeof body.status === 'string') {
             if (!STATUSES.includes(body.status as OrderStatus)) throw new AppError('Invalid status', 400);
-            if (body.status !== order.status) {
-                // Explicit state machine — shared with routes/orders.ts PATCH.
-                const invalidTransition = transitionError(order.status, body.status as OrderStatus);
-                if (invalidTransition) throw new AppError(invalidTransition, 409);
-                if (body.status === 'rejected') {
-                    const reason = typeof body.rejectionReason === 'string' ? body.rejectionReason.trim() : '';
-                    if (!reason) throw new AppError('Rejection reason is required', 400);
-                    order.rejectionReason = reason;
-                } else if (order.status === 'rejected') {
-                    order.rejectionReason = undefined;
-                }
-                // Approval sends the selected payment instructions — block it
-                // while that method's configuration is unusable (mirrors
-                // routes/orders.ts PATCH).
-                if (body.status === 'approved' && order.paymentPreference) {
-                    const settings = await Settings.findOne({ key: 'business' }).select('paymentOptions').lean();
-                    const configError = paymentConfigError(order.paymentPreference, settings?.paymentOptions);
-                    if (configError) throw new AppError(`Cannot approve: ${configError}`, 409);
-                }
-                statusChanged = true;
-                order.status = body.status as OrderStatus;
-                order.timeline.push({
-                    type: 'status_changed',
-                    at: now,
+            if (body.status !== updated.status) {
+                const result = await changeOrderStatus({
+                    orderId: updated._id,
+                    expectedCurrentStatus: updated.status,
+                    targetStatus: body.status as OrderStatus,
                     actorId,
-                    meta: { from: previousStatus, to: body.status },
+                    rejectionReason: typeof body.rejectionReason === 'string' ? body.rejectionReason : undefined,
                 });
+                if (!result.ok) throw new AppError(result.error, result.httpStatus);
+                updated = result.order;
+                statusChanged = true;
             }
         }
-
-        // Inventory side-effects — the SAME shared service as routes/orders.ts
-        // PATCH, so the two admin surfaces can never drift.
-        if (statusChanged) {
-            await applyInventorySideEffects(order, previousStatus, actorId);
-        }
-        await order.save();
 
         await logAudit({
             action: 'UPDATE',
             entity: 'Order',
-            entityId: order._id.toString(),
+            entityId: updated._id.toString(),
             req,
-            details: { status: order.status, totalAmount: order.totalAmount },
+            details: { status: updated.status, totalAmount: updated.totalAmount },
         });
 
-        // Approval creates the invoice that the payment workflow is attached
-        // to. The lookup keeps ordinary repeated approvals idempotent.
-        if (statusChanged && order.status === 'approved') {
-            const existing = await Invoice.findOne({ order: order._id }).select('_id');
-            if (!existing) {
-                const invoiceNumber = `INV-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
-                try {
-                    await Invoice.create({
-                        company: order.company,
-                        order: order._id,
-                        invoiceNumber,
-                        totalAmount: order.totalAmount,
-                        status: 'draft',
-                    });
-                } catch (invoiceErr: unknown) {
-                    if ((invoiceErr as { code?: number }).code !== 11000) throw invoiceErr;
-                }
-            }
-        }
-
-        if (statusChanged && isCustomerNotifiableStatus(order.status)) {
-            const notifications = await notifyCustomerOfOrderStatus(order, order.status)
+        if (statusChanged && isCustomerNotifiableStatus(updated.status)) {
+            const notifications = await notifyCustomerOfOrderStatus(updated, updated.status)
                 .catch((error: unknown) => ({
                     email: {
                         success: false,
@@ -307,20 +301,20 @@ router.patch('/:id', async (req: Request, res: Response, next: NextFunction) => 
                         error: error instanceof Error ? error.message : 'Notification failed',
                     },
                 }));
-            order.timeline.push({
+            updated.timeline.push({
                 type: 'customer_order_notification',
                 at: new Date(),
                 actorId,
                 meta: {
-                    status: order.status,
+                    status: updated.status,
                     email: notifications.email.success ? 'sent' : 'failed',
                     sms: notifications.sms.success ? 'sent' : 'failed',
                 },
             });
-            await order.save();
+            await updated.save();
         }
 
-        res.json({ success: true, data: order.toObject() });
+        res.json({ success: true, data: updated.toObject() });
     } catch (err) {
         next(err);
     }

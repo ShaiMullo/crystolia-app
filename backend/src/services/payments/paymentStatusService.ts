@@ -6,7 +6,7 @@
 // utils/paymentOptions.ts (which gates checkout and order approval).
 
 import type { ISettings } from '../../models/Settings.js';
-import { isCardPaymentConfigured, isDemoPaymentUrl } from '../../utils/paymentOptions.js';
+import { isCardPaymentConfigured, hasUsableCardLink, isDemoPaymentUrl } from '../../utils/paymentOptions.js';
 import type { PaymentMethodStatus } from './types.js';
 
 type PaymentOptions = ISettings['paymentOptions'] | undefined | null;
@@ -42,16 +42,24 @@ export function getPaymentMethodsStatus(paymentOptions: PaymentOptions): {
         if (!cardUrl) cardIssues.push('Payment URL is missing');
         else if (!cardUrl.startsWith('https://')) cardIssues.push('Payment URL is not HTTPS');
         else if (isDemoPaymentUrl(cardUrl)) {
-            cardIssues.push('Payment URL points to the demo payment page — it is treated as UNCONFIGURED and the card method is not offered to customers');
+            cardIssues.push('Payment URL points to the demo payment page — it can never be a card provider');
         }
-        cardIssues.push('No verified card provider is integrated; the URL is a static external link with no payment confirmation');
+        cardIssues.push(
+            'No verified card provider is integrated. A static external link gives no payment '
+            + 'confirmation, so the card method is NOT offered to customers and card-order approval '
+            + 'is blocked until a real provider adapter is configured '
+            + '(see docs/payments/PROVIDER_INTEGRATION_CHECKLIST.md)',
+        );
     }
-    const cardConfigured = isCardPaymentConfigured(paymentOptions);
+    // configured means "genuinely usable end-to-end" — with no verified
+    // provider integration this is always false, even when a syntactically
+    // valid static link was saved (reported separately for transparency).
     const cardStatus: PaymentMethodStatus = {
         method: 'credit_card',
         enabled: Boolean(card?.enabled),
-        configured: cardConfigured,
-        provider: cardConfigured ? 'external_link' : 'none',
+        configured: isCardPaymentConfigured(paymentOptions),
+        provider: 'none',
+        staticLinkUsable: hasUsableCardLink(paymentOptions),
         issues: cardIssues,
     };
 

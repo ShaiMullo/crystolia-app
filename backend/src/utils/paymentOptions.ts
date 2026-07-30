@@ -35,18 +35,35 @@ export function isDemoPaymentUrl(value: unknown): boolean {
     }
 }
 
-/** True only when the card method has a usable real-provider URL. */
-export function isCardPaymentConfigured(paymentOptions: PaymentOptions): boolean {
+/**
+ * Whether a VERIFIED card provider integration exists. A static HTTPS link
+ * is NOT one — it gives no payment confirmation, no amount validation and
+ * no webhook. This constant flips to a real capability check only when a
+ * concrete provider adapter (services/payments) is implemented and
+ * configured with owner-supplied credentials.
+ */
+export const VERIFIED_CARD_PROVIDER_INTEGRATED = false;
+
+/** True when the admin saved a syntactically usable non-demo HTTPS link.
+ *  Display-level only — it does NOT make the card method offerable. */
+export function hasUsableCardLink(paymentOptions: PaymentOptions): boolean {
     const card = paymentOptions?.creditCard;
     if (!card?.enabled) return false;
     const url = String(card.paymentUrl || '').trim();
     return url.startsWith('https://') && !isDemoPaymentUrl(url);
 }
 
+/** True only when card payment is genuinely usable end-to-end: a verified
+ *  provider integration AND a valid configuration. Currently always false —
+ *  no provider is integrated. */
+export function isCardPaymentConfigured(paymentOptions: PaymentOptions): boolean {
+    return VERIFIED_CARD_PROVIDER_INTEGRATED && hasUsableCardLink(paymentOptions);
+}
+
 /**
- * Methods a customer may currently select. Enabled-but-unusable card config
- * (missing/non-HTTPS/demo URL) is excluded — a method is only offered when
- * the customer could actually complete it.
+ * Methods a customer may currently select. Credit card is offered ONLY
+ * once a verified provider integration exists — an arbitrary static link
+ * is not a production payment method.
  */
 export function enabledPaymentMethods(paymentOptions: PaymentOptions): PaymentPreference[] {
     const enabled: PaymentPreference[] = [];
@@ -86,6 +103,10 @@ export function paymentConfigError(
     if (!url.startsWith('https://')) return 'Credit-card payment URL is missing or not HTTPS';
     if (isDemoPaymentUrl(url)) {
         return 'Credit-card payment URL points to the demo payment page — configure a real provider URL in Settings';
+    }
+    if (!VERIFIED_CARD_PROVIDER_INTEGRATED) {
+        return 'No verified card payment provider is integrated — credit-card orders cannot be approved. '
+            + 'Ask the customer to switch to bank transfer, or integrate a real provider first.';
     }
     return null;
 }

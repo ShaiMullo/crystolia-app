@@ -24,7 +24,9 @@ import { applyMovement } from '../services/inventoryService.js';
 const app = buildTestApp();
 
 beforeAll(async () => {
-    await startTestDb();
+    // Replica set: POST /movements is a production stock writer and now
+    // REQUIRES a MongoDB transaction (503 on standalone by design).
+    await startTestDb({ replSet: true });
 });
 afterAll(async () => {
     await stopTestDb();

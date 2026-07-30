@@ -74,8 +74,13 @@ export interface PaymentProviderAdapter {
 export interface PaymentMethodStatus {
     method: PaymentMethodKey;
     enabled: boolean;
-    /** True only when the method is genuinely usable end-to-end. */
+    /** True only when the method is genuinely usable end-to-end. A saved
+     *  static card link is NOT "configured" — no verified provider means
+     *  no confirmation, so configured stays false. */
     configured: boolean;
     provider: PaymentProviderType;
+    /** Card only: a syntactically valid non-demo HTTPS link is saved.
+     *  Transparency for the admin — does not make the method offerable. */
+    staticLinkUsable?: boolean;
     issues: string[];
 }

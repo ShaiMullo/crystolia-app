@@ -19,15 +19,17 @@ import Company from '../models/Company.js';
 import Settings from '../models/Settings.js';
 import Product from '../models/Product.js';
 import Order from '../models/Order.js';
+import Invoice from '../models/Invoice.js';
 import Inventory from '../models/Inventory.js';
-import Notification from '../models/Notification.js';
 import { applyMovement } from '../services/inventoryService.js';
 import { transitionError } from '../services/orderStatusService.js';
 
 const app = buildTestApp();
 
 beforeAll(async () => {
-    await startTestDb();
+    // Replica set: these tests approve/ship stock-tracked orders, which
+    // requires real MongoDB transactions.
+    await startTestDb({ replSet: true });
 });
 afterAll(async () => {
     await stopTestDb();
@@ -150,8 +152,8 @@ describe('reservation idempotency across reopen/re-approve', () => {
     });
 });
 
-describe('reservation failures are surfaced, not silent', () => {
-    it('approval succeeds with no stock, but records the failure and notifies admins', async () => {
+describe('approval fails closed on reservation failure', () => {
+    it('zero stock: approval returns 409, order stays pending, no invoice, no reserved flag', async () => {
         const admin = await createAdmin();
         const cookie = authCookieFor(admin);
         const { product, order } = await makeOrder({}, 5);
@@ -159,16 +161,35 @@ describe('reservation failures are surfaced, not silent', () => {
         await Inventory.create({ product: product._id, location: 'main', quantity: 0, reservedQuantity: 0 });
 
         const res = await patchStatus(order._id, { status: 'approved' }, cookie);
-        expect(res.status).toBe(200); // deliberately non-blocking (see PRODUCTION_READINESS.md 3.3)
+        expect(res.status).toBe(409);
+        expect(res.body.message || res.body.error).toMatch(/stock reservation failed/i);
 
         const stored = await Order.findById(order._id).lean();
-        expect(stored?.status).toBe('approved');
-        const failureEvent = stored?.timeline.find((e: { type: string }) => e.type === 'inventory_movement_failed');
-        expect(failureEvent).toBeTruthy();
+        expect(stored?.status).toBe('pending');
+        expect(stored?.inventoryReserved).not.toBe(true);
+        expect(await Invoice.countDocuments({ order: order._id })).toBe(0);
+        const row = await Inventory.findOne({ product: product._id }).lean();
+        expect(row?.reservedQuantity).toBe(0);
+    });
 
-        const bell = await Notification.findOne({ type: 'inventory_reservation_failed' }).lean();
-        expect(bell).toBeTruthy();
-        expect(bell?.recipient.toString()).toBe(admin._id.toString());
+    it('a missing Inventory row is NOT a successful approval', async () => {
+        const admin = await createAdmin();
+        const cookie = authCookieFor(admin);
+        const { order } = await makeOrder({}, 2); // tracked product, no Inventory row at all
+
+        const res = await patchStatus(order._id, { status: 'approved' }, cookie);
+        expect(res.status).toBe(409);
+        expect((await Order.findById(order._id).lean())?.status).toBe('pending');
+    });
+
+    it('untracked products never block approval', async () => {
+        const admin = await createAdmin();
+        const cookie = authCookieFor(admin);
+        const { order } = await makeOrder({ stockTrackingEnabled: false }, 2);
+
+        const res = await patchStatus(order._id, { status: 'approved' }, cookie);
+        expect(res.status).toBe(200);
+        expect((await Order.findById(order._id).lean())?.status).toBe('approved');
     });
 });
 

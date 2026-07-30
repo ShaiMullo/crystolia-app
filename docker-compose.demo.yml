@@ -71,10 +71,13 @@ services:
       PORT: "4000"
     expose:
       - "4000"
-    # Compose-level healthcheck (mirrors the image HEALTHCHECK) so Caddy's
-    # depends_on can wait for a ready backend instead of racing its boot.
+    # Compose-level READINESS gate: /api/ready also verifies MongoDB
+    # transaction support and the unique Invoice.order index, so a deploy
+    # against a standalone Mongo (or broken invoice data) fails loudly
+    # instead of reporting success. /api/live (the image HEALTHCHECK in
+    # backend/Dockerfile) remains the plain process-liveness probe.
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4000/api/live"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4000/api/ready"]
       interval: 30s
       timeout: 5s
       start_period: 20s
@@ -129,9 +132,12 @@ services:
     environment:
       NODE_ENV: production
       BACKEND_URL: http://backend:4000
-      # Set to "true" (host env or frontend-client/.env.demo) to turn the
-      # demo payment pages into 404s once production Settings no longer
-      # reference them — see docs/PRODUCTION_READINESS.md.
+      # Set to "true" to turn the demo payment pages into 404s once
+      # production Settings no longer reference them.
+      # SOURCE OF TRUTH: deploy/demo/.env.demo on the server (the compose
+      # --env-file used by remote-deploy.sh). This `environment:` entry
+      # OVERRIDES frontend-client/.env.demo, so setting the variable there
+      # has no effect — see docs/PRODUCTION_READINESS.md.
       DEMO_PAYMENT_PAGES_DISABLED: ${DEMO_PAYMENT_PAGES_DISABLED:-false}
     expose:
       - "3000"

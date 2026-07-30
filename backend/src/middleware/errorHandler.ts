@@ -28,6 +28,13 @@ export function errorHandler(err: AppError, req: Request, res: Response, next: N
     const statusCode = err.statusCode || 500;
     const message = err.message || 'Internal Server Error';
 
+    // Stock-safe workflows require MongoDB transactions; on a standalone
+    // deployment they refuse with an operational 503 rather than writing
+    // partially (see db/withTransaction.ts runRequiredTransaction).
+    if (err.name === 'TransactionsUnavailableError') {
+        return res.status(503).json({ success: false, error: err.message });
+    }
+
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // 🔍 MongoDB / Mongoose Error Handling
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

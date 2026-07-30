@@ -5,16 +5,15 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { protect, authorize } from '../middleware/auth.js';
 import Order from '../models/Order.js';
-import Invoice from '../models/Invoice.js';
 import Company from '../models/Company.js';
 import Settings from '../models/Settings.js';
 import { AppError } from '../utils/validation.js';
 import { logAudit } from '../services/auditService.js';
-import { transitionError, applyInventorySideEffects } from '../services/orderStatusService.js';
+import { changeOrderStatus } from '../services/orderStatusService.js';
 import { orderLimiter } from '../middleware/rateLimiter.js';
 import { computeOrderTotals, RawOrderItem } from '../services/orderService.js';
 import { resolveOrderSkus } from '../services/catalogService.js';
-import { enabledPaymentMethods, isPaymentPreference, paymentConfigError } from '../utils/paymentOptions.js';
+import { enabledPaymentMethods, isPaymentPreference } from '../utils/paymentOptions.js';
 import {
     isCustomerNotifiableStatus,
     notifyAdminOfNewOrder,
@@ -267,97 +266,38 @@ router.patch('/:id', authorize('admin', 'agent'), async (req: Request, res: Resp
             return next(new AppError('Invalid status', 400));
         }
 
-        // Fetch first — need company + totalAmount for auto-invoice
         const order = await Order.findById(req.params.id);
-
         if (!order) {
             return next(new AppError('Order not found', 404));
         }
 
+        // The entire workflow — transition rules, concurrency lock,
+        // fail-closed reservation, safe shipment, single invoice — lives in
+        // changeOrderStatus, shared with the CRM router. A refusal leaves
+        // the order exactly as it was: no invoice, no notification.
         const previousStatus = order.status;
-        // Explicit state machine — illegal jumps (completed→pending,
-        // shipped→approved, …) are refused instead of silently applied.
-        const invalidTransition = transitionError(previousStatus, status);
-        if (invalidTransition) {
-            return next(new AppError(invalidTransition, 409));
+        const result = await changeOrderStatus({
+            orderId: order._id,
+            expectedCurrentStatus: previousStatus,
+            targetStatus: status,
+            actorId: req.user?._id?.toString(),
+            rejectionReason,
+        });
+        if (!result.ok) {
+            return next(new AppError(result.error, result.httpStatus));
         }
-        if (status === 'rejected') {
-            const reason = typeof rejectionReason === 'string' ? rejectionReason.trim() : '';
-            if (!reason) return next(new AppError('Rejection reason is required', 400));
-            order.rejectionReason = reason;
-        } else if (previousStatus === 'rejected') {
-            order.rejectionReason = undefined;
-        }
-        // An approval sends the customer their selected payment instructions —
-        // refuse to approve while that method's configuration is unusable so
-        // an empty/invalid payment email can never go out.
-        if (status === 'approved' && previousStatus !== 'approved' && order.paymentPreference) {
-            const settings = await Settings.findOne({ key: 'business' }).select('paymentOptions').lean();
-            const configError = paymentConfigError(order.paymentPreference, settings?.paymentOptions);
-            if (configError) {
-                return next(new AppError(`Cannot approve: ${configError}`, 409));
-            }
-        }
-        order.status = status;
-        if (previousStatus !== status) {
-            order.timeline.push({
-                type: 'status_changed',
-                at: new Date(),
-                actorId: req.user?._id?.toString(),
-                meta: { from: previousStatus, to: status },
-            });
-        }
-        // ━━━ Inventory side-effects (best-effort, never block response;
-        // failures land on the timeline + admin notifications) ━━━
-        const actorId = req.user?._id?.toString();
-        if (previousStatus !== status) {
-            await applyInventorySideEffects(order, previousStatus, actorId);
-        }
-        await order.save();
+        const updated = result.order;
 
         await logAudit({
             action: 'UPDATE',
             entity: 'Order',
-            entityId: order._id.toString(),
+            entityId: updated._id.toString(),
             req,
             details: { status },
         });
 
-        // ━━━ Auto-create draft invoice on approval (idempotent) ━━━
-        if (status === 'approved') {
-            try {
-                const existing = await Invoice.findOne({ order: order._id });
-                if (!existing) {
-                    const invoiceNumber = `INV-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
-                    const newInvoice = await Invoice.create({
-                        company: order.company,
-                        order: order._id,
-                        invoiceNumber,
-                        totalAmount: order.totalAmount,
-                        status: 'draft',
-                    });
-
-                    await logAudit({
-                        action: 'CREATE',
-                        entity: 'Invoice',
-                        entityId: newInvoice._id.toString(),
-                        req,
-                        details: { invoiceNumber, totalAmount: order.totalAmount, status: 'draft', source: 'auto' },
-                    });
-
-                    console.log(`📋 Auto-created draft invoice ${invoiceNumber} for order ${order._id}`);
-                }
-            } catch (invoiceErr: any) {
-                // Duplicate invoice number (11000) means a concurrent request already created it — safe to ignore.
-                // Any other error is logged but must not fail the order update response.
-                if (invoiceErr.code !== 11000) {
-                    console.error('❌ Auto-invoice creation failed:', invoiceErr.message);
-                }
-            }
-        }
-
         if (previousStatus !== status && isCustomerNotifiableStatus(status)) {
-            const notifications = await notifyCustomerOfOrderStatus(order, status)
+            const notifications = await notifyCustomerOfOrderStatus(updated, status)
                 .catch((error: unknown) => ({
                     email: {
                         success: false,
@@ -368,7 +308,7 @@ router.patch('/:id', authorize('admin', 'agent'), async (req: Request, res: Resp
                         error: error instanceof Error ? error.message : 'Notification failed',
                     },
                 }));
-            order.timeline.push({
+            updated.timeline.push({
                 type: 'customer_order_notification',
                 at: new Date(),
                 actorId: req.user?._id?.toString(),
@@ -378,12 +318,12 @@ router.patch('/:id', authorize('admin', 'agent'), async (req: Request, res: Resp
                     sms: notifications.sms.success ? 'sent' : 'failed',
                 },
             });
-            await order.save();
+            await updated.save();
         }
 
         res.status(200).json({
             success: true,
-            data: order
+            data: updated
         });
     } catch (error) {
         next(error);

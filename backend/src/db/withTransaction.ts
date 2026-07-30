@@ -31,6 +31,59 @@ function isUnsupportedTxnError(err: unknown): boolean {
 }
 
 /**
+ * Thrown by runRequiredTransaction when the deployment cannot provide
+ * transactions (standalone mongod). Callers translate this into an
+ * explicit operational error (HTTP 503) — NEVER into a best-effort
+ * fallback, because the caller chose this API precisely because partial
+ * application would corrupt data.
+ */
+export class TransactionsUnavailableError extends Error {
+    constructor() {
+        super(
+            'MongoDB transactions are unavailable (standalone deployment). '
+            + 'Stock-safe order processing requires a replica set — see docs/deployment/mongo.md.',
+        );
+        this.name = 'TransactionsUnavailableError';
+    }
+}
+
+/**
+ * Execute `work` inside a Mongo transaction, or not at all. Unlike
+ * withTransaction there is NO non-transactional fallback: unsupported
+ * deployments get TransactionsUnavailableError before any write applies
+ * (the standalone error surfaces on the transaction's first operation,
+ * which then aborts cleanly).
+ */
+export async function runRequiredTransaction<T>(work: TxnWork<T>): Promise<T> {
+    if (transactionsSupported === false) {
+        throw new TransactionsUnavailableError();
+    }
+    let session: ClientSession;
+    try {
+        session = await mongoose.startSession();
+    } catch {
+        transactionsSupported = false;
+        throw new TransactionsUnavailableError();
+    }
+    try {
+        let result!: T;
+        await session.withTransaction(async () => {
+            result = await work(session);
+        });
+        transactionsSupported = true;
+        return result;
+    } catch (err) {
+        if (isUnsupportedTxnError(err)) {
+            transactionsSupported = false;
+            throw new TransactionsUnavailableError();
+        }
+        throw err;
+    } finally {
+        await session.endSession().catch(() => undefined);
+    }
+}
+
+/**
  * Execute `work` transactionally when possible, otherwise non-transactionally.
  * Never hard-requires a replica set.
  *

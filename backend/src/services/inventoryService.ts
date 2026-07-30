@@ -3,6 +3,23 @@
 // ===============================================
 // Single entry point for stock changes. Always writes both the Inventory
 // summary row AND an InventoryMovement record so the log stays in sync.
+//
+// Consistency model:
+//  * Every summary mutation is a single conditional findOneAndUpdate —
+//    availability guards live in the query filter, so concurrent movements
+//    can never both pass a read-time check and oversell.
+//  * With a session, summary + movement join the caller's transaction.
+//    EVERY production API that mutates tracked stock runs with a session
+//    via runRequiredTransaction (order transitions, manual movements,
+//    PO receiving) — that transaction is the actual consistency guarantee.
+//  * WITHOUT a session (development/seed usage only), a failed
+//    movement-log write triggers a compensating revert computed from the
+//    pre-image. This is BEST-EFFORT defense: the revert itself can fail
+//    (it logs CRITICAL when it does). No production stock mutation may
+//    rely on this path.
+//  * Multi-line order flows (reserve/ship every line or none) do NOT live
+//    here — they are orchestrated by orderStatusService inside one
+//    required transaction.
 
 import mongoose, { ClientSession } from 'mongoose';
 import Inventory from '../models/Inventory.js';
@@ -63,48 +80,67 @@ export async function applyMovement(input: MovementInput) {
     }
 
     let row = await getOrCreateInventoryRow(productId, location, session);
+    // Inverse of the summary change, used ONLY on the sessionless path
+    // (dev/seed) when the movement-log write fails after the summary
+    // applied. Best-effort: the revert itself can fail — production paths
+    // must run with a session instead of relying on this.
+    let revertUpdate: Record<string, unknown> | null = null;
 
     if (product.stockTrackingEnabled) {
-        // Every mutation is a single conditional findOneAndUpdate so two
-        // concurrent movements can never both pass a read-time availability
-        // check and oversell — the guard lives in the query filter itself.
         const match = { product: productId, location };
         const hasAvailable = {
             $expr: { $gte: [{ $subtract: ['$quantity', '$reservedQuantity'] }, input.quantity] },
         };
-        const opts = { new: true, session: session ?? null };
-        let updated = null;
+        // `new: false` returns the PRE-image so the revert (and the returned
+        // post values) can be computed exactly — including the released
+        // clamp, whose inverse depends on the prior reservedQuantity.
+        const opts = { new: false, session: session ?? null };
+        let pre = null;
 
         if (input.type === 'in') {
-            updated = await Inventory.findOneAndUpdate(
+            pre = await Inventory.findOneAndUpdate(
                 match,
                 { $inc: { quantity: input.quantity }, $set: { lastMovementAt: now } },
                 opts,
             );
+            if (!pre) throw new Error('Inventory row update failed');
+            revertUpdate = { $inc: { quantity: -input.quantity } };
+            row = pre;
+            row.quantity = pre.quantity + input.quantity;
         } else if (input.type === 'out') {
-            updated = await Inventory.findOneAndUpdate(
+            pre = await Inventory.findOneAndUpdate(
                 { ...match, ...hasAvailable },
                 { $inc: { quantity: -input.quantity }, $set: { lastMovementAt: now } },
                 opts,
             );
-            if (!updated) throw new Error('Insufficient available stock');
+            if (!pre) throw new Error('Insufficient available stock');
+            revertUpdate = { $inc: { quantity: input.quantity } };
+            row = pre;
+            row.quantity = pre.quantity - input.quantity;
         } else if (input.type === 'adjustment') {
             // adjustment quantity is the NEW on-hand value
-            updated = await Inventory.findOneAndUpdate(
+            pre = await Inventory.findOneAndUpdate(
                 match,
                 { $set: { quantity: input.quantity, lastMovementAt: now } },
                 opts,
             );
+            if (!pre) throw new Error('Inventory row update failed');
+            revertUpdate = { $set: { quantity: pre.quantity } };
+            row = pre;
+            row.quantity = input.quantity;
         } else if (input.type === 'reserved') {
-            updated = await Inventory.findOneAndUpdate(
+            pre = await Inventory.findOneAndUpdate(
                 { ...match, ...hasAvailable },
                 { $inc: { reservedQuantity: input.quantity }, $set: { lastMovementAt: now } },
                 opts,
             );
-            if (!updated) throw new Error('Insufficient available stock to reserve');
+            if (!pre) throw new Error('Insufficient available stock to reserve');
+            revertUpdate = { $inc: { reservedQuantity: -input.quantity } };
+            row = pre;
+            row.reservedQuantity = pre.reservedQuantity + input.quantity;
         } else if (input.type === 'released') {
             // Pipeline update so the at-zero clamp is atomic too.
-            updated = await Inventory.findOneAndUpdate(
+            pre = await Inventory.findOneAndUpdate(
                 match,
                 [{
                     $set: {
@@ -116,122 +152,122 @@ export async function applyMovement(input: MovementInput) {
                 }],
                 opts,
             );
+            if (!pre) throw new Error('Inventory row update failed');
+            const postReserved = Math.max(0, pre.reservedQuantity - input.quantity);
+            revertUpdate = { $inc: { reservedQuantity: pre.reservedQuantity - postReserved } };
+            row = pre;
+            row.reservedQuantity = postReserved;
         }
-
-        if (!updated) throw new Error('Inventory row update failed');
-        row = updated;
+        row.lastMovementAt = now;
     }
 
-    const [movement] = await InventoryMovement.create(
-        [{
-            product: productId,
-            location,
-            type: input.type,
-            quantity: input.quantity,
-            reason: input.reason,
-            relatedOrder: input.relatedOrderId,
-            createdBy: input.actorId,
-        }],
-        { session },
-    );
+    let movement;
+    try {
+        [movement] = await InventoryMovement.create(
+            [{
+                product: productId,
+                location,
+                type: input.type,
+                quantity: input.quantity,
+                reason: input.reason,
+                relatedOrder: input.relatedOrderId,
+                createdBy: input.actorId,
+            }],
+            { session },
+        );
+    } catch (err) {
+        // Inside a transaction the abort restores the summary. Outside one,
+        // revert the summary change exactly so summary and log never diverge.
+        if (!session && revertUpdate) {
+            await Inventory.updateOne({ product: productId, location }, revertUpdate).catch((revertErr: unknown) => {
+                console.error(
+                    `🚨 CRITICAL: inventory revert failed for product ${productId} @ ${location} — `
+                    + `summary and movement log have diverged: ${(revertErr as Error).message}`,
+                );
+            });
+        }
+        throw err;
+    }
 
     return { inventory: row, movement };
 }
 
-/** Best-effort: never throw on the caller's path. Used by order side-effects. */
-export async function safeApplyMovement(input: MovementInput) {
-    try {
-        return await applyMovement(input);
-    } catch (err) {
-        console.error('inventory movement skipped:', (err as Error).message);
-        return null;
-    }
+export interface ShipLineContext {
+    orderId: string | mongoose.Types.ObjectId;
+    actorId?: string;
+    /** True when the order holds an active reservation to consume. */
+    consumeReservation: boolean;
+    session?: ClientSession;
 }
 
-/** One failed stock movement for an order line. Callers surface these on the
- *  order timeline and as admin notifications instead of losing them. */
-export interface OrderMovementFailure {
-    productId: string;
-    quantity: number;
-    error: string;
-}
+/**
+ * Ship one line ATOMICALLY: consuming the reservation and deducting
+ * on-hand happens in a single conditional update — never the old
+ * "release, then separately deduct" pair, which could fail in between and
+ * leak the reservation. Order-level all-or-nothing across lines is the
+ * caller's responsibility (orderStatusService runs this in a required
+ * transaction).
+ */
+export async function applyShipLine(line: { productId: string; quantity: number }, ctx: ShipLineContext) {
+    const productId = new mongoose.Types.ObjectId(line.productId);
+    const location = 'main';
+    const now = new Date();
+    const opts = { new: true, session: ctx.session ?? null };
 
-async function movementForItem(
-    item: { productId?: string; quantity: number },
-    input: Omit<MovementInput, 'productId' | 'quantity'>,
-): Promise<OrderMovementFailure | null> {
-    if (!item.productId) return null;
-    try {
-        await applyMovement({ ...input, productId: item.productId, quantity: item.quantity });
-        return null;
-    } catch (err) {
-        const error = (err as Error).message;
-        console.error('inventory movement skipped:', error);
-        return { productId: item.productId, quantity: item.quantity, error };
-    }
-}
+    const product = await Product.findById(productId)
+        .select('stockTrackingEnabled isDeleted')
+        .session(ctx.session ?? null);
+    if (!product || product.isDeleted) throw new Error('Product not found');
 
-export async function reserveForOrder(
-    orderId: string | mongoose.Types.ObjectId,
-    items: Array<{ productId?: string; quantity: number }>,
-    actorId?: string,
-): Promise<OrderMovementFailure[]> {
-    const failures: OrderMovementFailure[] = [];
-    for (const item of items) {
-        // eslint-disable-next-line no-await-in-loop
-        const failure = await movementForItem(item, {
-            type: 'reserved',
-            relatedOrderId: orderId,
-            actorId,
-            reason: 'order_approved',
-        });
-        if (failure) failures.push(failure);
+    if (product.stockTrackingEnabled) {
+        let updated = null;
+        if (ctx.consumeReservation) {
+            updated = await Inventory.findOneAndUpdate(
+                {
+                    product: productId,
+                    location,
+                    reservedQuantity: { $gte: line.quantity },
+                    quantity: { $gte: line.quantity },
+                },
+                {
+                    $inc: { quantity: -line.quantity, reservedQuantity: -line.quantity },
+                    $set: { lastMovementAt: now },
+                },
+                opts,
+            );
+            if (!updated) throw new Error('Insufficient reserved stock to ship');
+        } else {
+            updated = await Inventory.findOneAndUpdate(
+                {
+                    product: productId,
+                    location,
+                    $expr: { $gte: [{ $subtract: ['$quantity', '$reservedQuantity'] }, line.quantity] },
+                },
+                { $inc: { quantity: -line.quantity }, $set: { lastMovementAt: now } },
+                opts,
+            );
+            if (!updated) throw new Error('Insufficient available stock');
+        }
     }
-    return failures;
-}
 
-export async function releaseForOrder(
-    orderId: string | mongoose.Types.ObjectId,
-    items: Array<{ productId?: string; quantity: number }>,
-    actorId?: string,
-): Promise<OrderMovementFailure[]> {
-    const failures: OrderMovementFailure[] = [];
-    for (const item of items) {
-        // eslint-disable-next-line no-await-in-loop
-        const failure = await movementForItem(item, {
-            type: 'released',
-            relatedOrderId: orderId,
-            actorId,
-            reason: 'order_cancelled',
-        });
-        if (failure) failures.push(failure);
-    }
-    return failures;
-}
-
-export async function shipForOrder(
-    orderId: string | mongoose.Types.ObjectId,
-    items: Array<{ productId?: string; quantity: number }>,
-    actorId?: string,
-): Promise<OrderMovementFailure[]> {
-    const failures: OrderMovementFailure[] = [];
-    for (const item of items) {
-        // Release the reservation first, then deduct on-hand.
-        // eslint-disable-next-line no-await-in-loop
-        await movementForItem(item, {
-            type: 'released',
-            relatedOrderId: orderId,
-            actorId,
-            reason: 'order_shipped_release',
-        });
-        // eslint-disable-next-line no-await-in-loop
-        const failure = await movementForItem(item, {
-            type: 'out',
-            relatedOrderId: orderId,
-            actorId,
-            reason: 'order_shipped',
-        });
-        if (failure) failures.push(failure);
-    }
-    return failures;
+    // Movement log mirrors the summary change (released+out when a
+    // reservation was consumed, out otherwise).
+    const movements = ctx.consumeReservation
+        ? [
+            { type: 'released', reason: 'order_shipped_release' },
+            { type: 'out', reason: 'order_shipped' },
+        ]
+        : [{ type: 'out', reason: 'order_shipped' }];
+    await InventoryMovement.create(
+        movements.map((m) => ({
+            product: productId,
+            location,
+            type: m.type,
+            quantity: line.quantity,
+            reason: m.reason,
+            relatedOrder: ctx.orderId,
+            createdBy: ctx.actorId,
+        })),
+        { session: ctx.session, ordered: true },
+    );
 }

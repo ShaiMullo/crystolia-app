@@ -6,12 +6,20 @@ Phases 7–8 introduced **multi-document transactions** (payment posting,
 shipment delivery, PO receiving). MongoDB transactions require a **replica
 set** (or sharded cluster) — a standalone `mongod` rejects them.
 
-The application **does not require** a replica set to run. `withTransaction`
-(`backend/src/db/withTransaction.ts`) probes capability once and **falls back**
-to non-transactional execution on a standalone server. So:
+The application **boots** without a replica set, but since the
+production-baseline hardening the ORDER workflow refuses to process
+stock-tracked orders without transactions: `runRequiredTransaction`
+(`backend/src/db/withTransaction.ts`) has **no fallback** and surfaces as
+HTTP **503** ("requires a replica set") on approve/ship/release of orders
+containing stock-tracked products. Other multi-write flows still use
+`withTransaction`, which falls back to non-transactional execution. So:
 
-- **Standalone mongod** → app works; multi-write flows are *not atomic*.
-- **Replica set** → multi-write flows are atomic.
+- **Standalone mongod** → app runs; catalog/auth/leads work; orders for
+  stock-tracked products CANNOT be approved/shipped (503 by design);
+  other multi-write flows are *not atomic*.
+- **Replica set** (Atlas is one) → everything works, order processing is
+  fully atomic (lock + stock + movement log + status + invoice in one
+  transaction).
 
 ## What the app does
 

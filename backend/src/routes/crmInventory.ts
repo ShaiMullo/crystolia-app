@@ -10,6 +10,7 @@ import { protect, authorize } from '../middleware/auth.js';
 import { validate, AppError } from '../utils/validation.js';
 import { logAudit } from '../services/auditService.js';
 import { applyMovement } from '../services/inventoryService.js';
+import { runRequiredTransaction } from '../db/withTransaction.js';
 import { reconcileInventory, reconciliationStatus, reconciliationHistory } from '../services/reconciliationService.js';
 import { createNotification } from '../services/notificationService.js';
 import { dispatch as dispatchAutomation } from '../services/automationService.js';
@@ -121,7 +122,11 @@ router.post('/movements', async (req: Request, res: Response, next: NextFunction
         const product = await Product.findOne({ _id: productId, isDeleted: false });
         if (!product) throw new AppError('Product not found', 404);
 
-        const { inventory, movement } = await applyMovement({
+        // Production stock mutation — REQUIRES a transaction so the summary
+        // row and the movement log commit together or not at all. On a
+        // standalone deployment this surfaces as an operational 503
+        // (TransactionsUnavailableError via the error handler) with no writes.
+        const { inventory, movement } = await runRequiredTransaction((session) => applyMovement({
             productId,
             location,
             type,
@@ -129,7 +134,8 @@ router.post('/movements', async (req: Request, res: Response, next: NextFunction
             reason,
             relatedOrderId,
             actorId: req.user?._id,
-        });
+            session,
+        }));
 
         await logAudit({
             action: 'CREATE',

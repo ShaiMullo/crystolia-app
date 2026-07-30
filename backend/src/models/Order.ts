@@ -43,6 +43,11 @@ export interface IOrder extends Document, ISyncable {
     /** Client-generated idempotency key for order placement. Unique per
      *  creator (partial index) so a double-submit returns the first order. */
     clientRequestId?: string;
+    /** Short-lived claim used to serialize status transitions: two
+     *  concurrent PATCHes can both read the same status, but only one can
+     *  atomically claim this lock (see orderStatusService). Stale locks
+     *  (crashed process) expire after a TTL. */
+    statusLockAt?: Date;
     rejectionReason?: string;
     notes?: string;
     timeline: IOrderTimelineEvent[];
@@ -100,6 +105,9 @@ const OrderSchema = new Schema<IOrder>(
         },
         inventoryReserved: {
             type: Boolean,
+        },
+        statusLockAt: {
+            type: Date,
         },
         clientRequestId: {
             type: String,

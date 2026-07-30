@@ -51,10 +51,16 @@ echo "▶ Reloading Caddy config"
 compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile \
   || compose restart caddy
 
-echo "▶ Waiting for the backend to become healthy"
+echo "▶ Waiting for the backend to become READY (/api/ready)"
+# Readiness is stricter than liveness on purpose: it also verifies MongoDB
+# transaction support (replica set) and the unique Invoice.order index.
+# A deploy against a standalone Mongo or broken invoice data must FAIL
+# here, not report success while order processing is disabled.
 ok=""
+ready_response=""
 for i in $(seq 1 20); do
-  if compose exec -T backend wget -qO- http://127.0.0.1:4000/api/health 2>/dev/null | grep -q '"status"'; then
+  ready_response="$(compose exec -T backend wget -qO- http://127.0.0.1:4000/api/ready 2>/dev/null || true)"
+  if printf '%s' "$ready_response" | grep -q '"ready":true'; then
     ok="yes"
     break
   fi
@@ -63,8 +69,10 @@ for i in $(seq 1 20); do
 done
 
 if [ -z "$ok" ]; then
-  echo "❌ Backend did not become healthy. Recent logs:"
-  compose logs --tail=40 backend || true
+  echo "❌ Backend did not become READY."
+  echo "   Last /api/ready response: ${ready_response:-<no response>}"
+  echo "   Recent backend logs:"
+  compose logs --tail=60 backend || true
   exit 1
 fi
 
