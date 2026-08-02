@@ -112,7 +112,9 @@ export const PAYMENT_OPTIONS_BANK_ENABLED = {
         branch: '900',
         accountNumber: '12-345-678',
         accountName: 'Crystolia Ltd',
-        iban: '',
+        // Synthetic but structurally valid IL IBAN embedding branch 900 /
+        // account 12345678 — matches the fields above, never a real account.
+        iban: 'IL530109000000012345678',
     },
     creditCard: { enabled: false, paymentUrl: '' },
 };

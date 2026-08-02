@@ -8,6 +8,13 @@ import { protect, authorize } from '../middleware/auth.js';
 import { AppError } from '../utils/validation.js';
 import { logAudit } from '../services/auditService.js';
 import { isDemoPaymentUrl } from '../utils/paymentOptions.js';
+import {
+    ilIbanMismatch,
+    isValidIban,
+    isValidSwift,
+    normalizeIban,
+    normalizeSwift,
+} from '../utils/bankDetails.js';
 import { getPaymentMethodsStatus } from '../services/payments/paymentStatusService.js';
 
 const router = Router();
@@ -68,11 +75,28 @@ router.put('/', protect, authorize('admin'), async (req: Request, res: Response,
             }
             const bank = paymentOptions.bankTransfer || {};
             const card = paymentOptions.creditCard || {};
+            const iban = normalizeIban(bank.iban);
+            const swift = normalizeSwift(bank.swift);
             if (bank.enabled) {
                 const requiredBankFields = ['bankName', 'branch', 'accountNumber', 'accountName'] as const;
                 if (requiredBankFields.some((field) => !String(bank[field] || '').trim())) {
                     throw new AppError('Enabled bank transfer requires bank, branch, account number and account name', 400);
                 }
+                if (!iban) {
+                    throw new AppError('Enabled bank transfer requires an IBAN — approval emails must carry complete transfer instructions', 400);
+                }
+            }
+            if (iban && !isValidIban(iban)) {
+                throw new AppError('The IBAN is invalid (failed the ISO 13616 structure/checksum test) — check it against the official bank document', 400);
+            }
+            if (iban) {
+                const mismatch = ilIbanMismatch(iban, String(bank.branch || ''), String(bank.accountNumber || ''));
+                if (mismatch) {
+                    throw new AppError(`Bank details are inconsistent: ${mismatch}`, 400);
+                }
+            }
+            if (swift && !isValidSwift(swift)) {
+                throw new AppError('The SWIFT/BIC code is invalid (expected 8 or 11 characters, e.g. BANKILITXXX)', 400);
             }
             if (card.enabled && !String(card.paymentUrl || '').trim()) {
                 throw new AppError('Enabled credit-card payment requires a payment URL', 400);
@@ -102,7 +126,9 @@ router.put('/', protect, authorize('admin'), async (req: Request, res: Response,
                     branch: String(bank.branch || '').trim(),
                     accountNumber: String(bank.accountNumber || '').trim(),
                     accountName: String(bank.accountName || '').trim(),
-                    iban: String(bank.iban || '').trim(),
+                    iban,
+                    swift,
+                    bankAddress: String(bank.bankAddress || '').trim(),
                 },
                 creditCard: {
                     enabled: Boolean(card.enabled),

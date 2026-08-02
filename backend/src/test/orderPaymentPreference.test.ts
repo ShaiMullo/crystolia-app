@@ -30,7 +30,9 @@ const BOTH_METHODS = {
         branch: '900',
         accountNumber: '12-345-678',
         accountName: 'Crystolia Ltd',
-        iban: 'IL620108000000099999999',
+        iban: 'IL530109000000012345678',
+        swift: 'TESTILITXXX',
+        bankAddress: 'רחוב הבדיקה 1, תל אביב',
     },
     creditCard: { enabled: true, paymentUrl: 'https://pay.example.com/crystolia' },
 };
@@ -250,8 +252,10 @@ describe('payment copy builders expose only the selected method', () => {
         expect(text).toContain('העברה בנקאית');
         expect(text).toContain('בנק לאומי');
         expect(text).toContain('12-345-678');
-        expect(text).toContain('IL620108000000099999999');
+        expect(text).toContain('IL530109000000012345678');
+        expect(text).toContain('SWIFT/BIC: TESTILITXXX');
         expect(text).toContain('#ABC12345');
+        expect(text).toContain('אסמכתא (אישור העברה)');
         expect(text).not.toContain('https://');
         expect(text).not.toContain('אשראי');
     });

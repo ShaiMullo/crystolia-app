@@ -48,6 +48,8 @@ interface PaymentOptions {
         accountNumber?: string;
         accountName?: string;
         iban?: string;
+        swift?: string;
+        bankAddress?: string;
     };
     creditCard: {
         enabled: boolean;
@@ -113,6 +115,10 @@ export default function SettingsPage() {
     const handleSave = async () => {
         if (minimumOrderAmount < 0) {
             toast.error(t("settings.section1.minNegative"));
+            return;
+        }
+        if (paymentOptions.bankTransfer.enabled && !(paymentOptions.bankTransfer.iban ?? "").trim()) {
+            toast.error(t("settings.payments.ibanRequired"));
             return;
         }
         if (paymentOptions.creditCard.enabled) {
@@ -297,9 +303,11 @@ export default function SettingsPage() {
                             </label>
                             {paymentOptions.bankTransfer.enabled && (
                                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                    {(["bankName", "branch", "accountNumber", "accountName", "iban"] as const).map((field) => (
+                                    {(["bankName", "branch", "accountNumber", "accountName", "iban", "swift", "bankAddress"] as const).map((field) => (
                                         <Field key={field} label={t(`settings.payments.${field}`)}>
                                             <Input
+                                                // IBAN / SWIFT are Latin codes — keep them LTR inside the RTL form.
+                                                dir={field === "iban" || field === "swift" ? "ltr" : undefined}
                                                 value={paymentOptions.bankTransfer[field] ?? ""}
                                                 onChange={(e) => setPaymentOptions((prev) => ({
                                                     ...prev,
