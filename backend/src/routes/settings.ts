@@ -4,18 +4,21 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import Settings from '../models/Settings.js';
+import User from '../models/User.js';
 import { protect, authorize } from '../middleware/auth.js';
+import { authLimiter } from '../middleware/rateLimiter.js';
 import { AppError } from '../utils/validation.js';
 import { logAudit } from '../services/auditService.js';
-import { isDemoPaymentUrl } from '../utils/paymentOptions.js';
+import { isDemoPaymentUrl, paymentConfigError } from '../utils/paymentOptions.js';
 import {
+    bankDetailsFingerprint,
     ilIbanMismatch,
     isValidIban,
     isValidSwift,
     normalizeIban,
     normalizeSwift,
 } from '../utils/bankDetails.js';
-import { getPaymentMethodsStatus } from '../services/payments/paymentStatusService.js';
+import { getBankVerificationState, getPaymentMethodsStatus } from '../services/payments/paymentStatusService.js';
 
 const router = Router();
 
@@ -26,6 +29,12 @@ const router = Router();
 router.get('/', protect, async (req: Request, res: Response, next: NextFunction) => {
     try {
         const settings = await Settings.findOne({ key: 'business' }).lean();
+
+        // Verification metadata is an admin concern — customers get the
+        // payment instructions themselves, not the governance trail.
+        if (settings && req.user?.role !== 'admin') {
+            delete (settings as Record<string, unknown>).bankVerification;
+        }
 
         if (!settings) {
             // No document written yet — return hardcoded defaults so the
@@ -119,6 +128,10 @@ router.put('/', protect, authorize('admin'), async (req: Request, res: Response,
                     );
                 }
             }
+            // A demo-page URL on a DISABLED card method is stale demo residue:
+            // drop it on save so it can never resurface if the flag is later
+            // re-enabled. (An enabled card with a demo URL was rejected above.)
+            const cardUrl = String(card.paymentUrl || '').trim();
             update.paymentOptions = {
                 bankTransfer: {
                     enabled: Boolean(bank.enabled),
@@ -132,7 +145,7 @@ router.put('/', protect, authorize('admin'), async (req: Request, res: Response,
                 },
                 creditCard: {
                     enabled: Boolean(card.enabled),
-                    paymentUrl: String(card.paymentUrl || '').trim(),
+                    paymentUrl: !card.enabled && isDemoPaymentUrl(cardUrl) ? '' : cardUrl,
                 },
             };
         }
@@ -141,6 +154,24 @@ router.put('/', protect, authorize('admin'), async (req: Request, res: Response,
                 throw new AppError('boxPrices must be an array', 400);
             }
             update.boxPrices = boxPrices;
+        }
+
+        // Owner verification attests a specific fingerprint of the bank
+        // fields. If this save changes them away from the verified
+        // fingerprint, the verification is invalidated in the SAME write —
+        // a stale attestation must never survive a detail change.
+        let invalidatedVerification = false;
+        if (update.paymentOptions) {
+            const existing = await Settings.findOne({ key: 'business' })
+                .select('bankVerification')
+                .lean();
+            if (
+                existing?.bankVerification
+                && bankDetailsFingerprint(update.paymentOptions.bankTransfer) !== existing.bankVerification.fingerprint
+            ) {
+                update.bankVerification = null;
+                invalidatedVerification = true;
+            }
         }
 
         const settings = await Settings.findOneAndUpdate(
@@ -156,6 +187,18 @@ router.put('/', protect, authorize('admin'), async (req: Request, res: Response,
             req,
             details: { updatedFields: Object.keys(update).filter(k => k !== 'updatedBy') },
         });
+        if (invalidatedVerification) {
+            // Field names only — never bank values or the old fingerprint's
+            // underlying data.
+            await logAudit({
+                action: 'BANK_VERIFICATION_INVALIDATED',
+                entity: 'Settings',
+                entityId: 'business',
+                req,
+                severity: 'warning',
+                details: { reason: 'bank details changed after owner verification' },
+            });
+        }
 
         res.json({ success: true, data: settings });
     } catch (error) {
@@ -169,8 +212,113 @@ router.put('/', protect, authorize('admin'), async (req: Request, res: Response,
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 router.get('/payment-status', protect, authorize('admin'), async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const settings = await Settings.findOne({ key: 'business' }).select('paymentOptions').lean();
-        res.json({ success: true, data: getPaymentMethodsStatus(settings?.paymentOptions) });
+        const settings = await Settings.findOne({ key: 'business' }).select('paymentOptions bankVerification').lean();
+        res.json({
+            success: true,
+            data: {
+                ...getPaymentMethodsStatus(settings?.paymentOptions),
+                bankVerification: getBankVerificationState(settings),
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// POST /api/settings/bank-verification - Owner attests the saved bank details
+// 🔒 Protected: Admin Only + password re-authentication + rate limited
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// The admin confirms, against the official bank document, that the CURRENTLY
+// saved details are correct. The stored record is a fingerprint (hash) of
+// those fields — never a copy — so a later change to any covered field breaks
+// the match and readiness drops back to "owner confirmation required".
+router.post('/bank-verification', authLimiter, protect, authorize('admin'), async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { password, fingerprint } = req.body ?? {};
+        if (typeof password !== 'string' || !password) {
+            throw new AppError('Password is required to verify bank details', 400);
+        }
+        if (typeof fingerprint !== 'string' || !/^[a-f0-9]{64}$/.test(fingerprint)) {
+            throw new AppError('The confirmed bank-details fingerprint is required', 400);
+        }
+
+        // Re-authentication (same pattern as password change): the session
+        // cookie alone is not enough for a financial attestation.
+        const user = await User.findById(req.user?._id).select('+password registrationMethod');
+        if (!user) throw new AppError('User not found', 404);
+        // Google-registered accounts hold an unguessable placeholder password
+        // (GOOGLE_OAUTH_…) the owner does not know, so password re-auth is
+        // impossible for them by construction.
+        if (!user.password || user.registrationMethod === 'google') {
+            throw new AppError(
+                'This account signs in with Google and has no usable password. Verify with a password-based admin account.',
+                409,
+            );
+        }
+        if (!(await user.comparePassword(password))) {
+            await logAudit({
+                action: 'BANK_VERIFICATION_DENIED',
+                entity: 'Settings',
+                entityId: 'business',
+                req,
+                severity: 'warning',
+                details: { reason: 'password re-authentication failed' },
+            });
+            throw new AppError('Password is incorrect', 401);
+        }
+
+        const settings = await Settings.findOne({ key: 'business' }).lean();
+        const bank = settings?.paymentOptions?.bankTransfer;
+        const configError = paymentConfigError('bank_transfer', settings?.paymentOptions);
+        if (!settings || configError) {
+            throw new AppError(configError || 'Bank transfer is not configured', 409);
+        }
+
+        const currentFingerprint = bankDetailsFingerprint(bank);
+        if (fingerprint !== currentFingerprint) {
+            throw new AppError(
+                'The saved bank details changed since you reviewed them — refresh and review again before verifying',
+                409,
+            );
+        }
+
+        const verification = {
+            fingerprint: currentFingerprint,
+            verifiedAt: new Date(),
+            verifiedBy: user._id,
+        };
+        // CAS on updatedAt: if ANY settings write landed between our read and
+        // this write, the attestation may cover stale fields — refuse.
+        const updated = await Settings.updateOne(
+            { key: 'business', updatedAt: settings.updatedAt },
+            { $set: { bankVerification: verification } },
+            { timestamps: false },
+        );
+        if (updated.modifiedCount !== 1) {
+            throw new AppError(
+                'The settings changed while verifying — refresh and review again before verifying',
+                409,
+            );
+        }
+
+        // Fingerprint only — the audit trail must never hold bank values.
+        await logAudit({
+            action: 'BANK_DETAILS_VERIFIED',
+            entity: 'Settings',
+            entityId: 'business',
+            req,
+            details: { fingerprint: currentFingerprint },
+        });
+
+        res.json({
+            success: true,
+            data: {
+                status: 'verified',
+                fingerprint: currentFingerprint,
+                verifiedAt: verification.verifiedAt,
+            },
+        });
     } catch (error) {
         next(error);
     }

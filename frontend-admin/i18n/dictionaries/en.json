@@ -950,6 +950,8 @@
       "swift": "SWIFT/BIC (for international transfers)",
       "bankAddress": "Bank address (optional)",
       "ibanRequired": "Enabling bank transfer requires an IBAN — customer payment instructions must be complete",
+      "staleDemoWarning": "The card method still carries a demo-page link — residue from the demo period. Customers never see card payment, but you should turn the flag off and clear the link.",
+      "disableCardAction": "Disable card method & clear the link",
       "cardEnabled": "Enable credit-card payment",
       "paymentUrl": "Secure payment URL",
       "paymentUrlHint": "Future provider field. A static link is NOT an active integration — customers will not see card payment until a verified provider is connected.",
@@ -1528,10 +1530,38 @@
         "configured_unverified": "Configured — not yet verified in practice",
         "configured_sandbox_unverified": "Configured in sandbox mode — not production-ready",
         "verified": "Verified",
+        "verification_expired": "Verification expired — re-verify",
         "failed": "Verification failed"
       },
       "smsTransport": "Customer SMS transport (Twilio)",
-      "adminSmsRecipient": "Admin SMS recipient"
+      "adminSmsRecipient": "Admin SMS recipient",
+      "verifyBankDetails": "Verify bank details",
+      "bankVerifiedDetail": "Attested by the owner against the official document",
+      "bankVerify": {
+        "title": "Verify bank account details",
+        "intro": "Compare every field against the official bank document. The attestation is stored as a fingerprint of the details — any future change invalidates it automatically.",
+        "loadFailed": "Loading the details failed — try refreshing",
+        "reviewHint": "If anything is wrong — do not confirm. Fix it in Settings first, then return here.",
+        "passwordLabel": "Your account password (re-authentication)",
+        "confirmLabel": "I checked every field against the official bank document and they are correct",
+        "submit": "Confirm & verify",
+        "success": "Bank details verified and recorded",
+        "failed": "Bank-details verification failed"
+      },
+      "verifyConfirmTitle": "Send a real test message",
+      "verifyConfirmSend": "Send test",
+      "verifyEmailBtn": "Send test email",
+      "verifySmsBtn": "Send test SMS",
+      "verifySendWarningEmail": "One real email will be sent to your own account address. Continue?",
+      "verifySendWarningSms": "One real SMS will be sent to the configured admin number. Continue?",
+      "verifySuccess": "Test message sent — integration verified",
+      "verifyFailed": "Integration verification failed",
+      "failureCategories": {
+        "configuration_missing": "Configuration missing (keys/address/recipient)",
+        "provider_rejected": "The provider rejected the request",
+        "network": "Network/communication failure",
+        "unknown": "Unrecognized error"
+      }
     },
     "goLiveLink": "Go-Live Readiness"
   },

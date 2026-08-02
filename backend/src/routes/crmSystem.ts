@@ -3,6 +3,7 @@
 // ===============================================
 
 import { Router, Request, Response, NextFunction } from 'express';
+import type mongoose from 'mongoose';
 import ScheduledJob from '../models/ScheduledJob.js';
 import JobRun from '../models/JobRun.js';
 import Invoice from '../models/Invoice.js';
@@ -15,6 +16,7 @@ import { logAudit } from '../services/auditService.js';
 import { reconciliationStatus } from '../services/reconciliationService.js';
 import { getReplicaDiagnostics } from '../services/diagnosticsService.js';
 import { getGoLiveReadiness } from '../services/goLiveService.js';
+import { verifyIntegration } from '../services/integrationVerificationService.js';
 import { createBackupManifest, verifyBackupManifest, listBackupManifests } from '../services/backupService.js';
 import { runJobNow, JOB_DEFINITIONS } from '../jobs/scheduler.js';
 import { resetRateLimitStore } from '../middleware/rateLimit.js';
@@ -29,6 +31,43 @@ router.use(authorize('admin'));
 router.get('/go-live', async (_req: Request, res: Response, next: NextFunction) => {
     try {
         res.json({ success: true, data: await getGoLiveReadiness() });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// ━━ POST /api/v1/system/integrations/:key/verify - owner verification action
+// Sends ONE real test message on the owner's explicit request: operational
+// email → the requesting admin's own account address; admin SMS → the
+// configured admin recipient. A per-key lock (60s) turns double-clicks and
+// scripted repeats into 429 before any provider call. The response and the
+// stored record are sanitized — outcome + coarse failure category only.
+router.post('/integrations/:key/verify', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const key = req.params.key;
+        if (key !== 'operational_email' && key !== 'admin_sms') {
+            throw new AppError('Unknown integration key', 400);
+        }
+        if (req.body?.confirm !== true) {
+            throw new AppError('Explicit confirmation is required — a real test message will be sent', 400);
+        }
+        const outcome = await verifyIntegration(key, {
+            _id: req.user!._id as mongoose.Types.ObjectId,
+            email: req.user?.email,
+        });
+        await logAudit({
+            action: 'INTEGRATION_VERIFICATION_ATTEMPT',
+            entity: 'IntegrationVerification',
+            entityId: key,
+            req,
+            severity: outcome.result === 'failed' ? 'warning' : 'info',
+            details: {
+                result: outcome.result,
+                ...(outcome.failureCategory ? { failureCategory: outcome.failureCategory } : {}),
+                provider: outcome.provider,
+            },
+        });
+        res.json({ success: true, data: outcome });
     } catch (err) {
         next(err);
     }

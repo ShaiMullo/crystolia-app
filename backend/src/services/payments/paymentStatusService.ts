@@ -7,9 +7,40 @@
 
 import type { ISettings } from '../../models/Settings.js';
 import { isCardPaymentConfigured, hasUsableCardLink, isDemoPaymentUrl } from '../../utils/paymentOptions.js';
+import { bankDetailsFingerprint } from '../../utils/bankDetails.js';
 import type { PaymentMethodStatus } from './types.js';
 
 type PaymentOptions = ISettings['paymentOptions'] | undefined | null;
+
+export type BankVerificationStatus = 'not_configured' | 'owner_confirmation_required' | 'verified';
+
+export interface BankVerificationState {
+    status: BankVerificationStatus;
+    /** Fingerprint of the CURRENT saved bank fields (a hash, never values). */
+    currentFingerprint: string;
+    verifiedAt?: Date;
+}
+
+/**
+ * Truthful owner-verification state of the saved bank details: `verified`
+ * ONLY when an owner verification exists AND its fingerprint matches the
+ * fingerprint of the currently saved fields — any change to a covered field
+ * breaks the match. Configuration presence alone is never `verified`.
+ */
+export function getBankVerificationState(
+    settings: Pick<ISettings, 'paymentOptions' | 'bankVerification'> | null | undefined,
+): BankVerificationState {
+    const bank = settings?.paymentOptions?.bankTransfer;
+    const currentFingerprint = bankDetailsFingerprint(bank);
+    const { methods } = getPaymentMethodsStatus(settings?.paymentOptions);
+    const configured = Boolean(methods.find((m) => m.method === 'bank_transfer')?.configured);
+    if (!configured) return { status: 'not_configured', currentFingerprint };
+    const verification = settings?.bankVerification;
+    if (verification && verification.fingerprint === currentFingerprint) {
+        return { status: 'verified', currentFingerprint, verifiedAt: verification.verifiedAt };
+    }
+    return { status: 'owner_confirmation_required', currentFingerprint };
+}
 
 /** Stable customer-facing transfer/payment reference for an order. */
 export function orderPaymentReference(orderId: { toString(): string }): string {

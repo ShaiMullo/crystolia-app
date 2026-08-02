@@ -331,6 +331,26 @@ export default function SettingsPage() {
                                 />
                                 {t("settings.payments.cardEnabled")}
                             </label>
+                            {paymentOptions.creditCard.enabled && cardUrlIsDemo && (
+                                <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50/80 p-3 dark:border-red-700/30 dark:bg-red-900/10">
+                                    <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-600" />
+                                    <div className="flex-1 space-y-2">
+                                        <p className="text-sm text-red-700 dark:text-red-200">
+                                            {t("settings.payments.staleDemoWarning")}
+                                        </p>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => setPaymentOptions((prev) => ({
+                                                ...prev,
+                                                creditCard: { enabled: false, paymentUrl: "" },
+                                            }))}
+                                        >
+                                            {t("settings.payments.disableCardAction")}
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
                             {paymentOptions.creditCard.enabled && (
                                 <>
                                     <Field label={t("settings.payments.paymentUrl")} hint={t("settings.payments.paymentUrlHint")}>
