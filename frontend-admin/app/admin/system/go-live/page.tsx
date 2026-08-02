@@ -7,6 +7,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { toast } from "react-hot-toast";
+import api from "@/app/lib/api";
+import { getApiErrorMessage } from "@/lib/apiError";
 import {
     Banknote,
     Boxes,
@@ -37,7 +40,16 @@ import {
 } from "@/components/ui";
 import { OperationalError } from "@/components/system/OperationalError";
 import { useAdminI18n } from "@/i18n/I18nProvider";
-import { getGoLiveReadiness, type GoLiveReadiness, type IntegrationState } from "@/lib/systemApi";
+import {
+    getGoLiveReadiness,
+    getPaymentStatus,
+    verifyBankDetails,
+    verifyIntegration,
+    type GoLiveReadiness,
+    type IntegrationState,
+    type IntegrationVerificationRecord,
+} from "@/lib/systemApi";
+import { Input } from "@/components/ui";
 
 type Tone = "success" | "warning" | "danger";
 
@@ -77,11 +89,184 @@ function StatusRow({ ok, warn, label, detail, actionHref, actionLabel }: {
     );
 }
 
+interface BankDetailsSummary {
+    bankName?: string;
+    branch?: string;
+    accountNumber?: string;
+    accountName?: string;
+    iban?: string;
+    swift?: string;
+    bankAddress?: string;
+}
+
+/**
+ * Owner attestation dialog: shows the CURRENTLY saved bank details for
+ * review against the official document, then requires the account password
+ * (re-authentication) plus an explicit confirmation. The submitted
+ * fingerprint pins exactly what was reviewed — if the details change
+ * mid-review the backend answers 409 and nothing is attested.
+ */
+function BankVerifyModal({ open, onClose, onVerified }: {
+    open: boolean;
+    onClose: () => void;
+    onVerified: () => void;
+}) {
+    const { t } = useAdminI18n();
+    const [details, setDetails] = useState<BankDetailsSummary | null>(null);
+    const [fingerprint, setFingerprint] = useState("");
+    const [password, setPassword] = useState("");
+    const [confirmed, setConfirmed] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [loadError, setLoadError] = useState(false);
+
+    useEffect(() => {
+        if (!open) return;
+        setPassword("");
+        setConfirmed(false);
+        setLoadError(false);
+        setDetails(null);
+        (async () => {
+            try {
+                const [settingsRes, status] = await Promise.all([
+                    api.get("/v1/settings"),
+                    getPaymentStatus(),
+                ]);
+                setDetails(settingsRes.data.data?.paymentOptions?.bankTransfer ?? null);
+                setFingerprint(status.bankVerification.currentFingerprint);
+            } catch {
+                setLoadError(true);
+            }
+        })();
+    }, [open]);
+
+    if (!open) return null;
+
+    const handleSubmit = async () => {
+        setSubmitting(true);
+        try {
+            await verifyBankDetails(password, fingerprint);
+            toast.success(t("system.goLive.bankVerify.success"));
+            onVerified();
+            onClose();
+        } catch (err) {
+            toast.error(getApiErrorMessage(err, t("system.goLive.bankVerify.failed")));
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const rows: Array<[string, string | undefined, boolean]> = details ? [
+        [t("settings.payments.bankName"), details.bankName, false],
+        [t("settings.payments.branch"), details.branch, false],
+        [t("settings.payments.accountNumber"), details.accountNumber, false],
+        [t("settings.payments.accountName"), details.accountName, false],
+        ["IBAN", details.iban, true],
+        ["SWIFT/BIC", details.swift, true],
+        [t("settings.payments.bankAddress"), details.bankAddress, false],
+    ] : [];
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true">
+            <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-700 dark:bg-gray-900">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    {t("system.goLive.bankVerify.title")}
+                </h3>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("system.goLive.bankVerify.intro")}</p>
+
+                {loadError ? (
+                    <p className="mt-4 text-sm text-red-600 dark:text-red-400">{t("system.goLive.bankVerify.loadFailed")}</p>
+                ) : !details ? (
+                    <div className="mt-4"><LoadingState /></div>
+                ) : (
+                    <>
+                        <dl className="mt-4 space-y-1 rounded-xl bg-gray-50 p-4 text-sm text-gray-800 dark:bg-gray-800 dark:text-gray-200">
+                            {rows.filter(([, value]) => value).map(([label, value, ltr]) => (
+                                <div key={label} className="flex justify-between gap-3">
+                                    <dt className="text-gray-500 dark:text-gray-400">{label}</dt>
+                                    <dd dir={ltr ? "ltr" : undefined} className="font-medium">{value}</dd>
+                                </div>
+                            ))}
+                        </dl>
+                        <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">{t("system.goLive.bankVerify.reviewHint")}</p>
+
+                        <div className="mt-4">
+                            <label className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                                {t("system.goLive.bankVerify.passwordLabel")}
+                            </label>
+                            <Input
+                                type="password"
+                                autoComplete="current-password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="mt-1"
+                            />
+                        </div>
+                        <label className="mt-3 flex items-start gap-2 text-sm text-gray-800 dark:text-gray-200">
+                            <input
+                                type="checkbox"
+                                checked={confirmed}
+                                onChange={(e) => setConfirmed(e.target.checked)}
+                                className="mt-0.5 h-4 w-4 rounded accent-yellow-500"
+                            />
+                            {t("system.goLive.bankVerify.confirmLabel")}
+                        </label>
+                    </>
+                )}
+
+                <div className="mt-5 flex justify-end gap-2">
+                    <Button variant="outline" onClick={onClose} disabled={submitting}>
+                        {t("common.cancel")}
+                    </Button>
+                    <Button
+                        onClick={handleSubmit}
+                        loading={submitting}
+                        disabled={!details || !password || !confirmed || submitting}
+                    >
+                        {t("system.goLive.bankVerify.submit")}
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/** Explicit confirmation before an integration verification: the owner is
+ *  told a REAL message will be sent before anything happens. */
+function ConfirmSendModal({ open, warning, busy, onConfirm, onClose }: {
+    open: boolean;
+    warning: string;
+    busy: boolean;
+    onConfirm: () => void;
+    onClose: () => void;
+}) {
+    const { t } = useAdminI18n();
+    if (!open) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true">
+            <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-700 dark:bg-gray-900">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    {t("system.goLive.verifyConfirmTitle")}
+                </h3>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{warning}</p>
+                <div className="mt-5 flex justify-end gap-2">
+                    <Button variant="outline" onClick={onClose} disabled={busy}>{t("common.cancel")}</Button>
+                    <Button onClick={onConfirm} loading={busy} disabled={busy}>
+                        {t("system.goLive.verifyConfirmSend")}
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function GoLivePage() {
     const { t } = useAdminI18n();
     const [data, setData] = useState<GoLiveReadiness | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
+    const [bankModalOpen, setBankModalOpen] = useState(false);
+    const [pendingVerify, setPendingVerify] = useState<"operational_email" | "admin_sms" | null>(null);
+    const [verifyBusy, setVerifyBusy] = useState(false);
 
     const fetchAll = useCallback(async () => {
         setLoading(true);
@@ -112,6 +297,37 @@ export default function GoLivePage() {
     const bank = data.payments.methods.find((m) => m.method === "bank_transfer");
     const card = data.payments.methods.find((m) => m.method === "credit_card");
     const integrations = data.integrations;
+    const bankVerification = data.payments.bankVerification;
+
+    const runVerify = async () => {
+        if (!pendingVerify) return;
+        setVerifyBusy(true);
+        try {
+            const outcome = await verifyIntegration(pendingVerify);
+            if (outcome.result === "success") {
+                toast.success(t("system.goLive.verifySuccess"));
+            } else {
+                toast.error(`${t("system.goLive.verifyFailed")}: ${t(`system.goLive.failureCategories.${outcome.failureCategory || "unknown"}`)}`);
+            }
+            setPendingVerify(null);
+            await fetchAll();
+        } catch (err) {
+            toast.error(getApiErrorMessage(err, t("system.goLive.verifyFailed")));
+        } finally {
+            setVerifyBusy(false);
+        }
+    };
+
+    const verificationDetail = (state: IntegrationState, record?: IntegrationVerificationRecord): string => {
+        const base = t(`system.goLive.states.${state}`);
+        if (state === "failed" && record?.failureCategory) {
+            return `${base} — ${t(`system.goLive.failureCategories.${record.failureCategory}`)}`;
+        }
+        if ((state === "verified" || state === "verification_expired") && record?.verifiedAt) {
+            return `${base} — ${new Date(record.verifiedAt).toLocaleDateString()}`;
+        }
+        return base;
+    };
 
     return (
         <div className="space-y-6">
@@ -146,18 +362,27 @@ export default function GoLivePage() {
             <Card>
                 <CardTitle><span className="inline-flex items-center gap-2"><Banknote size={16} />{t("system.goLive.payments")}</span></CardTitle>
                 <div className="mt-3">
-                    {/* "Configured" is never shown green: non-empty fields are
-                        not verified real details until the owner confirms. */}
+                    {/* Green ONLY when the owner's recorded attestation
+                        fingerprint matches the currently saved fields. */}
                     <StatusRow
-                        ok={false}
-                        warn={Boolean(bank?.configured)}
+                        ok={bankVerification === "verified"}
+                        warn={bankVerification === "owner_confirmation_required"}
                         label={t("system.goLive.bankTransfer")}
-                        detail={bank?.configured
-                            ? t("system.goLive.bankOwnerVerificationRequired")
-                            : (bank?.issues.join("; ") || t("system.goLive.bankMissing"))}
+                        detail={bankVerification === "verified"
+                            ? `${t("system.goLive.bankVerifiedDetail")}${data.payments.bankVerifiedAt ? ` — ${new Date(data.payments.bankVerifiedAt).toLocaleDateString()}` : ""}`
+                            : bankVerification === "owner_confirmation_required"
+                                ? t("system.goLive.bankOwnerVerificationRequired")
+                                : (bank?.issues.join("; ") || t("system.goLive.bankMissing"))}
                         actionHref="/admin/settings"
                         actionLabel={t("system.goLive.openSettings")}
                     />
+                    {bankVerification === "owner_confirmation_required" && (
+                        <div className="mt-2">
+                            <Button size="sm" onClick={() => setBankModalOpen(true)} iconStart={<ShieldCheck size={14} />}>
+                                {t("system.goLive.verifyBankDetails")}
+                            </Button>
+                        </div>
+                    )}
                     <StatusRow
                         ok={false}
                         warn
@@ -236,20 +461,52 @@ export default function GoLivePage() {
                         ["uptimeAlerts", t("system.goLive.uptimeAlerts")],
                     ] as Array<[keyof typeof integrations, string]>).map(([key, label]) => {
                         const state = integrations[key] as IntegrationState;
-                        // Only a real verification could ever be green; config
-                        // presence is always amber ("unverified").
+                        // Green requires a REAL recorded verification (an
+                        // owner-triggered test send, or a completed OAuth
+                        // sign-in) — config presence stays amber.
+                        const recordKey = key === "email" ? "operational_email"
+                            : key === "adminSmsRecipient" || key === "smsTransport" ? "admin_sms"
+                                : key === "googleOauth" ? "google_oauth" : null;
+                        const record = recordKey ? data.integrationVerifications?.[recordKey] : undefined;
+                        const verifyKey = key === "email" ? "operational_email" as const
+                            : key === "adminSmsRecipient" ? "admin_sms" as const : null;
                         return (
-                            <StatusRow
-                                key={key}
-                                ok={state === "verified"}
-                                warn={state !== "failed"}
-                                label={label}
-                                detail={t(`system.goLive.states.${state}`)}
-                            />
+                            <div key={key}>
+                                <StatusRow
+                                    ok={state === "verified"}
+                                    warn={state !== "failed"}
+                                    label={label}
+                                    detail={verificationDetail(state, record)}
+                                />
+                                {verifyKey && state !== "not_configured" && (
+                                    <div className="mb-2 mt-1">
+                                        <Button size="sm" variant="outline" onClick={() => setPendingVerify(verifyKey)}>
+                                            {verifyKey === "operational_email"
+                                                ? t("system.goLive.verifyEmailBtn")
+                                                : t("system.goLive.verifySmsBtn")}
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
                         );
                     })}
                 </div>
             </Card>
+
+            <BankVerifyModal
+                open={bankModalOpen}
+                onClose={() => setBankModalOpen(false)}
+                onVerified={fetchAll}
+            />
+            <ConfirmSendModal
+                open={pendingVerify !== null}
+                warning={pendingVerify === "admin_sms"
+                    ? t("system.goLive.verifySendWarningSms")
+                    : t("system.goLive.verifySendWarningEmail")}
+                busy={verifyBusy}
+                onConfirm={runVerify}
+                onClose={() => setPendingVerify(null)}
+            />
 
             <Card>
                 <CardTitle><span className="inline-flex items-center gap-2"><ShieldCheck size={16} />{t("system.goLive.operations")}</span></CardTitle>

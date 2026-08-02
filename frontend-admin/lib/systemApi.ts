@@ -217,7 +217,22 @@ export type IntegrationState =
     | "configured_unverified"
     | "configured_sandbox_unverified"
     | "verified"
+    | "verification_expired"
     | "failed";
+
+export type IntegrationFailureCategory =
+    | "configuration_missing"
+    | "provider_rejected"
+    | "network"
+    | "unknown";
+
+export interface IntegrationVerificationRecord {
+    provider?: string;
+    lastAttemptAt: string;
+    lastResult: "success" | "failed";
+    failureCategory?: IntegrationFailureCategory;
+    verifiedAt?: string;
+}
 
 export interface GoLiveOperationsItem {
     source: string;
@@ -231,7 +246,8 @@ export interface GoLiveReadiness {
     payments: {
         methods: GoLivePaymentMethod[];
         anyConfigured: boolean;
-        bankVerification: "owner_confirmation_required" | "not_configured";
+        bankVerification: "owner_confirmation_required" | "not_configured" | "verified";
+        bankVerifiedAt?: string;
     };
     stock: {
         activeProducts: number;
@@ -250,11 +266,57 @@ export interface GoLiveReadiness {
         errorTracking: IntegrationState;
         uptimeAlerts: IntegrationState;
     };
+    integrationVerifications?: Partial<
+        Record<"operational_email" | "admin_sms" | "google_oauth", IntegrationVerificationRecord>
+    >;
     operations: { backups: GoLiveOperationsItem; uptimeMonitor: GoLiveOperationsItem };
     checkedAt: string;
 }
 
 export async function getGoLiveReadiness(): Promise<GoLiveReadiness> {
     const res = await api.get("/v1/system/go-live");
+    return res.data.data;
+}
+
+export interface IntegrationVerifyOutcome {
+    key: "operational_email" | "admin_sms";
+    result: "success" | "failed";
+    failureCategory?: IntegrationFailureCategory;
+    provider?: string;
+    attemptedAt: string;
+}
+
+/** Owner action: sends ONE real test message (email to the requesting
+ *  admin's own address / SMS to the configured admin recipient). */
+export async function verifyIntegration(key: "operational_email" | "admin_sms"): Promise<IntegrationVerifyOutcome> {
+    const res = await api.post(`/v1/system/integrations/${key}/verify`, { confirm: true });
+    return res.data.data;
+}
+
+export interface BankVerificationState {
+    status: "not_configured" | "owner_confirmation_required" | "verified";
+    currentFingerprint: string;
+    verifiedAt?: string;
+}
+
+export interface PaymentStatus {
+    methods: GoLivePaymentMethod[];
+    anyConfigured: boolean;
+    bankVerification: BankVerificationState;
+}
+
+export async function getPaymentStatus(): Promise<PaymentStatus> {
+    const res = await api.get("/settings/payment-status");
+    return res.data.data;
+}
+
+/** Owner attestation of the saved bank details: password re-authentication
+ *  plus the exact fingerprint the admin just reviewed. */
+export async function verifyBankDetails(password: string, fingerprint: string): Promise<{
+    status: "verified";
+    fingerprint: string;
+    verifiedAt: string;
+}> {
+    const res = await api.post("/settings/bank-verification", { password, fingerprint });
     return res.data.data;
 }

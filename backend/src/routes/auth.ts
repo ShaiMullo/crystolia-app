@@ -13,6 +13,7 @@ import { config } from '../config/index.js';
 import passport from 'passport';
 import { authLimiter } from '../middleware/rateLimiter.js';
 import { logAudit } from '../services/auditService.js';
+import { recordGoogleOauthSuccess } from '../services/integrationVerificationService.js';
 import {
     isEmailConfigured,
     sendPasswordResetEmail,
@@ -339,6 +340,11 @@ router.get(
                 });
                 user.lastLogin = new Date();
                 await user.save({ validateBeforeSave: false });
+
+                // A real end-to-end Google sign-in just completed — record it
+                // as the OAuth integration's verification evidence
+                // (best-effort; never blocks the login).
+                await recordGoogleOauthSuccess();
 
                 const target = user.preferredLocale || locale;
                 res.redirect(`${config.frontendUrl.replace(/\/$/, '')}/${target}/dashboard`);

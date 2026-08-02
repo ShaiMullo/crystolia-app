@@ -132,13 +132,14 @@ services:
     environment:
       NODE_ENV: production
       BACKEND_URL: http://backend:4000
-      # Set to "true" to turn the demo payment pages into 404s once
-      # production Settings no longer reference them.
+      # Demo payment pages are DISABLED BY DEFAULT in production (the app
+      # also fails closed on NODE_ENV=production). Set "false" ONLY for a
+      # demonstration environment.
       # SOURCE OF TRUTH: deploy/demo/.env.demo on the server (the compose
       # --env-file used by remote-deploy.sh). This `environment:` entry
       # OVERRIDES frontend-client/.env.demo, so setting the variable there
       # has no effect — see docs/PRODUCTION_READINESS.md.
-      DEMO_PAYMENT_PAGES_DISABLED: ${DEMO_PAYMENT_PAGES_DISABLED:-false}
+      DEMO_PAYMENT_PAGES_DISABLED: ${DEMO_PAYMENT_PAGES_DISABLED:-true}
     expose:
       - "3000"
     healthcheck:

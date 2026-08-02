@@ -8,6 +8,8 @@
 // IBAN embeds the branch and account number — they must agree with the
 // separately entered fields) before it can be saved.
 
+import { createHash } from 'node:crypto';
+
 /** Uppercase and strip all whitespace — the stored canonical IBAN form. */
 export function normalizeIban(value: unknown): string {
     return String(value ?? '').replace(/\s+/g, '').toUpperCase();
@@ -72,4 +74,34 @@ export function ilIbanMismatch(iban: string, branch: string, accountNumber: stri
         return `IBAN account (${Number(parts.accountNumber)}) does not match the account-number field (${accountNumber})`;
     }
     return null;
+}
+
+/** The bank fields covered by the owner-verification fingerprint. */
+export interface FingerprintableBankDetails {
+    bankName?: string;
+    branch?: string;
+    accountNumber?: string;
+    accountName?: string;
+    iban?: string;
+    swift?: string;
+    bankAddress?: string;
+}
+
+const FINGERPRINT_FIELDS = [
+    'bankName', 'branch', 'accountNumber', 'accountName', 'iban', 'swift', 'bankAddress',
+] as const;
+
+/**
+ * Deterministic SHA-256 fingerprint of the customer-facing bank fields. The
+ * owner verifies a fingerprint, never a stored copy: audit logs and the
+ * verification record hold only this hash, and ANY change to a covered field
+ * yields a different fingerprint (which invalidates the verification).
+ * Field order is fixed and values are trimmed, so cosmetic re-saves of
+ * identical details do not change the fingerprint.
+ */
+export function bankDetailsFingerprint(bank: FingerprintableBankDetails | null | undefined): string {
+    const canonical = FINGERPRINT_FIELDS
+        .map((field) => `${field}=${String(bank?.[field] ?? '').trim()}`)
+        .join('\n');
+    return createHash('sha256').update(canonical, 'utf8').digest('hex');
 }
