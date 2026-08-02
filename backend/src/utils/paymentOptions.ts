@@ -92,6 +92,7 @@ export function paymentConfigError(
             || !String(bank.branch || '').trim()
             || !String(bank.accountNumber || '').trim()
             || !String(bank.accountName || '').trim()
+            || !String(bank.iban || '').trim()
         ) {
             return 'Bank transfer details are incomplete in Settings';
         }

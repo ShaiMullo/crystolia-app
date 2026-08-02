@@ -32,6 +32,8 @@ export interface OrderPaymentInstructions {
         accountNumber?: string;
         accountName?: string;
         iban?: string;
+        swift?: string;
+        bankAddress?: string;
     };
     paymentUrl?: string;
 }
@@ -69,12 +71,15 @@ export function buildOrderPaymentParagraphs(
             bank.accountNumber && (lang === 'he' ? `מס׳ חשבון: ${bank.accountNumber}` : lang === 'ru' ? `Счёт: ${bank.accountNumber}` : `Account: ${bank.accountNumber}`),
             bank.accountName && (lang === 'he' ? `על שם: ${bank.accountName}` : lang === 'ru' ? `Получатель: ${bank.accountName}` : `Account name: ${bank.accountName}`),
             bank.iban && `IBAN: ${bank.iban}`,
+            bank.swift && `SWIFT/BIC: ${bank.swift}`,
+            bank.bankAddress && (lang === 'he' ? `כתובת הבנק: ${bank.bankAddress}` : lang === 'ru' ? `Адрес банка: ${bank.bankAddress}` : `Bank address: ${bank.bankAddress}`),
         ].filter(Boolean).join(' · ');
         if (lang === 'he') {
             return [
                 'אמצעי התשלום שבחרת: העברה בנקאית.',
                 parts,
                 `נא לציין את מספר ההזמנה #${orderRef} כאסמכתא בהעברה.`,
+                'לאחר ביצוע ההעברה, נא לשלוח לנו אסמכתא (אישור העברה) במענה למייל זה.',
             ];
         }
         if (lang === 'ru') {
@@ -82,12 +87,14 @@ export function buildOrderPaymentParagraphs(
                 'Выбранный способ оплаты: банковский перевод.',
                 parts,
                 `Пожалуйста, укажите номер заказа #${orderRef} в назначении платежа.`,
+                'После выполнения перевода, пожалуйста, отправьте нам подтверждение платежа ответом на это письмо.',
             ];
         }
         return [
             'Your selected payment method: bank transfer.',
             parts,
             `Please quote order #${orderRef} as the transfer reference.`,
+            'After completing the transfer, please send us the proof of transfer by replying to this email.',
         ];
     }
     const url = payment.paymentUrl || '';

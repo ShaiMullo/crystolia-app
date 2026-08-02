@@ -35,7 +35,7 @@ const BANK = {
     branch: '900',
     accountNumber: '12-345-678',
     accountName: 'Crystolia Ltd',
-    iban: '',
+    iban: 'IL530109000000012345678',
 };
 
 beforeAll(async () => {

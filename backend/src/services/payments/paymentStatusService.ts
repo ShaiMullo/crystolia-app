@@ -23,7 +23,7 @@ export function getPaymentMethodsStatus(paymentOptions: PaymentOptions): {
     const bank = paymentOptions?.bankTransfer;
     const bankIssues: string[] = [];
     if (bank?.enabled) {
-        const missing = (['bankName', 'branch', 'accountNumber', 'accountName'] as const)
+        const missing = (['bankName', 'branch', 'accountNumber', 'accountName', 'iban'] as const)
             .filter((field) => !String(bank?.[field] || '').trim());
         if (missing.length > 0) bankIssues.push(`Missing bank fields: ${missing.join(', ')}`);
     }

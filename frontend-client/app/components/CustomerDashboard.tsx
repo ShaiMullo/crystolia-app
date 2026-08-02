@@ -73,6 +73,8 @@ interface BusinessSettings {
             accountNumber?: string;
             accountName?: string;
             iban?: string;
+            swift?: string;
+            bankAddress?: string;
         };
         creditCard: {
             enabled: boolean;
@@ -1206,8 +1208,11 @@ export default function CustomerDashboard({ locale }: CustomerDashboardProps) {
                                                 {settings.paymentOptions.bankTransfer.accountNumber && <div>{t.accountNumber}: {settings.paymentOptions.bankTransfer.accountNumber}</div>}
                                                 {settings.paymentOptions.bankTransfer.accountName && <div>{t.accountName}: {settings.paymentOptions.bankTransfer.accountName}</div>}
                                                 {settings.paymentOptions.bankTransfer.iban && <div dir="ltr">IBAN: {settings.paymentOptions.bankTransfer.iban}</div>}
+                                                {settings.paymentOptions.bankTransfer.swift && <div dir="ltr">SWIFT/BIC: {settings.paymentOptions.bankTransfer.swift}</div>}
+                                                {settings.paymentOptions.bankTransfer.bankAddress && <div>{t.bankAddress}: {settings.paymentOptions.bankTransfer.bankAddress}</div>}
                                                 <div className="pt-1 font-medium">{t.transferReference}: #{selectedOrder._id.slice(-8).toUpperCase()}</div>
                                             </dl>
+                                            <p className="mt-3 text-xs text-gray-500">{t.sendProofOfTransfer}</p>
                                         </div>
                                     )}
                                     {settings.paymentOptions.creditCard.enabled

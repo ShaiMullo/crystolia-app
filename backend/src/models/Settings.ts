@@ -30,6 +30,8 @@ export interface ISettings extends Document {
             accountNumber?: string;
             accountName?: string;
             iban?: string;
+            swift?: string;
+            bankAddress?: string;
         };
         creditCard: {
             enabled: boolean;
@@ -85,6 +87,8 @@ const SettingsSchema = new Schema<ISettings>(
                 accountNumber: { type: String, trim: true, maxlength: 60 },
                 accountName: { type: String, trim: true, maxlength: 120 },
                 iban: { type: String, trim: true, maxlength: 60 },
+                swift: { type: String, trim: true, maxlength: 11 },
+                bankAddress: { type: String, trim: true, maxlength: 240 },
             },
             creditCard: {
                 enabled: { type: Boolean, default: false },
